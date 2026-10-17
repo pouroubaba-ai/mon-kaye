@@ -25,12 +25,15 @@ export function MovementHistory({
   onOpen,
   amountClass,
   title = 'Historique',
+  toolbar,
 }: {
   movements: Movement[]
   filters?: Filter[]
   onOpen: (m: Movement) => void
   amountClass?: (m: Movement) => string
   title?: string
+  // Contenu libre affiché à la place des onglets de filtre (ex. pastilles Crédits / Versements)
+  toolbar?: React.ReactNode
 }) {
   const [filter, setFilter] = React.useState('all')
   const active = filters?.find(f => f.value === filter)
@@ -46,7 +49,8 @@ export function MovementHistory({
         </CardAction>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        {filters && filters.length > 0 && (
+        {toolbar}
+        {!toolbar && filters && filters.length > 0 && (
           <Tabs value={filter} onValueChange={setFilter}>
             <TabsList className="w-full">
               <TabsTrigger value="all">Tout</TabsTrigger>

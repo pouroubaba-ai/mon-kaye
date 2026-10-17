@@ -21,6 +21,7 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
 
   const [view, setView] = React.useState<'ensemble' | 'historique'>('ensemble')
   const [side, setSide] = React.useState<'lui' | 'moi'>('lui')
+  const [kind, setKind] = React.useState<'credit' | 'versement'>('credit')
   const partner = persons.find(p => p.id === partnerId)
   if (!partner) return null
 
@@ -103,34 +104,53 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
 
       {view === 'historique' && (
         <>
-          {/* Le côté, comme les cartes : ce qu'il me doit / ce que je lui dois */}
-          <Tabs value={side} onValueChange={v => setSide(v as 'lui' | 'moi')}>
-            <TabsList className="w-full">
-              <TabsTrigger value="lui" className="data-active:text-credit data-[state=active]:text-credit">
+          {/* Le côté, comme les cartes : onglets soulignés, à la couleur du côté */}
+          <Tabs value={side} onValueChange={v => { setSide(v as 'lui' | 'moi'); setKind('credit') }}>
+            <TabsList variant="line" className="w-full border-b">
+              <TabsTrigger value="lui" className={side === 'lui' ? 'text-credit after:bg-credit' : ''}>
                 <ArrowDownLeft /> Il me doit
               </TabsTrigger>
-              <TabsTrigger value="moi" className="data-active:text-debt data-[state=active]:text-debt">
+              <TabsTrigger value="moi" className={side === 'moi' ? 'text-debt after:bg-debt' : ''}>
                 <ArrowUpRight /> Je lui dois
               </TabsTrigger>
             </TabsList>
           </Tabs>
-          <MovementHistory
-            key={side}
-            title={side === 'lui' ? 'Il me doit' : 'Je lui dois'}
-            movements={partnerMovements.filter(m =>
-              side === 'lui'
-                ? m.type === 'il_a_pris_credit' || m.type === 'il_m_a_verse'
-                : m.type === 'j_ai_pris_credit' || m.type === 'je_lui_ai_verse'
-            )}
-            onOpen={openMovementDetail}
-            filters={[
-              { value: 'credits', label: 'Crédits', match: m => m.type === 'il_a_pris_credit' || m.type === 'j_ai_pris_credit' },
-              { value: 'versements', label: 'Versements', match: m => m.type === 'il_m_a_verse' || m.type === 'je_lui_ai_verse' },
-            ]}
-            amountClass={m =>
-              m.type === 'il_m_a_verse' || m.type === 'il_a_pris_credit' ? 'text-credit' : 'text-debt'
-            }
-          />
+          {(() => {
+            const creditType = side === 'lui' ? 'il_a_pris_credit' : 'j_ai_pris_credit'
+            const payType = side === 'lui' ? 'il_m_a_verse' : 'je_lui_ai_verse'
+            const shown = partnerMovements.filter(m => m.type === (kind === 'credit' ? creditType : payType))
+            const chips: { value: 'credit' | 'versement'; label: string }[] = [
+              { value: 'credit', label: side === 'lui' ? 'Crédits' : 'Dettes' },
+              { value: 'versement', label: 'Versements' },
+            ]
+            return (
+              <MovementHistory
+                key={`${side}-${kind}`}
+                title={side === 'lui' ? 'Il me doit' : 'Je lui dois'}
+                movements={shown}
+                onOpen={openMovementDetail}
+                amountClass={() => (side === 'lui' ? 'text-credit' : 'text-debt')}
+                toolbar={
+                  <div className="flex gap-2">
+                    {chips.map(c => (
+                      <Button
+                        key={c.value}
+                        size="sm"
+                        variant={kind === c.value ? 'secondary' : 'ghost'}
+                        className="rounded-full"
+                        onClick={() => setKind(c.value)}
+                      >
+                        {c.label}
+                        <span className="text-xs text-muted-foreground tabular-nums">
+                          {partnerMovements.filter(m => m.type === (c.value === 'credit' ? creditType : payType)).length}
+                        </span>
+                      </Button>
+                    ))}
+                  </div>
+                }
+              />
+            )
+          })()}
         </>
       )}
 
