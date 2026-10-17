@@ -40,17 +40,39 @@ function Dialog({ open, onOpenChange, children }: RootProps) {
   )
 }
 
-function DialogContent({ className, children }: { className?: string; children?: React.ReactNode }) {
+// fixedHeight : la fenêtre garde la même hauteur quel que soit son contenu ;
+// c'est le contenu qui défile à l'intérieur (pas de saut quand on change d'écran).
+function DialogContent({
+  className,
+  children,
+  fixedHeight = false,
+}: {
+  className?: string
+  children?: React.ReactNode
+  fixedHeight?: boolean
+}) {
   const isMobile = React.useContext(IsMobileContext)
   if (isMobile) {
     return (
-      <DrawerContent className="max-h-[92dvh]">
-        <div className="overflow-y-auto px-4 pb-8">{children}</div>
+      <DrawerContent
+        className={
+          fixedHeight
+            ? "data-[vaul-drawer-direction=bottom]:h-[85dvh] data-[vaul-drawer-direction=bottom]:max-h-[85dvh]"
+            : "data-[vaul-drawer-direction=bottom]:max-h-[92dvh]"
+        }
+      >
+        <div className={cn("px-4 pb-6", fixedHeight ? "flex min-h-0 flex-1 flex-col" : "overflow-y-auto")}>{children}</div>
       </DrawerContent>
     )
   }
   return (
-    <BaseDialogContent className={cn("max-h-[90vh] overflow-y-auto sm:max-w-lg", className)}>
+    <BaseDialogContent
+      className={cn(
+        "sm:max-w-lg",
+        fixedHeight ? "flex h-[min(680px,90vh)] flex-col" : "max-h-[90vh] overflow-y-auto",
+        className
+      )}
+    >
       {children}
     </BaseDialogContent>
   )
@@ -58,7 +80,7 @@ function DialogContent({ className, children }: { className?: string; children?:
 
 function DialogHeader({ className, children }: { className?: string; children?: React.ReactNode }) {
   const isMobile = React.useContext(IsMobileContext)
-  if (isMobile) return <DrawerHeader className="px-0 text-left">{children}</DrawerHeader>
+  if (isMobile) return <DrawerHeader className={cn("px-0 text-left", className)}>{children}</DrawerHeader>
   return <BaseDialogHeader className={className}>{children}</BaseDialogHeader>
 }
 

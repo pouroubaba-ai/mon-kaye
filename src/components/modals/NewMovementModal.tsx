@@ -141,8 +141,8 @@ export const NewMovementModal: React.FC = () => {
 
   return (
     <Dialog open={isNewMovementOpen} onOpenChange={o => !o && closeNewMovement()}>
-      <DialogContent>
-        <DialogHeader>
+      <DialogContent fixedHeight>
+        <DialogHeader className="shrink-0">
           <div className="flex items-center gap-1">
             {step !== 'qui' && (
               <Button variant="ghost" size="icon" className="-ml-2" onClick={back} aria-label="Retour">
@@ -156,7 +156,7 @@ export const NewMovementModal: React.FC = () => {
 
         {/* 1. Qui ? */}
         {step === 'qui' && (
-          <div className="flex flex-col gap-3">
+          <div className="flex min-h-0 flex-1 flex-col gap-3">
             {bothGroups && (
               <Tabs value={activeGroup} onValueChange={v => { setGroup(v as 'partner' | 'employee'); setSearch('') }}>
                 <TabsList className="w-full">
@@ -169,7 +169,8 @@ export const NewMovementModal: React.FC = () => {
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input placeholder={activeGroup === 'employee' ? 'Chercher un employé' : 'Chercher une personne'} value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
             </div>
-            <div className="flex max-h-[55dvh] flex-col divide-y overflow-y-auto rounded-lg border">
+            <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="flex flex-col divide-y rounded-lg border">
               {visible.map(p => (
                 <button
                   key={p.id}
@@ -190,12 +191,13 @@ export const NewMovementModal: React.FC = () => {
               ))}
               {visible.length === 0 && <p className="p-3 text-sm text-muted-foreground">Personne trouvée.</p>}
             </div>
+            </div>
           </div>
         )}
 
         {/* 2. Quoi ? */}
         {step === 'quoi' && person && (
-          <div className="flex flex-col gap-3">
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
             <p className="truncate text-sm text-muted-foreground">{person.name}</p>
             <div className="flex flex-col divide-y rounded-lg border">
               {OPS[kind].map(o => (
@@ -221,7 +223,8 @@ export const NewMovementModal: React.FC = () => {
 
         {/* 3. Combien ? */}
         {step === 'combien' && person && (
-          <div className="flex flex-col gap-4">
+          <div className="flex min-h-0 flex-1 flex-col gap-3">
+          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
             <button type="button" onClick={() => setStep('quoi')} className="truncate text-left text-sm text-muted-foreground">
               {person.name} · <span className={op?.tone === 'credit' ? 'text-credit' : 'text-debt'}>{op?.label}</span>
             </button>
@@ -266,7 +269,8 @@ export const NewMovementModal: React.FC = () => {
               </Button>
             )}
 
-            <Button size="lg" className="h-12 text-base" disabled={amount <= 0} onClick={save}>
+          </div>
+            <Button size="lg" className="h-12 shrink-0 text-base" disabled={amount <= 0} onClick={save}>
               Enregistrer
             </Button>
           </div>
