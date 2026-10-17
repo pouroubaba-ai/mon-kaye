@@ -80,7 +80,8 @@ function DonutCard({ title, slices, people, delay = 0 }: { title: string; slices
         </ChartContainer>
 
         <div className="flex flex-col gap-2.5">
-          {slices.map(s => (
+          {total === 0 && <p className="text-center text-sm text-muted-foreground">Rien pour l'instant.</p>}
+          {slices.filter(s => s.value > 0).map(s => (
             <div key={s.key} className="flex items-center gap-2 text-sm">
               <span className="size-2.5 shrink-0 rounded-full" style={{ background: s.color }} />
               <span className="flex-1 text-muted-foreground">{s.label}</span>
