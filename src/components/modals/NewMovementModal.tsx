@@ -1,470 +1,263 @@
-import React, { useState, useEffect } from 'react'
-import { useStore } from '@/data/store'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/responsive-dialog'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import { formatFCFA } from '@/lib/utils'
-import type { Movement } from '@/data/mockData'
-import { 
-  ArrowDownLeft, 
-  ArrowUpRight, 
-  Coins, 
-  HandCoins, 
-  Smartphone, 
-  CheckCircle2, 
-  AlertTriangle, 
-  Camera, 
-  X 
+import React, { useEffect, useState } from 'react'
+import {
+  ArrowDownLeft,
+  ArrowLeft,
+  ArrowUpRight,
+  Camera,
+  ChevronRight,
+  Coins,
+  Delete,
+  HandCoins,
+  Plus,
+  Search,
+  Undo2,
 } from 'lucide-react'
 
-const OPERATION_LABELS: Record<string, string> = {
-  il_m_a_verse: "Il m'a versé",
-  il_a_pris_credit: 'Il a pris à crédit',
-  je_lui_ai_verse: 'Je lui ai versé',
-  j_ai_pris_credit: "J'ai pris à crédit",
-  avance_salaire: 'Donner une avance',
-  remboursement_direct: 'Il rembourse son avance de sa poche',
+import { useStore } from '@/data/store'
+import type { Movement } from '@/data/mockData'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/responsive-dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { cn, formatFCFA } from '@/lib/utils'
+
+// Saisie d'une opération en 3 écrans courts, une seule question par écran :
+//   Qui ?  →  Quoi ?  →  Combien ?
+// Ouverte depuis une fiche, la personne et l'opération sont déjà connues : on arrive
+// directement sur « Combien ? ». Les options (note, photo, référence) restent repliées.
+
+type Step = 'qui' | 'quoi' | 'combien'
+type MType = Movement['type']
+
+const OPS: Record<'partner' | 'employee', { type: MType; label: string; Icon: React.ComponentType<{ className?: string }>; tone: 'credit' | 'debt' }[]> = {
+  partner: [
+    { type: 'il_m_a_verse', label: "Il m'a versé", Icon: ArrowDownLeft, tone: 'credit' },
+    { type: 'il_a_pris_credit', label: 'Il a pris à crédit', Icon: Plus, tone: 'credit' },
+    { type: 'je_lui_ai_verse', label: 'Je lui ai versé', Icon: ArrowUpRight, tone: 'debt' },
+    { type: 'j_ai_pris_credit', label: "J'ai pris à crédit", Icon: Plus, tone: 'debt' },
+  ],
+  employee: [
+    { type: 'je_lui_ai_verse', label: 'Verser le salaire', Icon: Coins, tone: 'debt' },
+    { type: 'avance_salaire', label: 'Donner une avance', Icon: HandCoins, tone: 'credit' },
+    { type: 'remboursement_direct', label: 'Il rembourse son avance', Icon: Undo2, tone: 'credit' },
+  ],
 }
 
-export const NewMovementModal: React.FC = () => {
-  const { 
-    isNewMovementOpen, 
-    closeNewMovement, 
-    newMovementTargetPersonId, 
-    newMovementInitialType, 
-    persons, 
-    addMovement 
-  } = useStore()
+const LABELS: Record<string, string> = {
+  il_m_a_verse: 'Versement reçu',
+  je_lui_ai_verse: 'Versement fait',
+  il_a_pris_credit: 'A pris à crédit',
+  j_ai_pris_credit: "J'ai pris à crédit",
+  avance_salaire: 'Avance sur salaire',
+  remboursement_direct: "Remboursement d'avance",
+}
 
-  const [selectedPersonId, setSelectedPersonId] = useState<string>('')
-  const [movementType, setMovementType] = useState<Movement['type']>('il_m_a_verse')
-  const [amountStr, setAmountStr] = useState<string>('0')
-  const [paymentMethod, setPaymentMethod] = useState<'especes' | 'momo_mtn' | 'airtel_money'>('especes')
+const TITLES: Record<Step, string> = { qui: 'Qui ?', quoi: 'Quelle opération ?', combien: 'Combien ?' }
+
+export const NewMovementModal: React.FC = () => {
+  const { isNewMovementOpen, closeNewMovement, newMovementTargetPersonId, newMovementInitialType, persons, addMovement } =
+    useStore()
+
+  const [step, setStep] = useState<Step>('qui')
+  const [personId, setPersonId] = useState('')
+  const [type, setType] = useState<MType>('il_m_a_verse')
+  const [amountStr, setAmountStr] = useState('0')
+  const [payment, setPayment] = useState<'especes' | 'momo_mtn' | 'airtel_money'>('especes')
   const [reference, setReference] = useState('')
   const [note, setNote] = useState('')
-  const [hasReceiptPhoto, setHasReceiptPhoto] = useState(false)
-  const [surplusConfirmed, setSurplusConfirmed] = useState(false)
-  const [showChoices, setShowChoices] = useState(true)
+  const [photo, setPhoto] = useState(false)
+  const [showMore, setShowMore] = useState(false)
+  const [search, setSearch] = useState('')
 
-  // Initialize or reset when modal opens
   useEffect(() => {
-    if (isNewMovementOpen) {
-      const targetId = newMovementTargetPersonId || (persons[0]?.id || '')
-      setSelectedPersonId(targetId)
-      
-      const person = persons.find(p => p.id === targetId)
-      if (newMovementInitialType) {
-        setMovementType(newMovementInitialType)
-      } else if (person?.type === 'employee') {
-        setMovementType('je_lui_ai_verse')
-      } else {
-        setMovementType('il_m_a_verse')
-      }
-      
-      setAmountStr('0')
-      setPaymentMethod('especes')
-      setReference('')
-      setNote('')
-      setHasReceiptPhoto(false)
-      setSurplusConfirmed(false)
-      // Ouvert depuis une fiche avec l'opération déjà choisie : on ne redemande ni la personne ni l'opération.
-      setShowChoices(!(newMovementTargetPersonId && newMovementInitialType))
-    }
-  }, [isNewMovementOpen, newMovementTargetPersonId, newMovementInitialType, persons])
-
-  const currentPerson = persons.find(p => p.id === selectedPersonId)
-  const numericAmount = parseInt(amountStr, 10) || 0
-
-  // Keyboard handlers
-  const handleDigit = (digit: string) => {
-    if (amountStr === '0') {
-      setAmountStr(digit)
-    } else if (amountStr.length < 9) {
-      setAmountStr(amountStr + digit)
-    }
-  }
-
-  const handleQuickAdd = (addVal: number) => {
-    const current = parseInt(amountStr, 10) || 0
-    setAmountStr(String(current + addVal))
-  }
-
-  const handleClear = () => {
+    if (!isNewMovementOpen) return
+    setPersonId(newMovementTargetPersonId || '')
+    if (newMovementInitialType) setType(newMovementInitialType)
+    setStep(newMovementTargetPersonId ? (newMovementInitialType ? 'combien' : 'quoi') : 'qui')
     setAmountStr('0')
+    setPayment('especes')
+    setReference('')
+    setNote('')
+    setPhoto(false)
+    setShowMore(false)
+    setSearch('')
+  }, [isNewMovementOpen, newMovementTargetPersonId, newMovementInitialType])
+
+  const person = persons.find(p => p.id === personId)
+  const kind = person?.type === 'employee' ? 'employee' : 'partner'
+  const op = OPS[kind].find(o => o.type === type)
+  const amount = parseInt(amountStr, 10) || 0
+
+  // Versement plus grand que ce qui était dû : le reste devient une avance (une ligne, pas un pavé).
+  let surplus = 0
+  if (person?.type === 'partner') {
+    if (type === 'il_m_a_verse') surplus = amount - (person.owesMe || 0)
+    if (type === 'je_lui_ai_verse') surplus = amount - (person.iOweHim || 0)
   }
 
-  const handleDelete = () => {
-    if (amountStr.length <= 1) {
-      setAmountStr('0')
-    } else {
-      setAmountStr(amountStr.slice(0, -1))
-    }
+  const press = (k: string) => {
+    if (k === 'del') return setAmountStr(s => (s.length <= 1 ? '0' : s.slice(0, -1)))
+    if (k === '000') return setAmountStr(s => (s === '0' ? '0' : (s + '000').slice(0, 9)))
+    setAmountStr(s => (s === '0' ? k : (s + k).slice(0, 9)))
   }
 
-  // Check surplus condition
-  let surplusAmount = 0
-  if (currentPerson?.type === 'partner') {
-    if (movementType === 'il_m_a_verse' && numericAmount > (currentPerson.owesMe || 0)) {
-      surplusAmount = numericAmount - (currentPerson.owesMe || 0)
-    } else if (movementType === 'je_lui_ai_verse' && numericAmount > (currentPerson.iOweHim || 0)) {
-      surplusAmount = numericAmount - (currentPerson.iOweHim || 0)
-    }
+  const back = () => {
+    if (step === 'combien') setStep('quoi')
+    else if (step === 'quoi') setStep('qui')
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!currentPerson || numericAmount <= 0) return
-
-    // If there is a surplus and not yet acknowledged
-    if (surplusAmount > 0 && !surplusConfirmed) {
-      setSurplusConfirmed(true)
-      return
-    }
-
-    let defaultLabel = 'Versement'
-    if (movementType === 'il_m_a_verse') defaultLabel = 'Versement reçu de sa part'
-    else if (movementType === 'je_lui_ai_verse') defaultLabel = 'Versement effectué à son profit'
-    else if (movementType === 'il_a_pris_credit') defaultLabel = 'A pris de la marchandise à crédit'
-    else if (movementType === 'j_ai_pris_credit') defaultLabel = 'Marchandise prise à crédit'
-    else if (movementType === 'avance_salaire') defaultLabel = 'Avance accordée sur salaire'
-    else if (movementType === 'remboursement_direct') defaultLabel = 'Remboursement direct de sa poche'
-
+  const save = () => {
+    if (!person || amount <= 0) return
     addMovement({
-      personId: currentPerson.id,
-      personName: currentPerson.name,
-      type: movementType,
-      label: defaultLabel,
-      amount: numericAmount,
-      paymentMethod,
+      personId: person.id,
+      personName: person.name,
+      type,
+      label: LABELS[type] ?? 'Opération',
+      amount,
+      paymentMethod: payment,
       reference: reference.trim() || undefined,
       note: note.trim() || undefined,
-      receiptPhoto: hasReceiptPhoto ? 'simulation_photo_recu.jpg' : undefined,
+      receiptPhoto: photo ? 'simulation_photo_recu.jpg' : undefined,
     })
-
     closeNewMovement()
   }
 
+  const visible = persons
+    .filter(p => p.type === 'partner' || p.status === 'actif')
+    .filter(p => !search || p.name.toLowerCase().includes(search.toLowerCase()) || (p.phone || '').includes(search))
+
+  const sub = (p: (typeof persons)[number]) => {
+    if (p.type === 'employee') return 'Employé'
+    const net = (p.owesMe || 0) - (p.iOweHim || 0)
+    if (net > 0) return `Me doit ${formatFCFA(net)}`
+    if (net < 0) return `Je lui dois ${formatFCFA(-net)}`
+    return 'À jour'
+  }
+
   return (
-    <Dialog open={isNewMovementOpen} onOpenChange={openNewMovement => !openNewMovement && closeNewMovement()}>
-      <DialogContent className="max-w-lg p-4 sm:p-6 max-h-[95vh] overflow-y-auto rounded-2xl">
-        <DialogHeader className="pb-2">
-          <DialogTitle className="text-xl font-bold flex items-center gap-2">
-            <Coins className="w-6 h-6 text-primary" />
-            Enregistrer une opération
-          </DialogTitle>
-          <DialogDescription className="text-xs">
-            Saisie rapide en 3 gestes adaptée au rythme de la boutique
-          </DialogDescription>
+    <Dialog open={isNewMovementOpen} onOpenChange={o => !o && closeNewMovement()}>
+      <DialogContent>
+        <DialogHeader>
+          <div className="flex items-center gap-1">
+            {step !== 'qui' && (
+              <Button variant="ghost" size="icon" className="-ml-2" onClick={back} aria-label="Retour">
+                <ArrowLeft />
+              </Button>
+            )}
+            <DialogTitle className="text-lg font-semibold">{TITLES[step]}</DialogTitle>
+          </div>
+          <DialogDescription className="sr-only">Enregistrer une opération</DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          
-          {!showChoices && currentPerson && (
-            <div className="flex items-center justify-between gap-2 rounded-lg border p-3">
-              <div className="min-w-0">
-                <p className="truncate font-medium">{currentPerson.name}</p>
-                <p className="text-sm text-muted-foreground">{OPERATION_LABELS[movementType] ?? movementType}</p>
-              </div>
-              <Button type="button" variant="ghost" size="sm" onClick={() => setShowChoices(true)}>
-                Modifier
-              </Button>
+        {/* 1. Qui ? */}
+        {step === 'qui' && (
+          <div className="flex flex-col gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input placeholder="Nom ou téléphone" value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
             </div>
-          )}
-          {showChoices && (
-            <>
-          {/* Étape 1 : Choix de la Personne */}
-          <div className="space-y-1">
-            <Label className="text-xs font-semibold">1. Concerne qui ?</Label>
-            <select
-              value={selectedPersonId}
-              onChange={e => {
-                setSelectedPersonId(e.target.value)
-                const p = persons.find(x => x.id === e.target.value)
-                if (p?.type === 'employee') {
-                  setMovementType('je_lui_ai_verse')
-                } else {
-                  setMovementType('il_m_a_verse')
-                }
-              }}
-              className="w-full h-11 px-3 rounded-xl border bg-card text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              <optgroup label="Partenaires & Clients">
-                {persons.filter(p => p.type === 'partner').map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} (Doit : {formatFCFA(p.owesMe || 0)} | Je dois : {formatFCFA(p.iOweHim || 0)})
-                  </option>
-                ))}
-              </optgroup>
-              <optgroup label="Employés du commerce">
-                {persons.filter(p => p.type === 'employee' && p.status === 'actif').map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} ({p.role} · Sal. dû : {formatFCFA(p.currentSalaryDue || 0)})
-                  </option>
-                ))}
-              </optgroup>
-            </select>
-          </div>
-
-          {/* Étape 2 : Sens du mouvement (Les mots du commerçant) */}
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold">2. Quelle est l'opération ?</Label>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              {currentPerson?.type === 'partner' ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => { setMovementType('il_m_a_verse'); setSurplusConfirmed(false); }}
-                    className={`p-3 rounded-xl border-2 font-bold flex items-center justify-between transition-all ${
-                      movementType === 'il_m_a_verse'
-                        ? 'border-credit bg-credit/15 text-credit shadow-sm'
-                        : 'border-border/60 hover:bg-muted/40 text-foreground'
-                    }`}
-                  >
-                    <span>Il m'a versé</span>
-                    <ArrowDownLeft className="w-4 h-4 text-credit" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => { setMovementType('il_a_pris_credit'); setSurplusConfirmed(false); }}
-                    className={`p-3 rounded-xl border-2 font-bold flex items-center justify-between transition-all ${
-                      movementType === 'il_a_pris_credit'
-                        ? 'border-credit bg-credit/15 text-credit shadow-sm'
-                        : 'border-border/60 hover:bg-muted/40 text-foreground'
-                    }`}
-                  >
-                    <span>Il a pris à crédit</span>
-                    <ArrowUpRight className="w-4 h-4 text-credit" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => { setMovementType('je_lui_ai_verse'); setSurplusConfirmed(false); }}
-                    className={`p-3 rounded-xl border-2 font-bold flex items-center justify-between transition-all ${
-                      movementType === 'je_lui_ai_verse'
-                        ? 'border-debt bg-debt/15 text-debt shadow-sm'
-                        : 'border-border/60 hover:bg-muted/40 text-foreground'
-                    }`}
-                  >
-                    <span>Je lui ai versé</span>
-                    <ArrowUpRight className="w-4 h-4 text-debt" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => { setMovementType('j_ai_pris_credit'); setSurplusConfirmed(false); }}
-                    className={`p-3 rounded-xl border-2 font-bold flex items-center justify-between transition-all ${
-                      movementType === 'j_ai_pris_credit'
-                        ? 'border-debt bg-debt/15 text-debt shadow-sm'
-                        : 'border-border/60 hover:bg-muted/40 text-foreground'
-                    }`}
-                  >
-                    <span>J'ai pris à crédit</span>
-                    <ArrowDownLeft className="w-4 h-4 text-debt" />
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setMovementType('je_lui_ai_verse')}
-                    className={`p-3 rounded-xl border-2 font-bold flex items-center justify-between transition-all ${
-                      movementType === 'je_lui_ai_verse'
-                        ? 'border-debt bg-debt/15 text-debt shadow-sm'
-                        : 'border-border/60 hover:bg-muted/40 text-foreground'
-                    }`}
-                  >
-                    <span>Verser salaire</span>
-                    <Coins className="w-4 h-4 text-debt" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setMovementType('avance_salaire')}
-                    className={`p-3 rounded-xl border-2 font-bold flex items-center justify-between transition-all ${
-                      movementType === 'avance_salaire'
-                        ? 'border-credit bg-credit/15 text-credit shadow-sm'
-                        : 'border-border/60 hover:bg-muted/40 text-foreground'
-                    }`}
-                  >
-                    <span>Donner une avance</span>
-                    <HandCoins className="w-4 h-4 text-credit" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setMovementType('remboursement_direct')}
-                    className={`col-span-2 p-3 rounded-xl border-2 font-bold flex items-center justify-between transition-all ${
-                      movementType === 'remboursement_direct'
-                        ? 'border-credit bg-credit/15 text-credit shadow-sm'
-                        : 'border-border/60 hover:bg-muted/40 text-foreground'
-                    }`}
-                  >
-                    <span>Il rembourse son avance de sa poche</span>
-                    <CheckCircle2 className="w-4 h-4 text-credit" />
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-
-            </>
-          )}
-
-          {/* Étape 3 : Grand Affichage du Montant & Pavé Numérique Géant */}
-          <div className="space-y-2 bg-muted/20 p-3 rounded-2xl border">
-            <Label className="text-xs font-semibold block text-center">3. Combien en FCFA ?</Label>
-            
-            <div className="text-center py-2 bg-card rounded-xl border shadow-inner">
-              <span className="text-3xl sm:text-4xl font-black text-foreground tracking-tight">
-                {formatFCFA(numericAmount)}
-              </span>
-            </div>
-
-            {/* Boutons Rapides */}
-            <div className="grid grid-cols-4 gap-1.5 text-xs">
-              <Button type="button" variant="outline" size="sm" onClick={() => handleQuickAdd(1000)} className="h-9 font-bold">
-                +1 000
-              </Button>
-              <Button type="button" variant="outline" size="sm" onClick={() => handleQuickAdd(5000)} className="h-9 font-bold">
-                +5 000
-              </Button>
-              <Button type="button" variant="outline" size="sm" onClick={() => handleQuickAdd(10000)} className="h-9 font-bold">
-                +10 000
-              </Button>
-              <Button type="button" variant="outline" size="sm" onClick={() => handleQuickAdd(50000)} className="h-9 font-bold">
-                +50 000
-              </Button>
-            </div>
-
-            {/* Pavé Tactile Géant */}
-            <div className="grid grid-cols-3 gap-2 pt-1">
-              {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(d => (
+            <div className="flex max-h-[55dvh] flex-col divide-y overflow-y-auto rounded-lg border">
+              {visible.map(p => (
                 <button
-                  key={d}
+                  key={p.id}
                   type="button"
-                  onClick={() => handleDigit(d)}
-                  className="h-12 rounded-xl border bg-card text-xl font-bold flex items-center justify-center hover:bg-muted active:scale-95 text-foreground shadow-sm"
+                  onClick={() => {
+                    setPersonId(p.id)
+                    setType(p.type === 'employee' ? 'je_lui_ai_verse' : 'il_m_a_verse')
+                    setStep('quoi')
+                  }}
+                  className="flex items-center gap-3 p-3 text-left hover:bg-muted/50"
                 >
-                  {d}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{p.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">{sub(p)}</p>
+                  </div>
+                  <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
                 </button>
               ))}
-              <button
-                type="button"
-                onClick={handleClear}
-                className="h-12 rounded-xl border bg-muted/40 text-xs font-bold flex items-center justify-center hover:bg-muted active:scale-95 text-muted-foreground"
-              >
-                C
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDigit('0')}
-                className="h-12 rounded-xl border bg-card text-xl font-bold flex items-center justify-center hover:bg-muted active:scale-95 text-foreground shadow-sm"
-              >
-                0
-              </button>
-              <button
-                type="button"
-                onClick={handleDelete}
-                className="h-12 rounded-xl border bg-muted/40 text-xs font-bold flex items-center justify-center hover:bg-muted active:scale-95 text-muted-foreground"
-              >
-                ←
-              </button>
+              {visible.length === 0 && <p className="p-3 text-sm text-muted-foreground">Personne trouvée.</p>}
             </div>
           </div>
+        )}
 
-          {/* Alerte Surplus si dépassement de dette */}
-          {surplusAmount > 0 && (
-            <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 space-y-1 text-xs">
-              <div className="flex items-center gap-1.5 font-bold text-amber-700 dark:text-amber-400">
-                <AlertTriangle className="w-4 h-4 shrink-0" />
-                Attention : ce versement dépasse le compte dû de {formatFCFA(surplusAmount)}
+        {/* 2. Quoi ? */}
+        {step === 'quoi' && person && (
+          <div className="flex flex-col gap-3">
+            <p className="truncate text-sm text-muted-foreground">{person.name}</p>
+            <div className="flex flex-col divide-y rounded-lg border">
+              {OPS[kind].map(o => (
+                <button
+                  key={o.type}
+                  type="button"
+                  onClick={() => {
+                    setType(o.type)
+                    setStep('combien')
+                  }}
+                  className="flex items-center gap-3 p-4 text-left hover:bg-muted/50"
+                >
+                  <div className={cn('flex size-9 items-center justify-center rounded-lg bg-muted', o.tone === 'credit' ? 'text-credit' : 'text-debt')}>
+                    <o.Icon className="size-5" />
+                  </div>
+                  <span className="flex-1 font-medium">{o.label}</span>
+                  <ChevronRight className="size-4 text-muted-foreground" />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 3. Combien ? */}
+        {step === 'combien' && person && (
+          <div className="flex flex-col gap-4">
+            <button type="button" onClick={() => setStep('quoi')} className="truncate text-left text-sm text-muted-foreground">
+              {person.name} · <span className={op?.tone === 'credit' ? 'text-credit' : 'text-debt'}>{op?.label}</span>
+            </button>
+
+            <div className="py-2 text-center">
+              <span className="text-5xl font-semibold tabular-nums tracking-tight">{formatFCFA(amount).replace(/\s?FCFA$/, '')}</span>
+              <span className="ml-2 text-lg text-muted-foreground">FCFA</span>
+              {surplus > 0 && (
+                <p className="mt-2 text-xs text-muted-foreground">{formatFCFA(surplus)} de plus que dû : gardé comme avance.</p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-3 gap-1">
+              {['1', '2', '3', '4', '5', '6', '7', '8', '9', '000', '0', 'del'].map(k => (
+                <Button key={k} type="button" variant="ghost" className="h-14 text-2xl font-normal" onClick={() => press(k)} aria-label={k === 'del' ? 'Effacer' : k}>
+                  {k === 'del' ? <Delete className="size-6" /> : k}
+                </Button>
+              ))}
+            </div>
+
+            <Tabs value={payment} onValueChange={v => setPayment(v as typeof payment)}>
+              <TabsList className="w-full">
+                <TabsTrigger value="especes">Espèces</TabsTrigger>
+                <TabsTrigger value="momo_mtn">MTN MoMo</TabsTrigger>
+                <TabsTrigger value="airtel_money">Airtel</TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            {showMore ? (
+              <div className="flex flex-col gap-2">
+                {payment !== 'especes' && (
+                  <Input placeholder="Numéro de transaction" value={reference} onChange={e => setReference(e.target.value)} />
+                )}
+                <Input placeholder="Note" value={note} onChange={e => setNote(e.target.value)} />
+                <Button type="button" variant={photo ? 'secondary' : 'outline'} onClick={() => setPhoto(!photo)}>
+                  <Camera /> {photo ? 'Photo ajoutée' : 'Ajouter une photo'}
+                </Button>
               </div>
-              <p className="text-muted-foreground">
-                Le surplus passera automatiquement comme une avance sur les opérations futures.
-              </p>
-            </div>
-          )}
-
-          {/* Moyen de Paiement (Espèces / Mobile Money) */}
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold">Moyen de paiement (facultatif)</Label>
-            <div className="grid grid-cols-3 gap-2 text-xs">
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('especes')}
-                className={`p-2.5 rounded-xl border font-semibold flex items-center justify-center gap-1.5 transition-all ${
-                  paymentMethod === 'especes' ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card'
-                }`}
-              >
-                <Coins className="w-3.5 h-3.5" />
-                Espèces
-              </button>
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('momo_mtn')}
-                className={`p-2.5 rounded-xl border font-semibold flex items-center justify-center gap-1.5 transition-all ${
-                  paymentMethod === 'momo_mtn' ? 'border-amber-500 bg-amber-500 text-black font-bold' : 'border-border bg-card'
-                }`}
-              >
-                <Smartphone className="w-3.5 h-3.5" />
-                MTN MoMo
-              </button>
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('airtel_money')}
-                className={`p-2.5 rounded-xl border font-semibold flex items-center justify-center gap-1.5 transition-all ${
-                  paymentMethod === 'airtel_money' ? 'border-red-600 bg-red-600 text-white font-bold' : 'border-border bg-card'
-                }`}
-              >
-                <Smartphone className="w-3.5 h-3.5" />
-                Airtel Money
-              </button>
-            </div>
-
-            {paymentMethod !== 'especes' && (
-              <Input
-                placeholder="N° de transaction ou référence (ex: MTN-99120)..."
-                value={reference}
-                onChange={e => setReference(e.target.value)}
-                className="h-10 text-xs rounded-xl"
-              />
+            ) : (
+              <Button type="button" variant="link" className="h-auto self-center text-muted-foreground" onClick={() => setShowMore(true)}>
+                Ajouter une note ou une photo
+              </Button>
             )}
-          </div>
 
-          {/* Note & Pièce Jointe facultatives */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-            <Input
-              placeholder="Note facultative (ex: 2 sacs de riz)..."
-              value={note}
-              onChange={e => setNote(e.target.value)}
-              className="h-10 text-xs rounded-xl"
-            />
-            <Button
-              type="button"
-              variant={hasReceiptPhoto ? 'secondary' : 'outline'}
-              onClick={() => setHasReceiptPhoto(!hasReceiptPhoto)}
-              className="h-10 text-xs gap-1.5 rounded-xl"
-            >
-              <Camera className="w-3.5 h-3.5" />
-              {hasReceiptPhoto ? '✓ Photo du reçu jointe' : '+ Joindre photo reçu'}
+            <Button size="lg" className="h-12 text-base" disabled={amount <= 0} onClick={save}>
+              Enregistrer
             </Button>
           </div>
-
-          {/* Bouton de validation géant */}
-          <Button
-            type="submit"
-            disabled={numericAmount <= 0}
-            className="w-full h-14 text-base font-extrabold rounded-xl shadow-md active:scale-[0.99] transition-all"
-          >
-            {surplusAmount > 0 && !surplusConfirmed
-              ? 'Confirmer le surplus et enregistrer'
-              : "Enregistrer l'opération"}
-          </Button>
-
-        </form>
+        )}
       </DialogContent>
     </Dialog>
   )
