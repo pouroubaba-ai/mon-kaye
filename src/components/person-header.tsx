@@ -77,7 +77,6 @@ export function PersonFormDialog({
   const [phone, setPhone] = React.useState('')
   const [role, setRole] = React.useState('')
   const [salary, setSalary] = React.useState('')
-  const [dueDay, setDueDay] = React.useState('')
 
   // À chaque ouverture : les valeurs actuelles (modifier) ou des champs vides (ajouter).
   React.useEffect(() => {
@@ -86,11 +85,9 @@ export function PersonFormDialog({
     setPhone(person?.phone ?? '')
     setRole(person?.role ?? '')
     setSalary(person?.salary ? String(person.salary) : '')
-    setDueDay(person?.dueDay ? String(person.dueDay) : '')
   }, [open, person])
 
-  const day = parseInt(dueDay, 10)
-  const valid = name.trim().length > 0 && (!isEmployee || (parseInt(salary, 10) > 0 && day >= 1 && day <= 31))
+  const valid = name.trim().length > 0 && (!isEmployee || parseInt(salary, 10) > 0)
 
   const save = () => {
     if (!valid) return
@@ -98,7 +95,7 @@ export function PersonFormDialog({
       name: name.trim(),
       phone: phone.trim(),
       role: role.trim() || undefined,
-      ...(isEmployee ? { salary: parseInt(salary, 10), dueDay: day } : {}),
+      ...(isEmployee ? { salary: parseInt(salary, 10) } : {}),
     }
     if (person) {
       updatePerson(person.id, data)
@@ -143,15 +140,10 @@ export function PersonFormDialog({
             />
           </div>
           {isEmployee && (
-            <div className="grid grid-cols-2 gap-3">
-              <div className="grid gap-2">
-                <Label htmlFor="edit-salary">Salaire (FCFA)</Label>
-                <Input id="edit-salary" inputMode="numeric" value={salary} onChange={e => setSalary(e.target.value.replace(/\D/g, ''))} />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="edit-day">Jour de paie</Label>
-                <Input id="edit-day" inputMode="numeric" maxLength={2} value={dueDay} onChange={e => setDueDay(e.target.value.replace(/\D/g, ''))} />
-              </div>
+            // Salaire toujours mensuel, dû à la fin du mois : pas de jour de paie à choisir.
+            <div className="grid gap-2">
+              <Label htmlFor="edit-salary">Salaire par mois (FCFA)</Label>
+              <Input id="edit-salary" inputMode="numeric" value={salary} onChange={e => setSalary(e.target.value.replace(/\D/g, ''))} />
             </div>
           )}
           <Button type="submit" size="lg" className="h-12" disabled={!valid}>
