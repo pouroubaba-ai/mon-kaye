@@ -146,19 +146,19 @@ export const PersonsListScreen: React.FC = () => {
                     {!isEmployee ? (
                       <div>
                         {netPartner > 0 ? (
-                          <>
-                            <span className="block text-xs text-muted-foreground">Il me doit</span>
-                            <span className="text-sm font-medium tabular-nums text-credit">
-                              {formatFCFA(netPartner)}
+                          <div className="flex items-center justify-end gap-2" title="Il me doit">
+                            <span className="flex size-6 items-center justify-center rounded-md bg-muted text-credit" aria-label="Il me doit">
+                              <ArrowDownLeft className="size-3.5" />
                             </span>
-                          </>
+                            <span className="text-sm font-medium tabular-nums text-credit">{formatFCFA(netPartner)}</span>
+                          </div>
                         ) : netPartner < 0 ? (
-                          <>
-                            <span className="block text-xs text-muted-foreground">Je lui dois</span>
-                            <span className="text-sm font-medium tabular-nums text-debt">
-                              {formatFCFA(Math.abs(netPartner))}
+                          <div className="flex items-center justify-end gap-2" title="Je lui dois">
+                            <span className="flex size-6 items-center justify-center rounded-md bg-muted text-debt" aria-label="Je lui dois">
+                              <ArrowUpRight className="size-3.5" />
                             </span>
-                          </>
+                            <span className="text-sm font-medium tabular-nums text-debt">{formatFCFA(Math.abs(netPartner))}</span>
+                          </div>
                         ) : (
                           <Badge variant="outline" className="text-xs text-muted-foreground">
                             Comptes soldés
@@ -166,21 +166,21 @@ export const PersonsListScreen: React.FC = () => {
                         )}
                       </div>
                     ) : (
-                      <div>
+                      <div className="flex flex-col gap-1">
                         {(p.currentSalaryDue || 0) > 0 && (
-                          <div className="mb-0.5">
-                            <span className="block text-xs text-muted-foreground">Salaire dû</span>
-                            <span className="text-sm font-medium tabular-nums text-debt">
-                              {formatFCFA(p.currentSalaryDue || 0)}
+                          <div className="flex items-center justify-end gap-2" title="Salaire dû">
+                            <span className="flex size-6 items-center justify-center rounded-md bg-muted text-debt" aria-label="Salaire dû">
+                              <ArrowUpRight className="size-3.5" />
                             </span>
+                            <span className="text-sm font-medium tabular-nums text-debt">{formatFCFA(p.currentSalaryDue || 0)}</span>
                           </div>
                         )}
                         {(p.advanceBalance || 0) > 0 && (
-                          <div>
-                            <span className="block text-xs text-muted-foreground">Avance due</span>
-                            <span className="text-sm font-medium tabular-nums text-credit">
-                              {formatFCFA(p.advanceBalance || 0)}
+                          <div className="flex items-center justify-end gap-2" title="Avance à rendre">
+                            <span className="flex size-6 items-center justify-center rounded-md bg-muted text-credit" aria-label="Avance à rendre">
+                              <ArrowDownLeft className="size-3.5" />
                             </span>
+                            <span className="text-sm font-medium tabular-nums text-credit">{formatFCFA(p.advanceBalance || 0)}</span>
                           </div>
                         )}
                         {(p.currentSalaryDue || 0) === 0 && (p.advanceBalance || 0) === 0 && (
