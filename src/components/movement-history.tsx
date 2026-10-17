@@ -24,11 +24,13 @@ export function MovementHistory({
   filters,
   onOpen,
   amountClass,
+  title = 'Historique',
 }: {
   movements: Movement[]
   filters?: Filter[]
   onOpen: (m: Movement) => void
   amountClass?: (m: Movement) => string
+  title?: string
 }) {
   const [filter, setFilter] = React.useState('all')
   const active = filters?.find(f => f.value === filter)
@@ -37,7 +39,7 @@ export function MovementHistory({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Historique</CardTitle>
+        <CardTitle>{title}</CardTitle>
         <CardDescription>Touchez une ligne pour voir le reçu ou l'annuler.</CardDescription>
         <CardAction>
           <Badge variant="outline">{movements.length}</Badge>

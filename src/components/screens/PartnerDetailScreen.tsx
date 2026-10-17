@@ -4,6 +4,7 @@ import { ArrowDownLeft, ArrowUpRight, Plus, Scale } from 'lucide-react'
 import { useStore } from '@/data/store'
 import { Button } from '@/components/ui/button'
 import { MovementHistory } from '@/components/movement-history'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PersonHeader } from '@/components/person-header'
 import { BalanceCard } from '@/components/balance-card'
 import { formatFCFA } from '@/lib/utils'
@@ -18,6 +19,8 @@ import { daysSince } from '@/data/payHistory'
 export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId }) => {
   const { persons, movements, openNewMovement, openCompensation, openMovementDetail } = useStore()
 
+  const [view, setView] = React.useState<'ensemble' | 'historique'>('ensemble')
+  const [side, setSide] = React.useState<'lui' | 'moi'>('lui')
   const partner = persons.find(p => p.id === partnerId)
   if (!partner) return null
 
@@ -44,64 +47,96 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
     <div className="flex flex-col gap-4">
       <PersonHeader person={partner} />
 
-      {/* Bandeau : seulement quand chacun doit quelque chose à l'autre */}
-      {owesMe > 0 && iOweHim > 0 && (
-        <div
-          className="flex items-center gap-3 rounded-xl border p-3"
-          style={{
-            background: `color-mix(in srgb, ${net >= 0 ? 'var(--color-credit)' : 'var(--color-debt)'} 12%, var(--card))`,
-            borderColor: `color-mix(in srgb, ${net >= 0 ? 'var(--color-credit)' : 'var(--color-debt)'} 35%, transparent)`,
-          }}
-        >
-          <Scale className={net >= 0 ? 'size-5 shrink-0 text-credit' : 'size-5 shrink-0 text-debt'} />
-          <p className="min-w-0 flex-1 text-sm">
-            {net > 0 && <>Au total, <span className="font-semibold text-credit">il vous doit {formatFCFA(net)}</span></>}
-            {net < 0 && <>Au total, <span className="font-semibold text-debt">vous lui devez {formatFCFA(-net)}</span></>}
-            {net === 0 && <span className="font-semibold">Vous êtes quittes</span>}
-          </p>
-          <Button variant="secondary" size="sm" onClick={() => openCompensation(partner.id)}>
-            Compenser
-          </Button>
+      {/* Deux vues : la situation (Vue d'ensemble) et le détail des opérations (Historique) */}
+      <Tabs value={view} onValueChange={v => setView(v as 'ensemble' | 'historique')}>
+        <TabsList className="w-full">
+          <TabsTrigger value="ensemble">Vue d'ensemble</TabsTrigger>
+          <TabsTrigger value="historique">Historique</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      {view === 'ensemble' && (
+        <>
+        {/* Bandeau : seulement quand chacun doit quelque chose à l'autre */}
+        {owesMe > 0 && iOweHim > 0 && (
+          <div
+            className="flex items-center gap-3 rounded-xl border p-3"
+            style={{
+              background: `color-mix(in srgb, ${net >= 0 ? 'var(--color-credit)' : 'var(--color-debt)'} 12%, var(--card))`,
+              borderColor: `color-mix(in srgb, ${net >= 0 ? 'var(--color-credit)' : 'var(--color-debt)'} 35%, transparent)`,
+            }}
+          >
+            <Scale className={net >= 0 ? 'size-5 shrink-0 text-credit' : 'size-5 shrink-0 text-debt'} />
+            <p className="min-w-0 flex-1 text-sm">
+              {net > 0 && <>Au total, <span className="font-semibold text-credit">il vous doit {formatFCFA(net)}</span></>}
+              {net < 0 && <>Au total, <span className="font-semibold text-debt">vous lui devez {formatFCFA(-net)}</span></>}
+              {net === 0 && <span className="font-semibold">Vous êtes quittes</span>}
+            </p>
+            <Button variant="secondary" size="sm" onClick={() => openCompensation(partner.id)}>
+              Compenser
+            </Button>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <BalanceCard
+            title="Il me doit"
+            Icon={ArrowDownLeft}
+            tone="credit"
+            remaining={owesMe}
+            paid={paidToMe}
+            totalDays={days(lastDateOf('il_a_pris_credit', partner.lastCreditToHimDate))}
+            paidDays={days(lastDateOf('il_m_a_verse', partner.lastPaymentDate))}
+          />
+          <BalanceCard
+            title="Je lui dois"
+            Icon={ArrowUpRight}
+            tone="debt"
+            remaining={iOweHim}
+            paid={paidByMe}
+            totalDays={days(lastDateOf('j_ai_pris_credit', partner.lastCreditFromHimDate))}
+            paidDays={days(lastDateOf('je_lui_ai_verse', partner.lastPaidByMeDate))}
+          />
         </div>
+        </>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <BalanceCard
-          title="Il me doit"
-          Icon={ArrowDownLeft}
-          tone="credit"
-          remaining={owesMe}
-          paid={paidToMe}
-          totalDays={days(lastDateOf('il_a_pris_credit', partner.lastCreditToHimDate))}
-          paidDays={days(lastDateOf('il_m_a_verse', partner.lastPaymentDate))}
-        />
-        <BalanceCard
-          title="Je lui dois"
-          Icon={ArrowUpRight}
-          tone="debt"
-          remaining={iOweHim}
-          paid={paidByMe}
-          totalDays={days(lastDateOf('j_ai_pris_credit', partner.lastCreditFromHimDate))}
-          paidDays={days(lastDateOf('je_lui_ai_verse', partner.lastPaidByMeDate))}
-        />
-      </div>
+      {view === 'historique' && (
+        <>
+          {/* Le côté, comme les cartes : ce qu'il me doit / ce que je lui dois */}
+          <Tabs value={side} onValueChange={v => setSide(v as 'lui' | 'moi')}>
+            <TabsList className="w-full">
+              <TabsTrigger value="lui" className="data-active:text-credit data-[state=active]:text-credit">
+                <ArrowDownLeft /> Il me doit
+              </TabsTrigger>
+              <TabsTrigger value="moi" className="data-active:text-debt data-[state=active]:text-debt">
+                <ArrowUpRight /> Je lui dois
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <MovementHistory
+            key={side}
+            title={side === 'lui' ? 'Il me doit' : 'Je lui dois'}
+            movements={partnerMovements.filter(m =>
+              side === 'lui'
+                ? m.type === 'il_a_pris_credit' || m.type === 'il_m_a_verse'
+                : m.type === 'j_ai_pris_credit' || m.type === 'je_lui_ai_verse'
+            )}
+            onOpen={openMovementDetail}
+            filters={[
+              { value: 'credits', label: 'Crédits', match: m => m.type === 'il_a_pris_credit' || m.type === 'j_ai_pris_credit' },
+              { value: 'versements', label: 'Versements', match: m => m.type === 'il_m_a_verse' || m.type === 'je_lui_ai_verse' },
+            ]}
+            amountClass={m =>
+              m.type === 'il_m_a_verse' || m.type === 'il_a_pris_credit' ? 'text-credit' : 'text-debt'
+            }
+          />
+        </>
+      )}
 
       <Button size="lg" className="h-12" onClick={() => openNewMovement(partner.id)}>
         <Plus /> Enregistrer une opération
       </Button>
-
-      <MovementHistory
-        movements={partnerMovements}
-        onOpen={openMovementDetail}
-        filters={[
-          { value: 'recus', label: 'Reçus', match: m => m.type === 'il_m_a_verse' },
-          { value: 'verses', label: 'Versés', match: m => m.type === 'je_lui_ai_verse' },
-          { value: 'credits', label: 'Crédits', match: m => m.type === 'il_a_pris_credit' || m.type === 'j_ai_pris_credit' },
-        ]}
-        amountClass={m =>
-          m.type === 'il_m_a_verse' ? 'text-credit' : m.type === 'je_lui_ai_verse' ? 'text-debt' : ''
-        }
-      />
     </div>
   )
 }
