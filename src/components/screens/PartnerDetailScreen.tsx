@@ -131,8 +131,8 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
                 onOpen={openMovementDetail}
                 amountClass={() => (side === 'lui' ? 'text-credit' : 'text-debt')}
                 action={
-                  <Button size="sm" variant="outline" onClick={() => openNewMovement(partner.id)}>
-                    <Plus /> Opération
+                  <Button size="sm" onClick={() => openNewMovement(partner.id)}>
+                    <Plus /> Enregistrer une opération
                   </Button>
                 }
                 toolbar={
