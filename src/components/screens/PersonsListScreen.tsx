@@ -84,14 +84,17 @@ export const PersonsListScreen: React.FC = () => {
             </Button>
           </Card>
         ) : (
-          filteredPersons.map(p => {
+          filteredPersons.map((p, index) => {
             const isEmployee = p.type === 'employee'
 
             return (
+              // Arrivée en cascade : chaque ligne glisse en place 40 ms après la précédente
+              // (au plus 0,4 s d'attente), pour que la liste ne tombe pas d'un bloc.
               <Card
                 key={p.id}
                 onClick={() => setSelectedPersonId(p.id)}
-                className="cursor-pointer gap-0 p-3 transition-colors hover:bg-muted/40"
+                className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both cursor-pointer gap-0 p-3 duration-300 transition-colors hover:bg-muted/40 motion-reduce:animate-none"
+                style={{ animationDelay: `${Math.min(index, 10) * 40}ms` }}
               >
                 <div className="flex items-center justify-between gap-3">
                   
