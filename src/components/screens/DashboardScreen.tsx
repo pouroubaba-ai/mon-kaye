@@ -5,7 +5,7 @@ import { ArrowDownLeft, ArrowUpRight } from 'lucide-react'
 import { useStore } from '@/data/store'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
-import { cn, formatFCFA } from '@/lib/utils'
+import { formatFCFA } from '@/lib/utils'
 
 // Tableau de bord léger :
 // 1. deux cartes côte à côte : « On me doit » / « Je dois » (le total, rien d'autre) ;
@@ -27,16 +27,34 @@ function StatCard({
   Icon: React.ComponentType<{ className?: string }>
   onClick: () => void
 }) {
+  const base = tone === 'credit' ? 'var(--color-credit)' : 'var(--color-debt)'
+  // Carte « vivante » : fond en dégradé de la couleur du compte, bordure teintée,
+  // pastille d'icône pleine et halo lumineux dans le coin.
   return (
-    <Card className="cursor-pointer gap-6 py-4 transition-colors hover:bg-muted/40" onClick={onClick}>
-      <CardContent className="flex flex-col gap-6 px-4">
-        <div className={cn('flex size-9 items-center justify-center rounded-lg bg-muted', tone === 'credit' ? 'text-credit' : 'text-debt')}>
+    <Card
+      className="relative cursor-pointer gap-6 overflow-hidden py-4 transition-transform active:scale-[0.98]"
+      style={{
+        background: `linear-gradient(145deg, color-mix(in srgb, ${base} 22%, var(--card)) 0%, var(--card) 70%)`,
+        borderColor: `color-mix(in srgb, ${base} 35%, transparent)`,
+      }}
+      onClick={onClick}
+    >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-10 -right-10 size-32 rounded-full blur-2xl"
+        style={{ background: `color-mix(in srgb, ${base} 40%, transparent)` }}
+      />
+      <CardContent className="relative flex flex-col gap-6 px-4">
+        <div
+          className="flex size-10 items-center justify-center rounded-xl text-white"
+          style={{ background: base, boxShadow: `0 6px 18px -4px color-mix(in srgb, ${base} 60%, transparent)` }}
+        >
           <Icon className="size-5" />
         </div>
         <div className="flex flex-col gap-1">
           <span className="text-sm text-muted-foreground">{label}</span>
-          <span className="text-2xl font-semibold tabular-nums leading-none">
-            {amount(value)} <span className="text-sm font-normal text-muted-foreground">FCFA</span>
+          <span className="whitespace-nowrap text-xl font-semibold tabular-nums leading-none sm:text-2xl">
+            {amount(value)} <span className="text-xs font-normal text-muted-foreground sm:text-sm">FCFA</span>
           </span>
         </div>
       </CardContent>
