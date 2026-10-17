@@ -142,7 +142,8 @@ export const NewMovementModal: React.FC = () => {
   // Mini icône : flèche verte (on me doit) ou orange (je dois), comme sur le tableau de bord.
   const icon = (p: (typeof persons)[number]) => {
     const net = (p.owesMe || 0) - (p.iOweHim || 0)
-    const tone = p.type === 'employee' ? ((p.currentSalaryDue || 0) > 0 ? 'debt' : null) : net > 0 ? 'credit' : net < 0 ? 'debt' : null
+    if (p.type === 'employee') return null
+    const tone = net > 0 ? 'credit' : net < 0 ? 'debt' : null
     if (!tone) return null
     const Icon = tone === 'credit' ? ArrowDownLeft : ArrowUpRight
     return (
