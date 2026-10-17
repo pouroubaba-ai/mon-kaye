@@ -2,6 +2,10 @@
 
 *Dernière mise à jour : 17 octobre 2026*
 
+> [!IMPORTANT]
+> **Document de référence du projet :** Le cahier des charges et instructions intégrales du responsable sont enregistrés dans [MISSION.md](file:///C:/Users/pouro/Projets/Carnet/MISSION.md). Ce document fait foi pour toutes les étapes, règles de calcul, contraintes et choix techniques.
+
+
 ---
 
 ## 1. Où on en est
