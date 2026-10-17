@@ -35,7 +35,7 @@ export const MovementDetailModal: React.FC = () => {
   const remainingDebt = person?.type === 'partner' ? ((person.owesMe || 0) - (person.iOweHim || 0)) : (person?.currentSalaryDue || 0)
 
   // Message formaté pour WhatsApp / SMS
-  const receiptMessage = `${shop.name}\nReçu de versement du ${selectedMovement.date}\nClient / Employé : ${selectedMovement.personName}\nMontant versé : ${formatFCFA(selectedMovement.amount)}\nMoyen de paiement : ${selectedMovement.paymentMethod === 'momo_mtn' ? 'MTN Mobile Money' : selectedMovement.paymentMethod === 'airtel_money' ? 'Airtel Money' : 'Espèces'}${selectedMovement.reference ? ` (Réf : ${selectedMovement.reference})` : ''}\nSolde restant dû : ${formatFCFA(Math.max(0, remainingDebt))}\nMerci pour votre confiance !`
+  const receiptMessage = `${shop.name}\nReçu de versement du ${selectedMovement.date}\nClient / Employé : ${selectedMovement.personName}\nMontant versé : ${formatFCFA(selectedMovement.amount)}\nMoyen de paiement : ${selectedMovement.paymentMethod === 'mobile_money' ? 'Mobile Money' : 'Espèces'}${selectedMovement.reference ? ` (Réf : ${selectedMovement.reference})` : ''}\nSolde restant dû : ${formatFCFA(Math.max(0, remainingDebt))}\nMerci pour votre confiance !`
 
   const handleCopyReceipt = () => {
     navigator.clipboard.writeText(receiptMessage)
@@ -98,7 +98,7 @@ export const MovementDetailModal: React.FC = () => {
               </div>
               <div className="flex items-center gap-1.5">
                 <Smartphone className="w-3.5 h-3.5" />
-                {selectedMovement.paymentMethod === 'momo_mtn' ? 'MTN MoMo' : selectedMovement.paymentMethod === 'airtel_money' ? 'Airtel Money' : 'Espèces'}
+                {selectedMovement.paymentMethod === 'mobile_money' ? 'Mobile Money' : 'Espèces'}
               </div>
             </div>
 

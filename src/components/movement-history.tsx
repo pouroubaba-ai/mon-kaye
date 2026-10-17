@@ -13,8 +13,7 @@ import { cn, formatFCFA } from '@/lib/utils'
 
 export const PAYMENT_LABELS: Record<string, string> = {
   especes: 'Espèces',
-  momo_mtn: 'MTN MoMo',
-  airtel_money: 'Airtel Money',
+  mobile_money: 'Mobile Money',
 }
 
 type Filter = { value: string; label: string; match: (m: Movement) => boolean }

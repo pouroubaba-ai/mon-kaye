@@ -18,6 +18,7 @@ import type { Movement } from '@/data/mockData'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/responsive-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn, formatFCFA } from '@/lib/utils'
 
@@ -63,7 +64,7 @@ export const NewMovementModal: React.FC = () => {
   const [personId, setPersonId] = useState('')
   const [type, setType] = useState<MType>('il_m_a_verse')
   const [amountStr, setAmountStr] = useState('0')
-  const [payment, setPayment] = useState<'especes' | 'momo_mtn' | 'airtel_money'>('especes')
+  const [payment, setPayment] = useState<'especes' | 'mobile_money'>('especes')
   const [reference, setReference] = useState('')
   const [note, setNote] = useState('')
   const [photo, setPhoto] = useState(false)
@@ -371,8 +372,8 @@ export const NewMovementModal: React.FC = () => {
               <Tabs value={payment} onValueChange={v => setPayment(v as typeof payment)}>
                 <TabsList className="w-full">
                   <TabsTrigger value="especes">Espèces</TabsTrigger>
-                  <TabsTrigger value="momo_mtn">MTN MoMo</TabsTrigger>
-                  <TabsTrigger value="airtel_money">Airtel</TabsTrigger>
+                  {/* Un seul choix « Mobile Money » : les opérateurs changent selon le pays. */}
+                  <TabsTrigger value="mobile_money">Mobile Money</TabsTrigger>
                 </TabsList>
               </Tabs>
 
@@ -381,7 +382,7 @@ export const NewMovementModal: React.FC = () => {
                   {payment !== 'especes' && (
                     <Input placeholder="Numéro de transaction" value={reference} onChange={e => setReference(e.target.value)} />
                   )}
-                  <Input placeholder="Note" value={note} onChange={e => setNote(e.target.value)} />
+                  <Textarea rows={1} placeholder="Note" value={note} onChange={e => setNote(e.target.value)} className="max-h-32 min-h-8 py-1.5" />
                   <Button type="button" variant={photo ? 'secondary' : 'outline'} onClick={() => setPhoto(!photo)}>
                     <Camera /> {photo ? 'Photo ajoutée' : 'Ajouter une photo'}
                   </Button>

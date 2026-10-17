@@ -35,7 +35,7 @@ export interface Movement {
   label: string
   amount: number
   date: string
-  paymentMethod?: 'especes' | 'momo_mtn' | 'airtel_money'
+  paymentMethod?: 'especes' | 'mobile_money'
   reference?: string
   note?: string
   receiptPhoto?: string
@@ -269,9 +269,9 @@ export const INITIAL_MOVEMENTS: Movement[] = [
     label: "Versement reçu — Farine",
     amount: 50000,
     date: "12/10/2026",
-    paymentMethod: "momo_mtn",
-    reference: "MTN-9823441",
-    note: "Versement partiel par MTN MoMo sur sa dette de farine.",
+    paymentMethod: "mobile_money",
+    reference: "TX-9823441",
+    note: "Versement partiel par Mobile Money sur sa dette de farine.",
   },
   {
     id: "mov-2",
@@ -303,7 +303,7 @@ export const INITIAL_MOVEMENTS: Movement[] = [
     label: "Avance accordée — Urgence ordonnance",
     amount: 30000,
     date: "02/10/2026",
-    paymentMethod: "airtel_money",
+    paymentMethod: "mobile_money",
     reference: "AIR-451299",
     note: "Plan : retenue de 10 000 FCFA sur les 3 prochaines paies.",
   },
@@ -326,8 +326,8 @@ export const INITIAL_MOVEMENTS: Movement[] = [
     label: "Versement reçu — Huile Mayor",
     amount: 100000,
     date: "05/10/2026",
-    paymentMethod: "momo_mtn",
-    reference: "MTN-773120",
+    paymentMethod: "mobile_money",
+    reference: "TX-773120",
     note: "Reçu envoyé par WhatsApp.",
   },
   {
