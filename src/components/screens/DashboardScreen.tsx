@@ -3,7 +3,7 @@ import { Label, Pie, PieChart } from 'recharts'
 import { ArrowDownLeft, ArrowUpRight, ChevronRight } from 'lucide-react'
 
 import { useStore } from '@/data/store'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
 import { cn, formatFCFA } from '@/lib/utils'
 
@@ -47,7 +47,7 @@ function StatCard({
 
 type Slice = { key: string; label: string; value: number; color: string }
 
-function DonutCard({ title, description, slices, people }: { title: string; description: string; slices: Slice[]; people: number }) {
+function DonutCard({ title, slices, people }: { title: string; slices: Slice[]; people: number }) {
   const total = slices.reduce((a, s) => a + s.value, 0)
   const config = Object.fromEntries(slices.map(s => [s.key, { label: s.label, color: s.color }])) satisfies ChartConfig
   const data = slices.filter(s => s.value > 0).map(s => ({ key: s.key, value: s.value, fill: `var(--color-${s.key})` }))
@@ -55,8 +55,7 @@ function DonutCard({ title, description, slices, people }: { title: string; desc
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
+        <CardTitle className="text-sm font-normal text-muted-foreground">{title}</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <ChartContainer config={config} className="mx-auto aspect-square h-[180px]">
@@ -148,7 +147,6 @@ export const DashboardScreen: React.FC = () => {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <DonutCard
           title="Qui me doit"
-          description="D'où vient l'argent que j'attends"
           people={owesMePeople}
           slices={[
             { key: 'partenaires', label: 'Partenaires', value: totals.partnersOwesMe, color: 'var(--color-credit)' },
@@ -157,7 +155,6 @@ export const DashboardScreen: React.FC = () => {
         />
         <DonutCard
           title="À qui je dois"
-          description="Où va l'argent que je dois"
           people={iOwePeople}
           slices={[
             { key: 'partenaires', label: 'Partenaires', value: totals.partnersIOwe, color: 'var(--color-debt)' },
