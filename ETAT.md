@@ -4,43 +4,92 @@
 
 ---
 
-## 1. Où on en est (Étape 1 terminée)
+## 1. Où on en est
 
+### Étape 1 : Initialisation & Choix de la Pile (Validée par le responsable)
 - [x] Dossier créé hors de OneDrive : `C:\Users\pouro\Projets\Carnet\`
 - [x] Dépôt Git initialisé
-- [x] Environnement technique configuré (React 19, TypeScript, Vite, Tailwind CSS, shadcn/ui base, Dexie, Vitest)
-- [x] Architecture modulaire étanche en place :
+- [x] Choix technique validé : Vite + React SPA (PWA) justifié dans `CHOIX_PILE.md`
+- [x] Structure en 5 modules étanches initialisée (squelettes de dossiers, points d'entrée et types publics créés ; la logique métier complète sera implémentée à l'Étape 3) :
   - `src/modules/personnes/`
   - `src/modules/mouvements/`
   - `src/modules/employes/`
   - `src/modules/pieces_jointes/`
   - `src/modules/synchronisation/`
-- [x] Document d'arbitrage technique rédigé : `CHOIX_PILE.md` (validation de Vite PWA)
-- [x] Journal de bord initialisé : `ETAT.md`
+- [x] Sauvegarde initiale par bundle Git réalisée et vérifiée : `Carnet.bundle`
+
+### Étape 2 : Maquette cliquable complète (Terminée — Arrêt pour tests commerçants)
+- [x] Intégration propre de Tailwind CSS et des composants officiels shadcn/ui (bloc `sidebar-03`, cartes, boutons, modales, badges, formulaires).
+- [x] Jeu de données réalistes configuré pour une **Alimentation Générale** à Brazzaville (« Alimentation Générale La Grâce », Bacongo / Marché Total) avec 5 employés et des partenaires représentatifs.
+- [x] **Tous les écrans interactifs créés et fonctionnels en local :**
+  - **Démarrage & Connexion / PIN :** déverrouillage tactile par code PIN à 4 chiffres (PIN test : `1234`), option Google Auth et téléphone local.
+  - **Accueil (Tableau de bord) :** 
+    - 2 grandes cartes d'indicateurs géantes : « ON ME DOIT » en vert et « JE DOIS » en orange, avec la répartition partenaires / employés.
+    - Carte avec anneau Recharts visualisant la part des créances et des dettes.
+    - Section « À payer bientôt » (salaires échus des employés et échéances proches).
+    - Section « Ils tardent à payer » (partenaires sans versement depuis plus de 30 jours).
+  - **Liste des Personnes :** recherche instantanée, filtres (« Tout », « Me doivent », « Je leur dois », « Employés »), tri automatique par le plus gros montant en jeu.
+  - **Fiche Partenaire (les deux sens) :**
+    - Double compteur séparé (« Il me doit » et « Je lui dois »).
+    - Phrase claire de solde net (« Au total, il vous doit X FCFA »).
+    - 4 gros boutons tactiles (≥ 48 px) : « Il m'a versé », « Il a pris à crédit », « Je lui ai versé », « J'ai pris à crédit ».
+    - Bouton « Compenser » pour la compensation manuelle bilatérale.
+    - Listes des derniers versements reçus et faits, et historique complet non supprimable.
+  - **Fiche Employé :**
+    - Salaire convenu, échéance, compteurs « Ce que je lui dois » (salaire échu) et « Avance restante ».
+    - 4 gros boutons tactiles : « Verser le salaire », « Donner une avance », « Il rembourse (direct) », « Assistant de départ ».
+    - Historique des paies et versements.
+  - **Modal de saisie rapide d'un mouvement :**
+    - Pavé numérique géant tactile et boutons rapides (+1 000, +5 000, +10 000, +50 000 FCFA).
+    - Sélection des sens avec les mots du commerçant.
+    - Alerte explicite en cas de surplus par rapport à la dette existante avec bascule en avance.
+    - Moyen de paiement : Espèces, MTN Mobile Money, Airtel Money (référence facultative).
+    - Note et photo de reçu facultatives.
+    - Recalcul immédiat des compteurs dans toute l'application.
+  - **Assistant de départ d'un employé (en 2 étapes) :**
+    - Étape 1 : Salaire de la période en cours (au prorata des jours travaillés, mois complet ou montant fixe).
+    - Étape 2 : Avance restante (retenue par défaut sur le solde final, conservation en dette ou abandon avec note obligatoire).
+    - Récapitulatif du net à payer et passage de l'employé en inactif (aucun salaire futur ne sera généré).
+  - **Modal de compensation manuelle :** simulation bilatérale avant application, création des 2 mouvements liés.
+  - **Détail d'un mouvement & Reçu partagé :**
+    - Préparation du message formaté pour WhatsApp / SMS avec bouton de partage direct (`wa.me`) et copie dans le presse-papier.
+    - Annulation d'un mouvement avec motif obligatoire (le mouvement reste visible, affiché barré, et les compteurs sont recalculés).
+  - **Réglages :**
+    - Nom du commerce et modification du code PIN.
+    - Bascule thème sombre (sobre de référence) / thème clair (lisible en plein soleil).
+    - Badge de synchronisation locale.
+    - Exportation intégrale des données au format CSV.
+    - Bouton de verrouillage immédiat de l'écran.
+  - **Ergonomie & Navigation :**
+    - Sur smartphone : barre inférieure à 4 onglets + gros bouton central « + ».
+    - Sur tablette et ordinateur : barre latérale shadcn `sidebar-03` avec sous-menus et repli.
+- [x] **Mesure réelle de la compilation de production (`npm run build`) :**
+  - Fichier HTML : 0.45 kB (0.29 kB gzippé)
+  - Fichier CSS : 49.09 kB (9.31 kB gzippé)
+  - Fichier JavaScript (bundle complet React + Recharts + Shadcn + Lucide) : 714.95 kB (211.43 kB gzippé)
+  - **Poids total transféré gzippé : ~221 kB**, garantissant un démarrage instantané en moins de 2 secondes sur mobile 3G/Edge.
 
 ---
 
-## 2. Prochaine action (Étape 2)
+## 2. Prochaine action (Étape 3 : Fonctionnement réel en local)
 
-Dès validation de la page de choix par le responsable :
-- Construction de la **maquette cliquable complète** avec jeu de données fictives (5 employés, 30 partenaires, historique) :
-  - Écran Démarrage & Connexion / PIN
-  - Accueil avec les 2 grandes cartes d'indicateurs (« Je dois », « On me doit ») et l'anneau shadcn
-  - Liste des personnes avec recherche et filtres
-  - Fiche partenaire (double compteur, solde net, 4 boutons d'action rapide, compensation manuelle)
-  - Fiche employé (suivi salaire, avances, remboursement, assistant de départ)
-  - Pavé numérique géant pour saisie d'un versement en 3 gestes
-  - Détail d'un mouvement avec reçu partageable (WhatsApp/SMS)
-  - Réglages (thème sombre/clair, PIN, export, état de synchronisation)
-- Arrêt pour test auprès de 3 à 5 commerçants.
+*Arrêt prévu du travail : en attente des retours du responsable suite au test de la maquette auprès de 3 à 5 commerçants.*
+
+Dès réception des retours et validation :
+- Implémentation réelle de la base locale IndexedDB (via Dexie) au sein des 5 modules étanches.
+- Calcul permanent des compteurs à partir des mouvements non annulés.
+- Génération idempotente des salaires dus à date d'échéance.
+- Tests unitaires complets de tous les calculs (prorata, retenues, compensations, annulations).
+- Simulateur sur 6 mois (5 employés, 30 partenaires, 0 écart).
 
 ---
 
-## 3. Décisions prises et choix par défaut appliqués
+## 3. Décisions prises et choix appliqués
 
-1. **Pile technique :** Vite + React SPA (PWA) + Tailwind/shadcn + Dexie.js + Supabase.
-2. **Compensation des dettes croisées :** Manuelle uniquement via un bouton dédié « Compenser », jamais automatique.
-3. **Départ d'un employé :** L'avance restante est retenue par défaut sur le montant final de la période (options secondaires : garder en dette ou abandonner avec note).
-4. **Preuve et traçabilité :** Aucun compte employé requis ; la preuve repose sur l'historique inaltérable, les pièces jointes et le reçu envoyé par WhatsApp/SMS.
-5. **Authentification adaptée :** Google Auth ou Téléphone + mot de passe, déverrouillage quotidien par code PIN à 4 chiffres (sans SMS payant en V1).
-6. **Utilisateur :** Monocompte par commerce pour la V1.
+1. **Pile retenue :** Vite + React SPA (PWA) + Tailwind CSS + shadcn/ui (`sidebar-03`) + Recharts.
+2. **Secteur des données fictives :** Alimentation générale (« Alimentation Générale La Grâce », Bacongo, Brazzaville).
+3. **Code couleur constant :** Vert émeraude avec mention écrite pour « On me doit » / « Il me doit », Orange chaud avec mention écrite pour « Je dois » / « Je lui dois ».
+4. **Compensation :** Uniquement manuelle via bouton dédié, jamais automatique.
+5. **Départ employé :** Retenue de l'avance restante proposée et cochée par défaut sur le solde final.
+6. **Preuve :** Historique inaltérable non supprimable (annulation tracée), pièces jointes archivées, reçus WhatsApp/SMS.
+7. **Accès :** Code PIN à 4 chiffres hors ligne pour le quotidien, avec alternative Google/téléphone.

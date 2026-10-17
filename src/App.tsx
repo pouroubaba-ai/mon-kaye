@@ -1,121 +1,70 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import React from 'react'
+import { StoreProvider, useStore } from '@/data/store'
+import { AppLayout } from '@/components/layout/AppLayout'
+import { AuthPinScreen } from '@/components/screens/AuthPinScreen'
+import { DashboardScreen } from '@/components/screens/DashboardScreen'
+import { PersonsListScreen } from '@/components/screens/PersonsListScreen'
+import { PartnerDetailScreen } from '@/components/screens/PartnerDetailScreen'
+import { EmployeeDetailScreen } from '@/components/screens/EmployeeDetailScreen'
+import { SettingsScreen } from '@/components/screens/SettingsScreen'
+import { NewMovementModal } from '@/components/modals/NewMovementModal'
+import { DepartureModal } from '@/components/modals/DepartureModal'
+import { CompensationModal } from '@/components/modals/CompensationModal'
+import { MovementDetailModal } from '@/components/modals/MovementDetailModal'
 
-function App() {
-  const [count, setCount] = useState(0)
+const AppContent: React.FC = () => {
+  const { isLocked, activeTab, selectedPersonId, persons } = useStore()
+
+  // Si verrouillé -> Écran PIN obligatoire
+  if (isLocked) {
+    return <AuthPinScreen />
+  }
+
+  // Navigation vers la fiche détaillée si une personne est sélectionnée
+  if (selectedPersonId) {
+    const person = persons.find(p => p.id === selectedPersonId)
+    if (person?.type === 'employee') {
+      return (
+        <AppLayout>
+          <EmployeeDetailScreen employeeId={selectedPersonId} />
+          <NewMovementModal />
+          <DepartureModal />
+          <MovementDetailModal />
+        </AppLayout>
+      )
+    } else if (person) {
+      return (
+        <AppLayout>
+          <PartnerDetailScreen partnerId={selectedPersonId} />
+          <NewMovementModal />
+          <CompensationModal />
+          <MovementDetailModal />
+        </AppLayout>
+      )
+    }
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <AppLayout>
+      {activeTab === 'accueil' && <DashboardScreen />}
+      {activeTab === 'personnes' && <PersonsListScreen />}
+      {activeTab === 'employes' && <PersonsListScreen />}
+      {activeTab === 'reglages' && <SettingsScreen />}
 
-      <div className="ticks"></div>
+      {/* Modales globales interactives */}
+      <NewMovementModal />
+      <DepartureModal />
+      <CompensationModal />
+      <MovementDetailModal />
+    </AppLayout>
+  )
+}
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+export function App() {
+  return (
+    <StoreProvider>
+      <AppContent />
+    </StoreProvider>
   )
 }
 
