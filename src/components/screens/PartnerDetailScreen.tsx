@@ -72,7 +72,7 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
           tone="credit"
           remaining={owesMe}
           paid={paidToMe}
-          totalDays={days(lastDateOf('il_a_pris_credit'))}
+          totalDays={days(lastDateOf('il_a_pris_credit', partner.lastCreditToHimDate))}
           paidDays={days(lastDateOf('il_m_a_verse', partner.lastPaymentDate))}
         />
         <BalanceCard
@@ -81,7 +81,7 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
           tone="debt"
           remaining={iOweHim}
           paid={paidByMe}
-          totalDays={days(lastDateOf('j_ai_pris_credit'))}
+          totalDays={days(lastDateOf('j_ai_pris_credit', partner.lastCreditFromHimDate))}
           paidDays={days(lastDateOf('je_lui_ai_verse', partner.lastPaidByMeDate))}
         />
       </div>

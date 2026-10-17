@@ -201,11 +201,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           updated.daysSinceLastPayment = 0
         } else if (newMov.type === 'il_a_pris_credit') {
           updated.owesMe = owesMe + amt
+          updated.lastCreditToHimDate = dateStr
         } else if (newMov.type === 'je_lui_ai_verse') {
           updated.iOweHim = Math.max(0, iOweHim - amt)
           updated.lastPaidByMeDate = dateStr
         } else if (newMov.type === 'j_ai_pris_credit') {
           updated.iOweHim = iOweHim + amt
+          updated.lastCreditFromHimDate = dateStr
         }
       } else if (p.type === 'employee') {
         const currentSalary = updated.currentSalaryDue || 0

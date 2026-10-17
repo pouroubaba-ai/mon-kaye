@@ -11,6 +11,8 @@ export interface Person {
   iOweHim?: number // Je lui dois
   lastPaymentDate?: string // Son dernier versement reçu (jj/mm/aaaa)
   lastPaidByMeDate?: string // Mon dernier versement à cette personne (jj/mm/aaaa)
+  lastCreditToHimDate?: string // Dernière fois qu'il a pris à crédit chez moi (jj/mm/aaaa)
+  lastCreditFromHimDate?: string // Dernière fois que j'ai pris à crédit chez lui (jj/mm/aaaa)
   daysSinceLastPayment?: number
   // For employees:
   salary?: number // FCFA
@@ -153,6 +155,8 @@ export const INITIAL_PERSONS: Person[] = [
     owesMe: 145000,
     iOweHim: 60000,
     lastPaymentDate: "12/10/2026",
+    lastCreditToHimDate: "08/10/2026",
+    lastCreditFromHimDate: "06/10/2026",
     lastPaidByMeDate: "20/09/2026",
     daysSinceLastPayment: 5,
     notes: "Prend 2 sacs de farine par semaine, me livre des régimes de plantains.",
@@ -166,6 +170,7 @@ export const INITIAL_PERSONS: Person[] = [
     owesMe: 220000,
     iOweHim: 0,
     lastPaymentDate: "05/10/2026",
+    lastCreditToHimDate: "30/09/2026",
     daysSinceLastPayment: 12,
     notes: "Crédit régulier sur bidons d'huile 25L.",
   },
@@ -178,6 +183,7 @@ export const INITIAL_PERSONS: Person[] = [
     owesMe: 0,
     iOweHim: 180000,
     lastPaymentDate: "10/10/2026",
+    lastCreditFromHimDate: "22/09/2026",
     lastPaidByMeDate: "25/08/2026",
     daysSinceLastPayment: 7,
     notes: "Facture bières et sucreries livrées le mercredi.",
@@ -191,6 +197,8 @@ export const INITIAL_PERSONS: Person[] = [
     owesMe: 40000,
     iOweHim: 75000,
     lastPaymentDate: "14/10/2026",
+    lastCreditToHimDate: "11/10/2026",
+    lastCreditFromHimDate: "07/10/2026",
     lastPaidByMeDate: "03/10/2026",
     daysSinceLastPayment: 3,
     notes: "Prend du sucre Saint-Louis, fournit les miches de pain chaque matin.",
@@ -204,6 +212,7 @@ export const INITIAL_PERSONS: Person[] = [
     owesMe: 80000,
     iOweHim: 0,
     lastPaymentDate: "09/09/2026",
+    lastCreditToHimDate: "28/08/2026",
     daysSinceLastPayment: 38, // > 30 jours (Tarde à payer)
     notes: "Retard de paiement, relance nécessaire.",
   },
@@ -216,6 +225,7 @@ export const INITIAL_PERSONS: Person[] = [
     owesMe: 55000,
     iOweHim: 0,
     lastPaymentDate: "02/09/2026",
+    lastCreditToHimDate: "19/08/2026",
     daysSinceLastPayment: 45, // > 30 jours (Tarde à payer)
     notes: "A promis de passer samedi avec Mobile Money.",
   },
@@ -228,6 +238,7 @@ export const INITIAL_PERSONS: Person[] = [
     owesMe: 0,
     iOweHim: 95000,
     lastPaymentDate: "01/10/2026",
+    lastCreditFromHimDate: "14/09/2026",
     lastPaidByMeDate: "11/09/2026",
     daysSinceLastPayment: 16,
     notes: "Paiement attendu à la fin du mois.",
@@ -241,6 +252,8 @@ export const INITIAL_PERSONS: Person[] = [
     owesMe: 15000,
     iOweHim: 35000,
     lastPaymentDate: "15/10/2026",
+    lastCreditToHimDate: "13/10/2026",
+    lastCreditFromHimDate: "02/10/2026",
     lastPaidByMeDate: "08/10/2026",
     daysSinceLastPayment: 2,
     notes: "Livre 10 alvéoles tous les mardis.",
