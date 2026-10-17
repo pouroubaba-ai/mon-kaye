@@ -132,3 +132,10 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 - DÉMONSTRATION : les mois passés sont fabriqués de façon fixe (src/data/payHistory.ts) ; le mois en cours suit l'état réel. À remplacer par le calcul à partir des opérations enregistrées.
 - Nouveau champ `lastAdvanceRepaymentDate`, mis à jour à chaque remboursement ou retenue d'avance.
 - Vue d'ensemble (suite) : choix d'un employé avec recherche (shadcn Combobox = Popover + Command, `cmdk` ajouté ; popover.tsx et command.tsx écrits d'après la source officielle, registre injoignable). « Total » à la place de « Versé ». Cartes Avances et Salaires dus : montant + jours, 5 premiers et « Voir plus » au-delà de 7. Nouveau champ `lastSalaryPaymentDate`. Lancer `npm install`.
+
+## Personnes : vue d'ensemble (17/10/2026, Claude)
+
+- Page Personnes : onglets « Liste » et « Vue d'ensemble », comme Employés (sans graphique).
+- Cartes « Dernier versement reçu » (ceux qui me doivent) et « Dernier versement fait » (ceux à qui je dois) : total, nombre de personnes, montant et jours par personne, tri, « Voir plus ».
+- Pièces communes extraites dans src/components/overview-parts.tsx (choix de personne avec recherche, carte des jours).
+- Nouveau champ `lastPaidByMeDate` (mon dernier versement à une personne), mis à jour à chaque « Je lui ai versé ».

@@ -201,6 +201,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           updated.owesMe = owesMe + amt
         } else if (newMov.type === 'je_lui_ai_verse') {
           updated.iOweHim = Math.max(0, iOweHim - amt)
+          updated.lastPaidByMeDate = dateStr
         } else if (newMov.type === 'j_ai_pris_credit') {
           updated.iOweHim = iOweHim + amt
         }

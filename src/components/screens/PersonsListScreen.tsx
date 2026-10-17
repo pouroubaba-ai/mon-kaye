@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { useStore } from '@/data/store'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { EmployeesOverview } from '@/components/screens/EmployeesOverview'
+import { PartnersOverview } from '@/components/screens/PartnersOverview'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -48,7 +49,8 @@ export const PersonsListScreen: React.FC = () => {
     return maxB - maxA
   })
 
-  const employeeTabs = activeTab === 'employes' && (
+  // Personnes et Employés : deux onglets, « Liste » et « Vue d'ensemble ».
+  const employeeTabs = (
     <Tabs value={employeeView} onValueChange={v => setEmployeeView(v as 'liste' | 'ensemble')}>
       <TabsList className="w-full">
         <TabsTrigger value="liste">Liste</TabsTrigger>
@@ -57,11 +59,11 @@ export const PersonsListScreen: React.FC = () => {
     </Tabs>
   )
 
-  if (activeTab === 'employes' && employeeView === 'ensemble') {
+  if (employeeView === 'ensemble') {
     return (
       <div className="space-y-4">
         {employeeTabs}
-        <EmployeesOverview />
+        {activeTab === 'employes' ? <EmployeesOverview /> : <PartnersOverview />}
       </div>
     )
   }

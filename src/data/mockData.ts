@@ -9,7 +9,8 @@ export interface Person {
   // For partners:
   owesMe?: number // Il me doit
   iOweHim?: number // Je lui dois
-  lastPaymentDate?: string
+  lastPaymentDate?: string // Son dernier versement reçu (jj/mm/aaaa)
+  lastPaidByMeDate?: string // Mon dernier versement à cette personne (jj/mm/aaaa)
   daysSinceLastPayment?: number
   // For employees:
   salary?: number // FCFA
@@ -152,6 +153,7 @@ export const INITIAL_PERSONS: Person[] = [
     owesMe: 145000,
     iOweHim: 60000,
     lastPaymentDate: "12/10/2026",
+    lastPaidByMeDate: "20/09/2026",
     daysSinceLastPayment: 5,
     notes: "Prend 2 sacs de farine par semaine, me livre des régimes de plantains.",
   },
@@ -176,6 +178,7 @@ export const INITIAL_PERSONS: Person[] = [
     owesMe: 0,
     iOweHim: 180000,
     lastPaymentDate: "10/10/2026",
+    lastPaidByMeDate: "25/08/2026",
     daysSinceLastPayment: 7,
     notes: "Facture bières et sucreries livrées le mercredi.",
   },
@@ -188,6 +191,7 @@ export const INITIAL_PERSONS: Person[] = [
     owesMe: 40000,
     iOweHim: 75000,
     lastPaymentDate: "14/10/2026",
+    lastPaidByMeDate: "03/10/2026",
     daysSinceLastPayment: 3,
     notes: "Prend du sucre Saint-Louis, fournit les miches de pain chaque matin.",
   },
@@ -224,6 +228,7 @@ export const INITIAL_PERSONS: Person[] = [
     owesMe: 0,
     iOweHim: 95000,
     lastPaymentDate: "01/10/2026",
+    lastPaidByMeDate: "11/09/2026",
     daysSinceLastPayment: 16,
     notes: "Paiement attendu à la fin du mois.",
   },
@@ -236,6 +241,7 @@ export const INITIAL_PERSONS: Person[] = [
     owesMe: 15000,
     iOweHim: 35000,
     lastPaymentDate: "15/10/2026",
+    lastPaidByMeDate: "08/10/2026",
     daysSinceLastPayment: 2,
     notes: "Livre 10 alvéoles tous les mardis.",
   },
