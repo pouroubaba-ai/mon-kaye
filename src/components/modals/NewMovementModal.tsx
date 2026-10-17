@@ -211,7 +211,46 @@ export const NewMovementModal: React.FC = () => {
         )}
 
         {/* 2. Quoi ? */}
-        {step === 'quoi' && person && (
+        {step === 'quoi' && person && kind === 'partner' && (
+          // Personnes : même disposition que la fiche. Deux colonnes, chacune sous son compteur,
+          // avec les deux gros boutons qui le font bouger. On regarde où va l'argent, on touche.
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
+            <p className="truncate text-sm text-muted-foreground">{person.name}</p>
+            <div className="grid grid-cols-2 gap-3">
+              {([
+                { title: 'Il me doit', value: person.owesMe || 0, tone: 'credit' as const, ops: OPS.partner.filter(o => o.tone === 'credit') },
+                { title: 'Je lui dois', value: person.iOweHim || 0, tone: 'debt' as const, ops: OPS.partner.filter(o => o.tone === 'debt') },
+              ]).map(col => (
+                <div key={col.title} className="flex flex-col gap-2">
+                  <div className="px-1">
+                    <p className="text-xs text-muted-foreground">{col.title}</p>
+                    <p className={cn('text-base font-semibold tabular-nums', col.tone === 'credit' ? 'text-credit' : 'text-debt')}>
+                      {formatFCFA(col.value)}
+                    </p>
+                  </div>
+                  {col.ops.map(o => (
+                    <button
+                      key={o.type}
+                      type="button"
+                      onClick={() => {
+                        setType(o.type)
+                        setStep('combien')
+                      }}
+                      className="flex min-h-24 flex-col items-start justify-between gap-3 rounded-xl border p-3 text-left transition-colors hover:bg-muted/50 active:scale-[0.98]"
+                    >
+                      <div className={cn('flex size-9 items-center justify-center rounded-lg bg-muted', o.tone === 'credit' ? 'text-credit' : 'text-debt')}>
+                        <o.Icon className="size-5" />
+                      </div>
+                      <span className="text-sm font-medium leading-tight">{o.label}</span>
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {step === 'quoi' && person && kind === 'employee' && (
           <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
             <p className="truncate text-sm text-muted-foreground">{person.name}</p>
             <div className="flex flex-col divide-y rounded-lg border">
