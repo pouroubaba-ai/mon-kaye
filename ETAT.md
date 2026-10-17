@@ -139,3 +139,4 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 - Cartes « Dernier versement reçu » (ceux qui me doivent) et « Dernier versement fait » (ceux à qui je dois) : total, nombre de personnes, montant et jours par personne, tri, « Voir plus ».
 - Pièces communes extraites dans src/components/overview-parts.tsx (choix de personne avec recherche, carte des jours).
 - Nouveau champ `lastPaidByMeDate` (mon dernier versement à une personne), mis à jour à chaque « Je lui ai versé ».
+- Vues d'ensemble (suite) : listes limitées à 5 avec « Tout voir » puis « Retour » ; chaque carte bascule Liste / Graphique (anneau : répartition du montant par rôle). Liste Personnes sans montants (nom, rôle, numéro), nombre de personnes, ordre alphabétique. Rôles des personnes de démonstration raccourcis en catégories (Client, Fournisseur, Client et fournisseur, Revendeuse).

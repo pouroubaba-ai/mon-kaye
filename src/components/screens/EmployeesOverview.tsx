@@ -64,12 +64,12 @@ export const EmployeesOverview: React.FC = () => {
 
   const advanceRows: DayRow[] = selected
     .filter(p => (p.advanceBalance || 0) > 0)
-    .map(p => ({ id: p.id, name: p.name, days: daysSince(p.lastAdvanceRepaymentDate) ?? 0, amount: p.advanceBalance || 0 }))
+    .map(p => ({ id: p.id, name: p.name, days: daysSince(p.lastAdvanceRepaymentDate) ?? 0, amount: p.advanceBalance || 0, role: p.role }))
     .sort((a, b) => b.days - a.days)
 
   const salaryRows: DayRow[] = selected
     .filter(p => p.status === 'actif' && (p.currentSalaryDue || 0) > 0)
-    .map(p => ({ id: p.id, name: p.name, days: daysSince(p.lastSalaryPaymentDate) ?? 0, amount: p.currentSalaryDue || 0 }))
+    .map(p => ({ id: p.id, name: p.name, days: daysSince(p.lastSalaryPaymentDate) ?? 0, amount: p.currentSalaryDue || 0, role: p.role }))
     .sort((a, b) => b.days - a.days)
 
   return (

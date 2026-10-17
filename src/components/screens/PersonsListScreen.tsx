@@ -3,12 +3,11 @@ import { useStore } from '@/data/store'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { EmployeesOverview } from '@/components/screens/EmployeesOverview'
 import { PartnersOverview } from '@/components/screens/PartnersOverview'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { formatFCFA } from '@/lib/utils'
-import { Search, UserCheck, PlusCircle, ArrowDownLeft, ArrowUpRight, Phone, Briefcase } from 'lucide-react'
+import { Search, Phone } from 'lucide-react'
 
 export const PersonsListScreen: React.FC = () => {
   const { persons, setSelectedPersonId, activeTab } = useStore()
@@ -41,12 +40,8 @@ export const PersonsListScreen: React.FC = () => {
 
     return true
   }).sort((a, b) => {
-    // Employés : ordre alphabétique (la liste n'affiche plus de montants)
-    if (activeTab === 'employes') return a.name.localeCompare(b.name, 'fr')
-    // Tri par défaut : plus gros montant en jeu
-    const maxA = Math.max(a.owesMe || 0, a.iOweHim || 0, a.currentSalaryDue || 0, a.advanceBalance || 0)
-    const maxB = Math.max(b.owesMe || 0, b.iOweHim || 0, b.currentSalaryDue || 0, b.advanceBalance || 0)
-    return maxB - maxA
+    // Ordre alphabétique : les listes n'affichent plus de montants (ils sont dans la vue d'ensemble)
+    return a.name.localeCompare(b.name, 'fr')
   })
 
   // Personnes et Employés : deux onglets, « Liste » et « Vue d'ensemble ».
@@ -120,11 +115,12 @@ export const PersonsListScreen: React.FC = () => {
         </div>
       )}
 
-      {activeTab === 'employes' && (
-        <p className="text-sm text-muted-foreground">
-          {filteredPersons.length} {filteredPersons.length > 1 ? 'employés' : 'employé'}
-        </p>
-      )}
+      <p className="text-sm text-muted-foreground">
+        {filteredPersons.length}{' '}
+        {activeTab === 'employes'
+          ? filteredPersons.length > 1 ? 'employés' : 'employé'
+          : filteredPersons.length > 1 ? 'personnes' : 'personne'}
+      </p>
 
       {/* Liste des personnes triée */}
       <div className="space-y-2.5">
@@ -140,7 +136,6 @@ export const PersonsListScreen: React.FC = () => {
         ) : (
           filteredPersons.map(p => {
             const isEmployee = p.type === 'employee'
-            const netPartner = (p.owesMe || 0) - (p.iOweHim || 0)
 
             return (
               <Card
@@ -166,75 +161,12 @@ export const PersonsListScreen: React.FC = () => {
                           </Badge>
                         )}
                       </div>
-                      {activeTab === 'employes' ? (
-                        <>
-                          {p.role && <p className="truncate text-xs text-muted-foreground">{p.role}</p>}
-                          <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
-                            <Phone className="size-3" /> {p.phone}
-                          </p>
-                        </>
-                      ) : (
-                        <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
-                          <Phone className="w-3 h-3" /> {p.phone}
-                          {p.role && <span>· {p.role}</span>}
-                        </p>
-                      )}
+                      {p.role && <p className="truncate text-xs text-muted-foreground">{p.role}</p>}
+                      <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
+                        <Phone className="size-3" /> {p.phone}
+                      </p>
                     </div>
                   </div>
-
-                  {/* Montants : uniquement dans Personnes (la liste Employés n'en affiche plus) */}
-                  {activeTab !== 'employes' && (
-                  <div className="text-right shrink-0">
-                    {!isEmployee ? (
-                      <div>
-                        {netPartner > 0 ? (
-                          <div className="flex items-center justify-end gap-2" title="Il me doit">
-                            <span className="flex size-6 items-center justify-center rounded-md bg-muted text-credit" aria-label="Il me doit">
-                              <ArrowDownLeft className="size-3.5" />
-                            </span>
-                            <span className="text-sm font-medium tabular-nums text-credit">{formatFCFA(netPartner)}</span>
-                          </div>
-                        ) : netPartner < 0 ? (
-                          <div className="flex items-center justify-end gap-2" title="Je lui dois">
-                            <span className="flex size-6 items-center justify-center rounded-md bg-muted text-debt" aria-label="Je lui dois">
-                              <ArrowUpRight className="size-3.5" />
-                            </span>
-                            <span className="text-sm font-medium tabular-nums text-debt">{formatFCFA(Math.abs(netPartner))}</span>
-                          </div>
-                        ) : (
-                          <Badge variant="outline" className="text-xs text-muted-foreground">
-                            Comptes soldés
-                          </Badge>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="flex flex-col gap-1">
-                        {(p.currentSalaryDue || 0) > 0 && (
-                          <div className="flex items-center justify-end gap-2" title="Salaire dû">
-                            <span className="flex size-6 items-center justify-center rounded-md bg-muted text-debt" aria-label="Salaire dû">
-                              <ArrowUpRight className="size-3.5" />
-                            </span>
-                            <span className="text-sm font-medium tabular-nums text-debt">{formatFCFA(p.currentSalaryDue || 0)}</span>
-                          </div>
-                        )}
-                        {(p.advanceBalance || 0) > 0 && (
-                          <div className="flex items-center justify-end gap-2" title="Avance à rendre">
-                            <span className="flex size-6 items-center justify-center rounded-md bg-muted text-credit" aria-label="Avance à rendre">
-                              <ArrowDownLeft className="size-3.5" />
-                            </span>
-                            <span className="text-sm font-medium tabular-nums text-credit">{formatFCFA(p.advanceBalance || 0)}</span>
-                          </div>
-                        )}
-                        {(p.currentSalaryDue || 0) === 0 && (p.advanceBalance || 0) === 0 && (
-                          <Badge variant="outline" className="text-xs text-muted-foreground">
-                            À jour
-                          </Badge>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  )}
-
                 </div>
               </Card>
             )

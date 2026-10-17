@@ -20,11 +20,11 @@ export const PartnersOverview: React.FC = () => {
 
   const owesMeRows: DayRow[] = selected
     .filter(p => (p.owesMe || 0) > 0)
-    .map(p => ({ id: p.id, name: p.name, days: daysSince(p.lastPaymentDate) ?? 0, amount: p.owesMe || 0 }))
+    .map(p => ({ id: p.id, name: p.name, days: daysSince(p.lastPaymentDate) ?? 0, amount: p.owesMe || 0, role: p.role }))
 
   const iOweRows: DayRow[] = selected
     .filter(p => (p.iOweHim || 0) > 0)
-    .map(p => ({ id: p.id, name: p.name, days: daysSince(p.lastPaidByMeDate) ?? 0, amount: p.iOweHim || 0 }))
+    .map(p => ({ id: p.id, name: p.name, days: daysSince(p.lastPaidByMeDate) ?? 0, amount: p.iOweHim || 0, role: p.role }))
 
   return (
     <div className="flex flex-col gap-4">

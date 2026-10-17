@@ -1,5 +1,6 @@
 import * as React from 'react'
-import { ArrowDownWideNarrow, ArrowUpDown, ArrowUpNarrowWide, Check, ChevronsUpDown } from 'lucide-react'
+import { ArrowDownWideNarrow, ArrowUpDown, ArrowUpNarrowWide, Check, ChevronsUpDown, List, PieChart as PieIcon } from 'lucide-react'
+import { Label, Pie, PieChart } from 'recharts'
 
 import type { Person } from '@/data/mockData'
 import { Button } from '@/components/ui/button'
@@ -7,15 +8,18 @@ import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/componen
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger } from '@/components/ui/select'
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn, formatFCFA } from '@/lib/utils'
 
 // Pièces communes aux vues d'ensemble Employés et Personnes :
 // - PersonPicker : choix d'une personne avec recherche (modèle shadcn « Combobox ») ;
 // - DaysCard : liste « nom + montant + barre des jours », tri, total, « Voir plus ».
-// Listes longues : au-delà de 7 lignes, on montre les 5 premières et un bouton « Voir plus ».
+// Listes longues : au-delà de 5 lignes, on montre les 5 premières, un bouton « Tout voir »,
+// puis « Retour » pour revenir aux 5 premières.
+// Chaque carte bascule entre « Liste » et « Graphique » (anneau : répartition du montant par rôle).
 
 const SHOW_FIRST = 5
-const LONG_LIST = 7
 
 export const countLabel = (n: number, unit: [string, string] = ['employé', 'employés']) => `${n} ${n > 1 ? unit[1] : unit[0]}`
 
@@ -68,7 +72,7 @@ export function PersonPicker({
   )
 }
 
-export type DayRow = { id: string; name: string; days: number; amount: number }
+export type DayRow = { id: string; name: string; days: number; amount: number; role?: string }
 
 // Liste en barres : nom + montant sur une ligne, barre des jours en dessous.
 type SortKey = 'days-desc' | 'days-asc' | 'amount-desc' | 'amount-asc'
@@ -96,7 +100,8 @@ export function DaysCard({
   const [sort, setSort] = React.useState<SortKey>('days-desc')
   const [field, dir] = sort.split('-') as ['days' | 'amount', 'asc' | 'desc']
   const rows = [...rawRows].sort((a, b) => (dir === 'asc' ? a[field] - b[field] : b[field] - a[field]))
-  const long = rows.length > LONG_LIST
+  const [mode, setMode] = React.useState<'liste' | 'graphique'>('liste')
+  const long = rows.length > SHOW_FIRST
   const shown = long && !expanded ? rows.slice(0, SHOW_FIRST) : rows
   const max = Math.max(1, ...rows.map(r => r.days))
   return (
@@ -112,8 +117,9 @@ export function DaysCard({
             {showCount && <span className="text-xs text-muted-foreground">{countLabel(rawRows.length, unit)}</span>}
           </div>
         )}
-        {rows.length > 1 && (
-          <CardAction>
+        {rows.length > 0 && (
+          <CardAction className="flex items-center gap-2">
+            {mode === 'liste' && rows.length > 1 && (
             <Select value={sort} onValueChange={v => setSort(v as SortKey)}>
               <SelectTrigger size="sm" aria-label="Trier">
                 <ArrowUpDown className="size-3.5" />
@@ -133,12 +139,24 @@ export function DaysCard({
                 </SelectGroup>
               </SelectContent>
             </Select>
+            )}
+            <Tabs value={mode} onValueChange={v => setMode(v as 'liste' | 'graphique')}>
+              <TabsList>
+                <TabsTrigger value="liste" aria-label="Liste">
+                  <List />
+                </TabsTrigger>
+                <TabsTrigger value="graphique" aria-label="Graphique">
+                  <PieIcon />
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
           </CardAction>
         )}
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {rows.length === 0 && <p className="text-sm text-muted-foreground">{empty}</p>}
-        {shown.map(r => (
+        {mode === 'graphique' && rows.length > 0 && <RoleDonut rows={rawRows} tone={tone} unit={unit} />}
+        {mode === 'liste' && shown.map(r => (
           <div key={r.id} className="flex flex-col gap-1.5">
             <div className="flex items-baseline justify-between gap-2 text-sm">
               <span className="truncate">{r.name}</span>
@@ -157,9 +175,9 @@ export function DaysCard({
             </div>
           </div>
         ))}
-        {long && (
+        {mode === 'liste' && long && (
           <Button variant="ghost" size="sm" className="self-center text-muted-foreground" onClick={() => setExpanded(!expanded)}>
-            {expanded ? 'Voir moins' : `Voir plus (${rows.length - SHOW_FIRST})`}
+            {expanded ? 'Retour' : `Tout voir (${rows.length})`}
           </Button>
         )}
       </CardContent>
@@ -167,3 +185,72 @@ export function DaysCard({
   )
 }
 
+
+// Anneau : répartition du montant de la carte entre les rôles (Client, Fournisseur…).
+// Plusieurs nuances de la couleur de la carte (vert = on me doit, orange = je dois).
+const SHADES = [100, 62, 38, 22, 14, 9]
+
+function RoleDonut({ rows, tone, unit }: { rows: DayRow[]; tone: 'credit' | 'debt'; unit: [string, string] }) {
+  const base = tone === 'credit' ? 'var(--color-credit)' : 'var(--color-debt)'
+  const groups = new Map<string, { amount: number; people: number }>()
+  for (const r of rows) {
+    const key = r.role?.trim() || 'Sans rôle'
+    const g = groups.get(key) ?? { amount: 0, people: 0 }
+    g.amount += r.amount
+    g.people += 1
+    groups.set(key, g)
+  }
+  const slices = [...groups.entries()]
+    .sort((a, b) => b[1].amount - a[1].amount)
+    .map(([label, g], i) => ({
+      key: `r${i}`,
+      label,
+      value: g.amount,
+      people: g.people,
+      color: `color-mix(in oklch, ${base} ${SHADES[Math.min(i, SHADES.length - 1)]}%, transparent)`,
+    }))
+  const total = slices.reduce((a, s) => a + s.value, 0)
+  const config = Object.fromEntries(slices.map(s => [s.key, { label: s.label, color: s.color }])) satisfies ChartConfig
+  const data = slices.map(s => ({ key: s.key, value: s.value, fill: `var(--color-${s.key})` }))
+
+  return (
+    <div className="flex flex-col gap-4">
+      <ChartContainer config={config} className="mx-auto aspect-square h-[180px]">
+        <PieChart>
+          <ChartTooltip cursor={false} content={<ChartTooltipContent formatter={formatFCFA} />} />
+          <Pie data={data} dataKey="value" nameKey="key" innerRadius={58} outerRadius={84} strokeWidth={3} animationDuration={700}>
+            <Label
+              content={({ viewBox }) =>
+                viewBox && 'cx' in viewBox && 'cy' in viewBox ? (
+                  <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
+                    <tspan x={viewBox.cx} y={viewBox.cy} className="fill-foreground text-2xl font-semibold">
+                      {slices.length}
+                    </tspan>
+                    <tspan x={viewBox.cx} y={(viewBox.cy || 0) + 20} className="fill-muted-foreground text-xs">
+                      {slices.length > 1 ? 'rôles' : 'rôle'}
+                    </tspan>
+                  </text>
+                ) : null
+              }
+            />
+          </Pie>
+        </PieChart>
+      </ChartContainer>
+      <div className="flex flex-col gap-2.5">
+        {slices.map(s => (
+          <div key={s.key} className="flex items-center gap-2 text-sm">
+            <span className="size-2.5 shrink-0 rounded-full" style={{ background: s.color }} />
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="truncate text-muted-foreground">{s.label}</span>
+              <span className="text-xs text-muted-foreground/70">{countLabel(s.people, unit)}</span>
+            </span>
+            <span className="font-medium tabular-nums">{formatFCFA(s.value)}</span>
+            <span className="w-10 text-right text-xs tabular-nums text-muted-foreground">
+              {total > 0 ? Math.round((s.value / total) * 100) : 0} %
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
