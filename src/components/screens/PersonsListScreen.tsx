@@ -7,12 +7,14 @@ import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Search, Phone } from 'lucide-react'
+import { Search, Phone, Plus } from 'lucide-react'
+import { PersonFormDialog } from '@/components/person-header'
 
 export const PersonsListScreen: React.FC = () => {
   const { persons, setSelectedPersonId, activeTab } = useStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [employeeView, setEmployeeView] = useState<'liste' | 'ensemble'>('liste')
+  const [adding, setAdding] = useState(false)
 
   // Filter list
   const filteredPersons = persons.filter(p => {
@@ -67,12 +69,23 @@ export const PersonsListScreen: React.FC = () => {
       </div>
 
 
-      <p className="text-sm text-muted-foreground">
-        {filteredPersons.length}{' '}
-        {activeTab === 'employes'
-          ? filteredPersons.length > 1 ? 'employés' : 'employé'
-          : filteredPersons.length > 1 ? 'personnes' : 'personne'}
-      </p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm text-muted-foreground">
+          {filteredPersons.length}{' '}
+          {activeTab === 'employes'
+            ? filteredPersons.length > 1 ? 'employés' : 'employé'
+            : filteredPersons.length > 1 ? 'personnes' : 'personne'}
+        </p>
+        <Button size="sm" onClick={() => setAdding(true)}>
+          <Plus /> Ajouter
+        </Button>
+      </div>
+      <PersonFormDialog
+        type={activeTab === 'employes' ? 'employee' : 'partner'}
+        open={adding}
+        onOpenChange={setAdding}
+        onCreated={id => setSelectedPersonId(id)}
+      />
 
       {/* Liste des personnes triée */}
       <div className="space-y-2.5">

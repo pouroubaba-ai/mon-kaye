@@ -51,28 +51,42 @@ export function PersonHeader({ person, badge }: { person: Person; badge?: React.
           </Button>
         </CardContent>
       </Card>
-      <EditPersonDialog person={person} open={editing} onOpenChange={setEditing} />
+      <PersonFormDialog person={person} open={editing} onOpenChange={setEditing} />
     </>
   )
 }
 
-function EditPersonDialog({ person, open, onOpenChange }: { person: Person; open: boolean; onOpenChange: (o: boolean) => void }) {
-  const { updatePerson } = useStore()
-  const isEmployee = person.type === 'employee'
-  const [name, setName] = React.useState(person.name)
-  const [phone, setPhone] = React.useState(person.phone)
-  const [role, setRole] = React.useState(person.role ?? '')
-  const [salary, setSalary] = React.useState(String(person.salary ?? ''))
-  const [dueDay, setDueDay] = React.useState(String(person.dueDay ?? ''))
+// Fenêtre « Modifier » (person fourni) ou « Ajouter » (type fourni, champs vides).
+export function PersonFormDialog({
+  person,
+  type,
+  open,
+  onOpenChange,
+  onCreated,
+}: {
+  person?: Person
+  type?: 'partner' | 'employee'
+  open: boolean
+  onOpenChange: (o: boolean) => void
+  onCreated?: (id: string) => void
+}) {
+  const { updatePerson, addPerson } = useStore()
+  const kind = person?.type ?? type ?? 'partner'
+  const isEmployee = kind === 'employee'
+  const [name, setName] = React.useState('')
+  const [phone, setPhone] = React.useState('')
+  const [role, setRole] = React.useState('')
+  const [salary, setSalary] = React.useState('')
+  const [dueDay, setDueDay] = React.useState('')
 
-  // À chaque ouverture, on repart des valeurs actuelles.
+  // À chaque ouverture : les valeurs actuelles (modifier) ou des champs vides (ajouter).
   React.useEffect(() => {
     if (!open) return
-    setName(person.name)
-    setPhone(person.phone)
-    setRole(person.role ?? '')
-    setSalary(String(person.salary ?? ''))
-    setDueDay(String(person.dueDay ?? ''))
+    setName(person?.name ?? '')
+    setPhone(person?.phone ?? '')
+    setRole(person?.role ?? '')
+    setSalary(person?.salary ? String(person.salary) : '')
+    setDueDay(person?.dueDay ? String(person.dueDay) : '')
   }, [open, person])
 
   const day = parseInt(dueDay, 10)
@@ -80,21 +94,29 @@ function EditPersonDialog({ person, open, onOpenChange }: { person: Person; open
 
   const save = () => {
     if (!valid) return
-    updatePerson(person.id, {
+    const data = {
       name: name.trim(),
       phone: phone.trim(),
       role: role.trim() || undefined,
       ...(isEmployee ? { salary: parseInt(salary, 10), dueDay: day } : {}),
-    })
+    }
+    if (person) {
+      updatePerson(person.id, data)
+    } else {
+      const id = addPerson({ type: kind, ...data })
+      onCreated?.(id)
+    }
     onOpenChange(false)
   }
+
+  const title = person ? 'Modifier' : isEmployee ? 'Nouvel employé' : 'Nouvelle personne'
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Modifier</DialogTitle>
-          <DialogDescription className="sr-only">Modifier les informations</DialogDescription>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription className="sr-only">{title}</DialogDescription>
         </DialogHeader>
         <form
           className="flex flex-col gap-4"
@@ -105,11 +127,11 @@ function EditPersonDialog({ person, open, onOpenChange }: { person: Person; open
         >
           <div className="grid gap-2">
             <Label htmlFor="edit-name">Nom</Label>
-            <Input id="edit-name" value={name} onChange={e => setName(e.target.value)} />
+            <Input id="edit-name" value={name} onChange={e => setName(e.target.value)} autoFocus={!person} />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="edit-phone">Numéro</Label>
-            <Input id="edit-phone" type="tel" inputMode="tel" value={phone} onChange={e => setPhone(e.target.value)} />
+            <Input id="edit-phone" type="tel" inputMode="tel" placeholder="+242 06 …" value={phone} onChange={e => setPhone(e.target.value)} />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="edit-role">{isEmployee ? 'Poste' : 'Rôle'}</Label>

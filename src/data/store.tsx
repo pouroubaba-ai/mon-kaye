@@ -69,6 +69,8 @@ interface StoreContextType {
   exportCSV: () => void
   // Modifier les informations d'une personne (nom, numéro, rôle, salaire…)
   updatePerson: (id: string, changes: Partial<Pick<Person, 'name' | 'phone' | 'role' | 'salary' | 'dueDay'>>) => void
+  // Ajouter une personne ou un employé ; renvoie son identifiant
+  addPerson: (data: { type: 'partner' | 'employee'; name: string; phone: string; role?: string; salary?: number; dueDay?: number }) => string
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined)
@@ -420,6 +422,31 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }
 
+  const addPerson: StoreContextType['addPerson'] = data => {
+    const id = `${data.type === 'employee' ? 'emp' : 'part'}-${Date.now()}`
+    const today = new Date()
+    const startDate = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`
+    const person: Person =
+      data.type === 'employee'
+        ? {
+            id,
+            type: 'employee',
+            name: data.name,
+            phone: data.phone,
+            role: data.role,
+            salary: data.salary,
+            dueDay: data.dueDay,
+            frequency: 'mensuel',
+            startDate,
+            status: 'actif',
+            currentSalaryDue: 0,
+            advanceBalance: 0,
+          }
+        : { id, type: 'partner', name: data.name, phone: data.phone, role: data.role, owesMe: 0, iOweHim: 0 }
+    setPersons(prev => [...prev, person])
+    return id
+  }
+
   const exportCSV = () => {
     let csv = "ID;Type;Personne;Montant FCFA;Date;Moyen Paiement;Annule;Note\n"
     movements.forEach(m => {
@@ -484,6 +511,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         },
         exportCSV,
         updatePerson,
+        addPerson,
       }}
     >
       {children}
