@@ -1,6 +1,6 @@
 import React from 'react'
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
-import { Check, ChevronsUpDown } from 'lucide-react'
+import { ArrowUpDown, Check, ChevronsUpDown } from 'lucide-react'
 
 import { useStore } from '@/data/store'
 import type { Person } from '@/data/mockData'
@@ -10,7 +10,7 @@ import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/componen
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { cn, formatFCFA } from '@/lib/utils'
 
@@ -71,8 +71,27 @@ function EmployeePicker({ employees, value, onChange }: { employees: Person[]; v
 type DayRow = { id: string; name: string; days: number; amount: number }
 
 // Liste en barres : nom + montant sur une ligne, barre des jours en dessous.
-function DaysCard({ title, rows, tone, amountLabel, empty }: { title: string; rows: DayRow[]; tone: 'credit' | 'debt'; amountLabel: string; empty: string }) {
+type SortKey = 'days-desc' | 'days-asc' | 'amount-desc' | 'amount-asc'
+
+function DaysCard({
+  title,
+  rows: rawRows,
+  tone,
+  amountLabel,
+  empty,
+  daysSection,
+}: {
+  title: string
+  rows: DayRow[]
+  tone: 'credit' | 'debt'
+  amountLabel: string
+  empty: string
+  daysSection: string
+}) {
   const [expanded, setExpanded] = React.useState(false)
+  const [sort, setSort] = React.useState<SortKey>('days-desc')
+  const [field, dir] = sort.split('-') as ['days' | 'amount', 'asc' | 'desc']
+  const rows = [...rawRows].sort((a, b) => (dir === 'asc' ? a[field] - b[field] : b[field] - a[field]))
   const long = rows.length > LONG_LIST
   const shown = long && !expanded ? rows.slice(0, SHOW_FIRST) : rows
   const max = Math.max(1, ...rows.map(r => r.days))
@@ -80,6 +99,29 @@ function DaysCard({ title, rows, tone, amountLabel, empty }: { title: string; ro
     <Card>
       <CardHeader>
         <CardTitle className="text-sm font-normal text-muted-foreground">{title}</CardTitle>
+        {rows.length > 1 && (
+          <CardAction>
+            <Select value={sort} onValueChange={v => setSort(v as SortKey)}>
+              <SelectTrigger size="sm" aria-label="Trier">
+                <ArrowUpDown className="size-3.5" />
+                <span>Trier</span>
+              </SelectTrigger>
+              <SelectContent position="popper" align="end">
+                <SelectGroup>
+                  <SelectLabel>{daysSection}</SelectLabel>
+                  <SelectItem value="days-asc">Du plus petit au plus grand</SelectItem>
+                  <SelectItem value="days-desc">Du plus grand au plus petit</SelectItem>
+                </SelectGroup>
+                <SelectSeparator />
+                <SelectGroup>
+                  <SelectLabel>Montant</SelectLabel>
+                  <SelectItem value="amount-asc">Du plus petit au plus grand</SelectItem>
+                  <SelectItem value="amount-desc">Du plus grand au plus petit</SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </CardAction>
+        )}
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {rows.length === 0 && <p className="text-sm text-muted-foreground">{empty}</p>}
@@ -210,6 +252,7 @@ export const EmployeesOverview: React.FC = () => {
 
       <DaysCard
         title="Avances : jours depuis le dernier remboursement"
+        daysSection="Dernier remboursement"
         rows={advanceRows}
         tone="credit"
         amountLabel="Avance à rendre"
@@ -217,6 +260,7 @@ export const EmployeesOverview: React.FC = () => {
       />
       <DaysCard
         title="Salaires dus : jours depuis le dernier versement"
+        daysSection="Dernier versement"
         rows={salaryRows}
         tone="debt"
         amountLabel="Salaire que je dois"
