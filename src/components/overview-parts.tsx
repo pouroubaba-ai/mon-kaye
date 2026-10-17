@@ -106,40 +106,11 @@ export function DaysCard({
   const max = Math.max(1, ...rows.map(r => r.days))
   return (
     <Card>
+      {/* 1. Titre + bascule Liste / Graphique */}
       <CardHeader>
         <CardTitle className="text-sm font-normal text-muted-foreground">{title}</CardTitle>
-        {totalLabel && rows.length > 0 && (
-          <div className="flex flex-col gap-1 pt-2">
-            <span className="text-xs text-muted-foreground">{totalLabel}</span>
-            <span className={cn('text-lg font-semibold tabular-nums', tone === 'credit' ? 'text-credit' : 'text-debt')}>
-              {formatFCFA(rawRows.reduce((a, r) => a + r.amount, 0))}
-            </span>
-            {showCount && <span className="text-xs text-muted-foreground">{countLabel(rawRows.length, unit)}</span>}
-          </div>
-        )}
         {rows.length > 0 && (
-          <CardAction className="flex items-center gap-2">
-            {mode === 'liste' && rows.length > 1 && (
-            <Select value={sort} onValueChange={v => setSort(v as SortKey)}>
-              <SelectTrigger size="sm" aria-label="Trier">
-                <ArrowUpDown className="size-3.5" />
-                <span>Trier</span>
-              </SelectTrigger>
-              <SelectContent position="popper" align="end">
-                <SelectGroup>
-                  <SelectLabel>Jours</SelectLabel>
-                  <SelectItem value="days-asc"><ArrowUpNarrowWide /> Croissant</SelectItem>
-                  <SelectItem value="days-desc"><ArrowDownWideNarrow /> Décroissant</SelectItem>
-                </SelectGroup>
-                <SelectSeparator />
-                <SelectGroup>
-                  <SelectLabel>Montant</SelectLabel>
-                  <SelectItem value="amount-asc"><ArrowUpNarrowWide /> Croissant</SelectItem>
-                  <SelectItem value="amount-desc"><ArrowDownWideNarrow /> Décroissant</SelectItem>
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-            )}
+          <CardAction>
             <Tabs value={mode} onValueChange={v => setMode(v as 'liste' | 'graphique')}>
               <TabsList>
                 <TabsTrigger value="liste" aria-label="Liste">
@@ -154,6 +125,44 @@ export function DaysCard({
         )}
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        {/* 2. Le total, en grand */}
+        {totalLabel && rows.length > 0 && (
+          <div className="flex flex-col gap-0.5">
+            <span className="text-xs text-muted-foreground">{totalLabel}</span>
+            <span className={cn('text-2xl font-semibold tabular-nums', tone === 'credit' ? 'text-credit' : 'text-debt')}>
+              {formatFCFA(rawRows.reduce((a, r) => a + r.amount, 0))}
+            </span>
+          </div>
+        )}
+
+        {/* 3. Barre fine : nombre de personnes à gauche, tri à droite */}
+        {rows.length > 0 && (showCount || (mode === 'liste' && rows.length > 1)) && (
+          <div className="flex min-h-8 items-center justify-between gap-2 border-t pt-3">
+            <span className="text-xs text-muted-foreground">{showCount ? countLabel(rawRows.length, unit) : ''}</span>
+            {mode === 'liste' && rows.length > 1 && (
+              <Select value={sort} onValueChange={v => setSort(v as SortKey)}>
+                <SelectTrigger size="sm" aria-label="Trier" className="h-7 gap-1 border-0 bg-transparent px-2 text-xs text-muted-foreground shadow-none dark:bg-transparent">
+                  <ArrowUpDown className="size-3.5" />
+                  <span>Trier</span>
+                </SelectTrigger>
+                <SelectContent position="popper" align="end">
+                  <SelectGroup>
+                    <SelectLabel>Jours</SelectLabel>
+                    <SelectItem value="days-asc"><ArrowUpNarrowWide /> Croissant</SelectItem>
+                    <SelectItem value="days-desc"><ArrowDownWideNarrow /> Décroissant</SelectItem>
+                  </SelectGroup>
+                  <SelectSeparator />
+                  <SelectGroup>
+                    <SelectLabel>Montant</SelectLabel>
+                    <SelectItem value="amount-asc"><ArrowUpNarrowWide /> Croissant</SelectItem>
+                    <SelectItem value="amount-desc"><ArrowDownWideNarrow /> Décroissant</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+        )}
+
         {rows.length === 0 && <p className="text-sm text-muted-foreground">{empty}</p>}
         {mode === 'graphique' && rows.length > 0 && <RoleDonut rows={rawRows} tone={tone} unit={unit} />}
         {mode === 'liste' && shown.map(r => (

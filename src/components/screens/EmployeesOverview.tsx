@@ -143,6 +143,8 @@ export const EmployeesOverview: React.FC = () => {
       />
       <DaysCard
         title="Dernier versement"
+        totalLabel="Salaires dus"
+        showCount={who === 'tous'}
         rows={salaryRows}
         tone="debt"
         amountLabel="Salaire que je dois"
