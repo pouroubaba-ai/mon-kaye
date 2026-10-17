@@ -1,6 +1,6 @@
 import React from 'react'
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
-import { ArrowUpDown, Check, ChevronsUpDown } from 'lucide-react'
+import { ArrowDownWideNarrow, ArrowUpDown, ArrowUpNarrowWide, Check, ChevronsUpDown } from 'lucide-react'
 
 import { useStore } from '@/data/store'
 import type { Person } from '@/data/mockData'
@@ -79,14 +79,12 @@ function DaysCard({
   tone,
   amountLabel,
   empty,
-  daysSection,
 }: {
   title: string
   rows: DayRow[]
   tone: 'credit' | 'debt'
   amountLabel: string
   empty: string
-  daysSection: string
 }) {
   const [expanded, setExpanded] = React.useState(false)
   const [sort, setSort] = React.useState<SortKey>('days-desc')
@@ -108,15 +106,15 @@ function DaysCard({
               </SelectTrigger>
               <SelectContent position="popper" align="end">
                 <SelectGroup>
-                  <SelectLabel>{daysSection}</SelectLabel>
-                  <SelectItem value="days-asc">Du plus petit au plus grand</SelectItem>
-                  <SelectItem value="days-desc">Du plus grand au plus petit</SelectItem>
+                  <SelectLabel>Jours</SelectLabel>
+                  <SelectItem value="days-asc"><ArrowUpNarrowWide /> Croissant</SelectItem>
+                  <SelectItem value="days-desc"><ArrowDownWideNarrow /> Décroissant</SelectItem>
                 </SelectGroup>
                 <SelectSeparator />
                 <SelectGroup>
                   <SelectLabel>Montant</SelectLabel>
-                  <SelectItem value="amount-asc">Du plus petit au plus grand</SelectItem>
-                  <SelectItem value="amount-desc">Du plus grand au plus petit</SelectItem>
+                  <SelectItem value="amount-asc"><ArrowUpNarrowWide /> Croissant</SelectItem>
+                  <SelectItem value="amount-desc"><ArrowDownWideNarrow /> Décroissant</SelectItem>
                 </SelectGroup>
               </SelectContent>
             </Select>
@@ -251,16 +249,14 @@ export const EmployeesOverview: React.FC = () => {
       </Card>
 
       <DaysCard
-        title="Avances : jours depuis le dernier remboursement"
-        daysSection="Dernier remboursement"
+        title="Dernier remboursement"
         rows={advanceRows}
         tone="credit"
         amountLabel="Avance à rendre"
         empty="Aucune avance en cours."
       />
       <DaysCard
-        title="Salaires dus : jours depuis le dernier versement"
-        daysSection="Dernier versement"
+        title="Dernier versement"
         rows={salaryRows}
         tone="debt"
         amountLabel="Salaire que je dois"
