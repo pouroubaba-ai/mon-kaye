@@ -180,7 +180,9 @@ export function DaysCard({
                   style={{ width: `${Math.max(4, (r.days / max) * 100)}%` }}
                 />
               </div>
-              <span className="w-12 shrink-0 text-right text-xs tabular-nums text-muted-foreground">{r.days} j</span>
+              <span className="w-16 shrink-0 text-right text-xs tabular-nums text-muted-foreground" title="Depuis le dernier versement">
+                il y a {r.days} j
+              </span>
             </div>
           </div>
         ))}

@@ -133,8 +133,8 @@ export const EmployeesOverview: React.FC = () => {
       </Card>
 
       <DaysCard
-        title="Dernier remboursement"
-        totalLabel="Avances à rendre"
+        title="Avances à rendre"
+        totalLabel="Total"
         showCount={who === 'tous'}
         rows={advanceRows}
         tone="credit"
@@ -142,8 +142,8 @@ export const EmployeesOverview: React.FC = () => {
         empty="Aucune avance en cours."
       />
       <DaysCard
-        title="Dernier versement"
-        totalLabel="Salaires dus"
+        title="Salaires dus"
+        totalLabel="Total"
         showCount={who === 'tous'}
         rows={salaryRows}
         tone="debt"

@@ -37,21 +37,21 @@ export const PartnersOverview: React.FC = () => {
         emptyText="Aucune personne trouvée."
       />
       <DaysCard
-        title="Dernier versement reçu"
+        title="Ils me doivent"
         rows={owesMeRows}
         tone="credit"
         amountLabel="Ce qu'il me doit"
-        totalLabel="On me doit"
+        totalLabel="Total"
         showCount={showCount}
         unit={PEOPLE}
         empty="Personne ne vous doit d'argent."
       />
       <DaysCard
-        title="Dernier versement fait"
+        title="Je leur dois"
         rows={iOweRows}
         tone="debt"
         amountLabel="Ce que je lui dois"
-        totalLabel="Je dois"
+        totalLabel="Total"
         showCount={showCount}
         unit={PEOPLE}
         empty="Vous ne devez rien à personne."
