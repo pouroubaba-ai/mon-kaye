@@ -8,6 +8,10 @@ import { formatFCFA } from '@/lib/utils'
 // une barre déjà versé / reste, la légende, puis le total.
 // Utilisée sur la fiche d'une personne et sur la fiche d'un employé.
 
+// « il y a 12 j », « aujourd'hui », « hier » ; rien si on ne sait pas.
+const ago = (d?: number | null) =>
+  d === undefined || d === null ? null : d === 0 ? "aujourd'hui" : d === 1 ? 'hier' : `il y a ${d} j`
+
 export function BalanceCard({
   title,
   Icon,
@@ -15,6 +19,8 @@ export function BalanceCard({
   remaining,
   paid,
   note,
+  totalDays,
+  paidDays,
 }: {
   title: string
   Icon: React.ComponentType<{ className?: string }>
@@ -22,6 +28,9 @@ export function BalanceCard({
   remaining: number
   paid: number
   note?: React.ReactNode
+  // Nombre de jours depuis la dernière hausse du total (dernier crédit) et depuis le dernier versement
+  totalDays?: number | null
+  paidDays?: number | null
 }) {
   // En grand : ce qui reste. Dessous : la barre, puis le total et le déjà versé.
   const total = remaining + paid
@@ -50,16 +59,22 @@ export function BalanceCard({
           {remaining > 0 && <div className="h-full flex-1 rounded-full" style={{ background: light }} />}
           {total === 0 && <div className="h-full flex-1 rounded-full bg-muted" />}
         </div>
-        <div className="flex items-center justify-between gap-2 text-xs whitespace-nowrap min-[360px]:text-sm">
-          <span className="flex items-center gap-2">
-            <span className="size-2 rounded-full" style={{ background: light }} />
-            <span className="text-muted-foreground">Total</span>
-            <span className="tabular-nums">{formatFCFA(total)}</span>
+        <div className="flex items-start justify-between gap-2 text-xs whitespace-nowrap min-[360px]:text-sm">
+          <span className="flex flex-col gap-0.5">
+            <span className="flex items-center gap-2">
+              <span className="size-2 rounded-full" style={{ background: light }} />
+              <span className="text-muted-foreground">Total</span>
+              <span className="tabular-nums">{formatFCFA(total)}</span>
+            </span>
+            {total > 0 && ago(totalDays) && <span className="pl-4 text-xs text-muted-foreground/70">{ago(totalDays)}</span>}
           </span>
-          <span className="flex items-center gap-2">
-            <span className="size-2 rounded-full" style={{ background: color }} />
-            <span className="text-muted-foreground">Versé</span>
-            <span className="tabular-nums">{formatFCFA(paid)}</span>
+          <span className="flex flex-col items-end gap-0.5">
+            <span className="flex items-center gap-2">
+              <span className="size-2 rounded-full" style={{ background: color }} />
+              <span className="text-muted-foreground">Versé</span>
+              <span className="tabular-nums">{formatFCFA(paid)}</span>
+            </span>
+            {paid > 0 && ago(paidDays) && <span className="text-xs text-muted-foreground/70">{ago(paidDays)}</span>}
           </span>
         </div>
         {note && <p className="text-xs text-muted-foreground">{note}</p>}

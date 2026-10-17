@@ -7,6 +7,7 @@ import { MovementHistory } from '@/components/movement-history'
 import { PersonHeader } from '@/components/person-header'
 import { BalanceCard } from '@/components/balance-card'
 import { formatFCFA } from '@/lib/utils'
+import { daysSince } from '@/data/payHistory'
 
 // Fiche d'une personne, inspirée des cartes « Payroll » :
 // - bandeau en haut, seulement si chacun doit quelque chose à l'autre : qui doit à qui, au net ;
@@ -27,6 +28,17 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
   const sumOf = (t: string) => partnerMovements.filter(m => m.type === t && !m.isCancelled).reduce((a, m) => a + m.amount, 0)
   const paidToMe = sumOf('il_m_a_verse')
   const paidByMe = sumOf('je_lui_ai_verse')
+  // Date la plus récente d'un type d'opération (jj/mm/aaaa), sinon la date gardée sur la fiche.
+  const toTime = (d: string) => {
+    const [dd, mm, yy] = d.split('/').map(Number)
+    return new Date(yy, mm - 1, dd).getTime()
+  }
+  const lastDateOf = (t: string, fallback?: string) => {
+    const dates = partnerMovements.filter(m => m.type === t && !m.isCancelled).map(m => m.date)
+    if (!dates.length) return fallback
+    return dates.sort((a, b) => toTime(b) - toTime(a))[0]
+  }
+  const days = (d?: string) => (d ? daysSince(d) : null)
 
   return (
     <div className="flex flex-col gap-4">
@@ -54,8 +66,24 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
       )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <BalanceCard title="Il me doit" Icon={ArrowDownLeft} tone="credit" remaining={owesMe} paid={paidToMe} />
-        <BalanceCard title="Je lui dois" Icon={ArrowUpRight} tone="debt" remaining={iOweHim} paid={paidByMe} />
+        <BalanceCard
+          title="Il me doit"
+          Icon={ArrowDownLeft}
+          tone="credit"
+          remaining={owesMe}
+          paid={paidToMe}
+          totalDays={days(lastDateOf('il_a_pris_credit'))}
+          paidDays={days(lastDateOf('il_m_a_verse', partner.lastPaymentDate))}
+        />
+        <BalanceCard
+          title="Je lui dois"
+          Icon={ArrowUpRight}
+          tone="debt"
+          remaining={iOweHim}
+          paid={paidByMe}
+          totalDays={days(lastDateOf('j_ai_pris_credit'))}
+          paidDays={days(lastDateOf('je_lui_ai_verse', partner.lastPaidByMeDate))}
+        />
       </div>
 
       <Button size="lg" className="h-12" onClick={() => openNewMovement(partner.id)}>
