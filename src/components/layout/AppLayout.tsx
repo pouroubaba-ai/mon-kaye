@@ -20,8 +20,15 @@ const TITLES: Record<Tab, string> = {
 // Mise en page : barre latérale shadcn (ordinateur, tablette) + barre du bas à 4 onglets
 // et un seul bouton « + » (téléphone). Une seule entrée « nouveau mouvement » par appareil.
 export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { activeTab, setActiveTab, setSelectedPersonId, openNewMovement, theme, toggleTheme, lockApp } =
+  const { shop, activeTab, selectedPersonId, setActiveTab, setSelectedPersonId, openNewMovement, theme, toggleTheme, lockApp } =
     useStore()
+
+  // Chaque changement de page (ou ouverture / fermeture d'une fiche) revient tout en haut.
+  React.useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+  }, [activeTab, selectedPersonId])
+
+  const shopName = shop.name?.trim()
 
   const go = (tab: Tab) => {
     setSelectedPersonId(null)
@@ -44,7 +51,12 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
         <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4">
           <SidebarTrigger className="-ml-1 hidden md:inline-flex" />
           <Separator orientation="vertical" className="mr-2 hidden data-[orientation=vertical]:h-4 md:block" />
-          <h1 className="flex-1 truncate text-lg font-semibold tracking-tight md:text-base">{TITLES[activeTab]}</h1>
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-lg leading-tight font-semibold tracking-tight md:text-base">{TITLES[activeTab]}</h1>
+            {activeTab === 'accueil' && shopName && (
+              <p className="truncate text-xs leading-tight text-muted-foreground">{shopName}</p>
+            )}
+          </div>
           <div className="flex shrink-0 items-center md:hidden">
             <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Changer de thème">
               {theme === 'dark' ? <Sun /> : <Moon />}
