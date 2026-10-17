@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import {
   Card,
   CardAction,
+  CardContent,
   CardDescription,
   CardFooter,
   CardHeader,
@@ -15,8 +16,67 @@ import {
 import { MovementHistory } from '@/components/movement-history'
 import { formatFCFA } from '@/lib/utils'
 
-// Fiche partenaire (modèles shadcn : section-cards + Card + Tabs).
-// Chaque compteur porte ses deux actions : on agit là où on lit le chiffre.
+// Fiche d'une personne, inspirée des cartes « Payroll » :
+// - bandeau en haut, seulement si chacun doit quelque chose à l'autre : qui doit à qui, au net ;
+// - deux cartes, « Il me doit » (lui) et « Je lui dois » (moi) : en grand ce qui reste dû,
+//   une barre déjà versé / reste, puis le total et le déjà versé ;
+// - un seul bouton pour enregistrer une opération (la fenêtre propose les 4 actions).
+
+function BalanceCard({
+  title,
+  Icon,
+  tone,
+  remaining,
+  paid,
+}: {
+  title: string
+  Icon: React.ComponentType<{ className?: string }>
+  tone: 'credit' | 'debt'
+  remaining: number
+  paid: number
+}) {
+  const total = remaining + paid
+  const paidPct = total > 0 ? Math.round((paid / total) * 100) : 0
+  const color = tone === 'credit' ? 'var(--color-credit)' : 'var(--color-debt)'
+  const light = `color-mix(in srgb, ${color} 30%, transparent)`
+  return (
+    <Card className="gap-4">
+      <CardHeader>
+        <CardDescription className="flex items-center gap-2">
+          <span className="flex size-7 items-center justify-center rounded-lg text-white" style={{ background: color }}>
+            <Icon className="size-4" />
+          </span>
+          {title}
+        </CardDescription>
+        <CardTitle className="text-3xl font-semibold tabular-nums" style={{ color }}>
+          {formatFCFA(remaining)}
+        </CardTitle>
+        <CardAction>
+          <Badge variant="outline" className="tabular-nums">{paidPct} % versé</Badge>
+        </CardAction>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        <div className="flex h-2.5 w-full gap-1 overflow-hidden rounded-full">
+          {paid > 0 && <div className="h-full rounded-full" style={{ width: `${paidPct}%`, background: color }} />}
+          {remaining > 0 && <div className="h-full flex-1 rounded-full" style={{ background: light }} />}
+          {total === 0 && <div className="h-full flex-1 rounded-full bg-muted" />}
+        </div>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <span className="size-2 rounded-full" style={{ background: color }} /> Déjà versé ({formatFCFA(paid)})
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="size-2 rounded-full" style={{ background: light }} /> Reste ({formatFCFA(remaining)})
+          </span>
+        </div>
+      </CardContent>
+      <CardFooter className="justify-between border-t text-sm">
+        <span className="text-muted-foreground">Total</span>
+        <span className="font-medium tabular-nums">{formatFCFA(total)}</span>
+      </CardFooter>
+    </Card>
+  )
+}
 
 export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId }) => {
   const { persons, movements, openNewMovement, openCompensation, openMovementDetail } = useStore()
@@ -28,6 +88,9 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
   const iOweHim = partner.iOweHim || 0
   const net = owesMe - iOweHim
   const partnerMovements = movements.filter(m => m.personId === partnerId)
+  const sumOf = (t: string) => partnerMovements.filter(m => m.type === t && !m.isCancelled).reduce((a, m) => a + m.amount, 0)
+  const paidToMe = sumOf('il_m_a_verse')
+  const paidByMe = sumOf('je_lui_ai_verse')
 
   return (
     <div className="flex flex-col gap-4">
@@ -44,59 +107,35 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardDescription className="flex items-center gap-1.5">
-              <ArrowDownLeft className="size-4 text-credit" /> Il me doit
-            </CardDescription>
-            <CardTitle className="text-3xl font-semibold tabular-nums text-credit">{formatFCFA(owesMe)}</CardTitle>
-          </CardHeader>
-          <CardFooter className="grid grid-cols-2 gap-2">
-            <Button variant="outline" onClick={() => openNewMovement(partner.id, 'il_m_a_verse')}>
-              <ArrowDownLeft /> Il m'a versé
-            </Button>
-            <Button variant="outline" onClick={() => openNewMovement(partner.id, 'il_a_pris_credit')}>
-              <Plus /> Il a pris à crédit
-            </Button>
-          </CardFooter>
-        </Card>
+      {/* Bandeau : seulement quand chacun doit quelque chose à l'autre */}
+      {owesMe > 0 && iOweHim > 0 && (
+        <div
+          className="flex items-center gap-3 rounded-xl border p-3"
+          style={{
+            background: `color-mix(in srgb, ${net >= 0 ? 'var(--color-credit)' : 'var(--color-debt)'} 12%, var(--card))`,
+            borderColor: `color-mix(in srgb, ${net >= 0 ? 'var(--color-credit)' : 'var(--color-debt)'} 35%, transparent)`,
+          }}
+        >
+          <Scale className={net >= 0 ? 'size-5 shrink-0 text-credit' : 'size-5 shrink-0 text-debt'} />
+          <p className="min-w-0 flex-1 text-sm">
+            {net > 0 && <>Au total, <span className="font-semibold text-credit">il vous doit {formatFCFA(net)}</span></>}
+            {net < 0 && <>Au total, <span className="font-semibold text-debt">vous lui devez {formatFCFA(-net)}</span></>}
+            {net === 0 && <span className="font-semibold">Vous êtes quittes</span>}
+          </p>
+          <Button variant="secondary" size="sm" onClick={() => openCompensation(partner.id)}>
+            Compenser
+          </Button>
+        </div>
+      )}
 
-        <Card>
-          <CardHeader>
-            <CardDescription className="flex items-center gap-1.5">
-              <ArrowUpRight className="size-4 text-debt" /> Je lui dois
-            </CardDescription>
-            <CardTitle className="text-3xl font-semibold tabular-nums text-debt">{formatFCFA(iOweHim)}</CardTitle>
-          </CardHeader>
-          <CardFooter className="grid grid-cols-2 gap-2">
-            <Button variant="outline" onClick={() => openNewMovement(partner.id, 'je_lui_ai_verse')}>
-              <ArrowUpRight /> Je lui ai versé
-            </Button>
-            <Button variant="outline" onClick={() => openNewMovement(partner.id, 'j_ai_pris_credit')}>
-              <Plus /> J'ai pris à crédit
-            </Button>
-          </CardFooter>
-        </Card>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <BalanceCard title="Il me doit" Icon={ArrowDownLeft} tone="credit" remaining={owesMe} paid={paidToMe} />
+        <BalanceCard title="Je lui dois" Icon={ArrowUpRight} tone="debt" remaining={iOweHim} paid={paidByMe} />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardDescription>Au total</CardDescription>
-          <CardTitle className={net > 0 ? 'text-credit' : net < 0 ? 'text-debt' : ''}>
-            {net > 0 && `Il vous doit ${formatFCFA(net)}`}
-            {net < 0 && `Vous lui devez ${formatFCFA(-net)}`}
-            {net === 0 && 'Comptes équilibrés'}
-          </CardTitle>
-          {owesMe > 0 && iOweHim > 0 && (
-            <CardAction>
-              <Button variant="secondary" size="sm" onClick={() => openCompensation(partner.id)}>
-                <Scale /> Compenser
-              </Button>
-            </CardAction>
-          )}
-        </CardHeader>
-      </Card>
+      <Button size="lg" className="h-12" onClick={() => openNewMovement(partner.id)}>
+        <Plus /> Enregistrer une opération
+      </Button>
 
       <MovementHistory
         movements={partnerMovements}
