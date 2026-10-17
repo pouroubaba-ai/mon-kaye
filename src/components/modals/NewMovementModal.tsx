@@ -184,7 +184,12 @@ export const NewMovementModal: React.FC = () => {
   }
 
   return (
-    <Dialog open={isNewMovementOpen} onOpenChange={o => !o && closeNewMovement()}>
+    <Dialog
+      open={isNewMovementOpen}
+      onOpenChange={o => !o && closeNewMovement()}
+      dirty={amount > 0 || note.trim() !== '' || reference.trim() !== '' || photo}
+      dirtyKind="ajout"
+    >
       <DialogContent fixedHeight>
         <DialogHeader className="shrink-0">
           <div className="flex items-center gap-1">

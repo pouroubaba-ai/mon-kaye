@@ -19,6 +19,22 @@ export const DepartureModal: React.FC = () => {
   const [advanceChoice, setAdvanceChoice] = useState<'retenir' | 'dette' | 'abandonner'>('retenir')
   const [abandonNote, setAbandonNote] = useState('')
 
+  // À chaque ouverture, on repart des choix par défaut.
+  React.useEffect(() => {
+    if (!isDepartureOpen) return
+    setSalaryChoice('prorata')
+    setProrataDays('18')
+    setCustomFixedSalary('50000')
+    setAdvanceChoice('retenir')
+    setAbandonNote('')
+  }, [isDepartureOpen])
+  const dirty =
+    salaryChoice !== 'prorata' ||
+    prorataDays !== '18' ||
+    customFixedSalary !== '50000' ||
+    advanceChoice !== 'retenir' ||
+    abandonNote.trim() !== ''
+
   if (!emp) return null
 
   const salary = emp.salary || 0
@@ -51,7 +67,7 @@ export const DepartureModal: React.FC = () => {
   }
 
   return (
-    <Dialog open={isDepartureOpen} onOpenChange={open => !open && closeDeparture()}>
+    <Dialog open={isDepartureOpen} onOpenChange={open => !open && closeDeparture()} dirty={dirty} dirtyKind="modification">
       <DialogContent className="max-w-lg p-4 sm:p-6 max-h-[95vh] overflow-y-auto rounded-2xl">
         <DialogHeader className="pb-2">
           <DialogTitle className="text-xl font-bold flex items-center gap-2 text-destructive">

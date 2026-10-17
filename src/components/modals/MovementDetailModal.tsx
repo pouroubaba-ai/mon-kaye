@@ -23,6 +23,12 @@ export const MovementDetailModal: React.FC = () => {
   const [cancelReason, setCancelReason] = useState('')
   const [copySuccess, setCopySuccess] = useState(false)
 
+  // Nouvelle opération affichée : on efface un éventuel motif d'annulation en cours.
+  React.useEffect(() => {
+    setShowCancelPrompt(false)
+    setCancelReason('')
+  }, [selectedMovement?.id])
+
   if (!selectedMovement) return null
 
   const person = persons.find(p => p.id === selectedMovement.personId)
@@ -51,7 +57,7 @@ export const MovementDetailModal: React.FC = () => {
   }
 
   return (
-    <Dialog open={!!selectedMovement} onOpenChange={open => !open && closeMovementDetail()}>
+    <Dialog open={!!selectedMovement} onOpenChange={open => !open && closeMovementDetail()} dirty={cancelReason.trim() !== ''} dirtyKind="modification">
       <DialogContent className="max-w-md p-4 sm:p-6 rounded-2xl">
         <DialogHeader className="pb-2">
           <div className="flex items-center justify-between">

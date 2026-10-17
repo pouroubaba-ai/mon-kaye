@@ -87,6 +87,11 @@ export function PersonFormDialog({
     setSalary(person?.salary ? String(person.salary) : '')
   }, [open, person])
 
+  const dirty =
+    name !== (person?.name ?? '') ||
+    phone !== (person?.phone ?? '') ||
+    role !== (person?.role ?? '') ||
+    (isEmployee && salary !== (person?.salary ? String(person.salary) : ''))
   const valid = name.trim().length > 0 && (!isEmployee || parseInt(salary, 10) > 0)
 
   const save = () => {
@@ -109,7 +114,7 @@ export function PersonFormDialog({
   const title = person ? 'Modifier' : isEmployee ? 'Nouvel employé' : 'Nouvelle personne'
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} dirty={dirty} dirtyKind={person ? 'modification' : 'ajout'}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>

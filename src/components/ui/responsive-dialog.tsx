@@ -1,6 +1,7 @@
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
 import { useIsMobile } from "@/hooks/use-mobile"
 import {
   Dialog as BaseDialog,
@@ -21,21 +22,75 @@ type RootProps = {
   open?: boolean
   onOpenChange?: (open: boolean) => void
   children?: React.ReactNode
+  // La fenêtre contient une saisie non enregistrée : fermer (toucher à côté, glisser, Échap,
+  // croix) demande d'abord confirmation.
+  dirty?: boolean
+  // « ajout » ou « modification » : choisit les mots de la confirmation.
+  dirtyKind?: "ajout" | "modification"
 }
 
-function Dialog({ open, onOpenChange, children }: RootProps) {
+function Dialog({ open, onOpenChange, children, dirty = false, dirtyKind = "modification" }: RootProps) {
   const isMobile = useIsMobile()
+  const [confirming, setConfirming] = React.useState(false)
+  // Sur téléphone, un glissement vers le bas a déjà fait descendre le panneau :
+  // si l'on continue la saisie, on le remonte (nouveau montage du panneau, la saisie est conservée).
+  const [drawerKey, setDrawerKey] = React.useState(0)
+
+  const requestChange = (next: boolean) => {
+    if (!next && dirty) {
+      setConfirming(true)
+      return
+    }
+    onOpenChange?.(next)
+  }
+
   return (
     <IsMobileContext.Provider value={isMobile}>
       {isMobile ? (
-        <Drawer open={open} onOpenChange={onOpenChange}>
+        <Drawer key={drawerKey} open={open} onOpenChange={requestChange}>
           {children}
         </Drawer>
       ) : (
-        <BaseDialog open={open} onOpenChange={onOpenChange}>
+        <BaseDialog open={open} onOpenChange={requestChange}>
           {children}
         </BaseDialog>
       )}
+
+      {/* Confirmation : « Continuer la saisie » est le choix mis en avant */}
+      <BaseDialog
+        open={confirming}
+        onOpenChange={o => {
+          setConfirming(o)
+          if (!o && isMobile) setDrawerKey(k => k + 1)
+        }}
+      >
+        <BaseDialogContent showCloseButton={false} className="sm:max-w-sm">
+          <BaseDialogHeader>
+            <BaseDialogTitle>{dirtyKind === "ajout" ? "Abandonner l'ajout ?" : "Abandonner les modifications ?"}</BaseDialogTitle>
+            <BaseDialogDescription>Ce que vous avez saisi ne sera pas enregistré.</BaseDialogDescription>
+          </BaseDialogHeader>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setConfirming(false)
+                onOpenChange?.(false)
+              }}
+            >
+              Abandonner
+            </Button>
+            <Button
+              autoFocus
+              onClick={() => {
+                setConfirming(false)
+                if (isMobile) setDrawerKey(k => k + 1)
+              }}
+            >
+              Continuer la saisie
+            </Button>
+          </div>
+        </BaseDialogContent>
+      </BaseDialog>
     </IsMobileContext.Provider>
   )
 }
