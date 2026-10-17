@@ -79,12 +79,14 @@ function DaysCard({
   tone,
   amountLabel,
   empty,
+  totalLabel,
 }: {
   title: string
   rows: DayRow[]
   tone: 'credit' | 'debt'
   amountLabel: string
   empty: string
+  totalLabel?: string
 }) {
   const [expanded, setExpanded] = React.useState(false)
   const [sort, setSort] = React.useState<SortKey>('days-desc')
@@ -97,6 +99,14 @@ function DaysCard({
     <Card>
       <CardHeader>
         <CardTitle className="text-sm font-normal text-muted-foreground">{title}</CardTitle>
+        {totalLabel && rows.length > 0 && (
+          <div className="flex flex-col gap-1 pt-2">
+            <span className="text-xs text-muted-foreground">{totalLabel}</span>
+            <span className={cn('text-lg font-semibold tabular-nums', tone === 'credit' ? 'text-credit' : 'text-debt')}>
+              {formatFCFA(rawRows.reduce((a, r) => a + r.amount, 0))}
+            </span>
+          </div>
+        )}
         {rows.length > 1 && (
           <CardAction>
             <Select value={sort} onValueChange={v => setSort(v as SortKey)}>
@@ -250,6 +260,7 @@ export const EmployeesOverview: React.FC = () => {
 
       <DaysCard
         title="Dernier remboursement"
+        totalLabel="Avances à rendre"
         rows={advanceRows}
         tone="credit"
         amountLabel="Avance à rendre"
