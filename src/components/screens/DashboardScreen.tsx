@@ -1,6 +1,6 @@
 import React from 'react'
 import { Label, Pie, PieChart } from 'recharts'
-import { ArrowDownLeft, ArrowUpRight, ChevronRight } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight } from 'lucide-react'
 
 import { useStore } from '@/data/store'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,7 +10,6 @@ import { cn, formatFCFA } from '@/lib/utils'
 // Tableau de bord léger :
 // 1. deux cartes côte à côte : « On me doit » / « Je dois » (le total, rien d'autre) ;
 // 2. deux anneaux : de qui vient ce qu'on me doit, à qui va ce que je dois (le détail) ;
-// 3. deux listes courtes : salaires à payer, clients en retard.
 // Chaque montant n'apparaît qu'une fois.
 
 const amount = (v: number) => formatFCFA(v).replace(/\s?FCFA$/, '')
@@ -97,45 +96,14 @@ function DonutCard({ title, slices, people }: { title: string; slices: Slice[]; 
   )
 }
 
-function Row({ name, sub, value, tone, onClick }: { name: string; sub: string; value: number; tone: 'credit' | 'debt'; onClick: () => void }) {
-  const initials = name
-    .replace(/\(.*\)/, '')
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map(w => w[0])
-    .join('')
-    .toUpperCase()
-  return (
-    <button type="button" onClick={onClick} className="flex w-full items-center gap-3 p-3 text-left transition-colors hover:bg-muted/50">
-      <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-sm font-semibold">{initials}</div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{name}</p>
-        <p className="truncate text-xs text-muted-foreground">{sub}</p>
-      </div>
-      <span className={cn('shrink-0 text-sm font-medium tabular-nums', tone === 'credit' ? 'text-credit' : 'text-debt')}>
-        {formatFCFA(value)}
-      </span>
-      <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-    </button>
-  )
-}
-
 export const DashboardScreen: React.FC = () => {
-  const { totals, persons, setActiveTab, setSelectedPersonId } = useStore()
+  const { totals, persons, setActiveTab } = useStore()
 
   const partners = persons.filter(p => p.type === 'partner')
   const employees = persons.filter(p => p.type === 'employee')
   const owesMePeople = partners.filter(p => (p.owesMe || 0) > 0).length + employees.filter(p => (p.advanceBalance || 0) > 0).length
   const iOwePeople = partners.filter(p => (p.iOweHim || 0) > 0).length + employees.filter(p => (p.currentSalaryDue || 0) > 0).length
 
-  const toPay = employees.filter(p => p.status === 'actif' && (p.currentSalaryDue || 0) > 0)
-  const late = partners.filter(p => (p.owesMe || 0) > 0 && (p.daysSinceLastPayment || 0) >= 30)
-
-  const open = (id: string, tab: 'personnes' | 'employes') => {
-    setSelectedPersonId(id)
-    setActiveTab(tab)
-  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -161,38 +129,6 @@ export const DashboardScreen: React.FC = () => {
             { key: 'salaires', label: 'Salaires dus', value: totals.employeesSalaryDue, color: 'color-mix(in oklch, var(--color-debt) 45%, var(--muted))' },
           ]}
         />
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <section className="flex flex-col gap-3">
-          <h2 className="text-base font-medium">Salaires à payer</h2>
-          <Card className="gap-0 overflow-hidden py-0">
-            {toPay.length === 0 ? (
-              <p className="p-4 text-sm text-muted-foreground">Aucun salaire en attente.</p>
-            ) : (
-              <div className="divide-y">
-                {toPay.map(e => (
-                  <Row key={e.id} name={e.name} sub={`Le ${e.dueDay} du mois`} value={e.currentSalaryDue || 0} tone="debt" onClick={() => open(e.id, 'employes')} />
-                ))}
-              </div>
-            )}
-          </Card>
-        </section>
-
-        <section className="flex flex-col gap-3">
-          <h2 className="text-base font-medium">Ils tardent à payer</h2>
-          <Card className="gap-0 overflow-hidden py-0">
-            {late.length === 0 ? (
-              <p className="p-4 text-sm text-muted-foreground">Personne en retard.</p>
-            ) : (
-              <div className="divide-y">
-                {late.map(p => (
-                  <Row key={p.id} name={p.name} sub={`Rien versé depuis ${p.daysSinceLastPayment} jours`} value={p.owesMe || 0} tone="credit" onClick={() => open(p.id, 'personnes')} />
-                ))}
-              </div>
-            )}
-          </Card>
-        </section>
       </div>
     </div>
   )

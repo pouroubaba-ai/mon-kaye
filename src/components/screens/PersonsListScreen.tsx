@@ -114,23 +114,21 @@ export const PersonsListScreen: React.FC = () => {
               <Card
                 key={p.id}
                 onClick={() => setSelectedPersonId(p.id)}
-                className="border hover:border-foreground/40 cursor-pointer transition-all shadow-sm active:scale-[0.99] p-3.5"
+                className="cursor-pointer gap-0 p-3 transition-colors hover:bg-muted/40"
               >
                 <div className="flex items-center justify-between gap-3">
                   
                   {/* Avatar / Initiales + Info */}
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-bold text-sm shrink-0 shadow-inner ${
-                      isEmployee ? 'bg-secondary text-secondary-foreground border' : 'bg-primary/10 text-primary border'
-                    }`}>
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-sm font-semibold">
                       {p.name.slice(0, 2).toUpperCase()}
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="font-bold text-sm sm:text-base text-foreground truncate">
+                        <span className="truncate text-sm font-medium">
                           {p.name}
                         </span>
-                        {isEmployee && (
+                        {isEmployee && activeTab !== 'employes' && (
                           <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                             {p.status === 'inactif' ? 'Inactif' : 'Employé'}
                           </Badge>
@@ -149,15 +147,15 @@ export const PersonsListScreen: React.FC = () => {
                       <div>
                         {netPartner > 0 ? (
                           <>
-                            <span className="text-xs font-semibold text-credit block">Il me doit</span>
-                            <span className="text-base sm:text-lg font-extrabold text-credit">
+                            <span className="block text-xs text-muted-foreground">Il me doit</span>
+                            <span className="text-sm font-medium tabular-nums text-credit">
                               {formatFCFA(netPartner)}
                             </span>
                           </>
                         ) : netPartner < 0 ? (
                           <>
-                            <span className="text-xs font-semibold text-debt block">Je lui dois</span>
-                            <span className="text-base sm:text-lg font-extrabold text-debt">
+                            <span className="block text-xs text-muted-foreground">Je lui dois</span>
+                            <span className="text-sm font-medium tabular-nums text-debt">
                               {formatFCFA(Math.abs(netPartner))}
                             </span>
                           </>
@@ -171,16 +169,16 @@ export const PersonsListScreen: React.FC = () => {
                       <div>
                         {(p.currentSalaryDue || 0) > 0 && (
                           <div className="mb-0.5">
-                            <span className="text-[10px] font-semibold text-debt block">Salaire dû</span>
-                            <span className="text-sm font-bold text-debt">
+                            <span className="block text-xs text-muted-foreground">Salaire dû</span>
+                            <span className="text-sm font-medium tabular-nums text-debt">
                               {formatFCFA(p.currentSalaryDue || 0)}
                             </span>
                           </div>
                         )}
                         {(p.advanceBalance || 0) > 0 && (
                           <div>
-                            <span className="text-[10px] font-semibold text-credit block">Avance due</span>
-                            <span className="text-xs font-bold text-credit">
+                            <span className="block text-xs text-muted-foreground">Avance due</span>
+                            <span className="text-sm font-medium tabular-nums text-credit">
                               {formatFCFA(p.advanceBalance || 0)}
                             </span>
                           </div>
