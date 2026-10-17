@@ -118,6 +118,21 @@ export const NewMovementModal: React.FC = () => {
     setAmountStr(s => (s === '0' ? k : (s + k).slice(0, 9)))
   }
 
+  // Touche d'effacement : appui court = efface un chiffre, appui long (0,5 s) = vide tout le montant.
+  const holdTimer = React.useRef<number | null>(null)
+  const heldLong = React.useRef(false)
+  const startHold = () => {
+    heldLong.current = false
+    holdTimer.current = window.setTimeout(() => {
+      heldLong.current = true
+      setAmountStr('0')
+    }, 500)
+  }
+  const stopHold = () => {
+    if (holdTimer.current) window.clearTimeout(holdTimer.current)
+    holdTimer.current = null
+  }
+
   const back = () => {
     if (step === 'combien') setStep('quoi')
     else if (step === 'quoi') setStep('qui')
@@ -322,7 +337,24 @@ export const NewMovementModal: React.FC = () => {
             {/* Pavé : les 4 rangées se partagent la hauteur disponible */}
             <div className="grid min-h-44 flex-1 grid-cols-3 grid-rows-4 gap-1">
               {['1', '2', '3', '4', '5', '6', '7', '8', '9', '000', '0', 'del'].map(k => (
-                <Button key={k} type="button" variant="ghost" className="h-full min-h-10 text-2xl font-normal" onClick={() => press(k)} aria-label={k === 'del' ? 'Effacer' : k}>
+                <Button
+                  key={k}
+                  type="button"
+                  variant="ghost"
+                  className="h-full min-h-10 touch-none text-2xl font-normal select-none"
+                  onClick={() => {
+                    if (k === 'del' && heldLong.current) {
+                      heldLong.current = false
+                      return
+                    }
+                    press(k)
+                  }}
+                  onPointerDown={k === 'del' ? startHold : undefined}
+                  onPointerUp={k === 'del' ? stopHold : undefined}
+                  onPointerLeave={k === 'del' ? stopHold : undefined}
+                  onContextMenu={k === 'del' ? e => e.preventDefault() : undefined}
+                  aria-label={k === 'del' ? 'Effacer (appui long : tout effacer)' : k}
+                >
                   {k === 'del' ? <Delete className="size-6" /> : k}
                 </Button>
               ))}
