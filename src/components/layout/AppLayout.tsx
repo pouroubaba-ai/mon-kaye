@@ -1,8 +1,7 @@
 import React from 'react'
 import { useStore } from '@/data/store'
-import { LayoutDashboard, Users, Briefcase, Settings, Plus, Store, Moon, Sun, Lock } from 'lucide-react'
+import { LayoutDashboard, Users, Briefcase, Settings, Plus, Moon, Sun, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/app-sidebar'
@@ -12,7 +11,7 @@ import { cn } from '@/lib/utils'
 type Tab = 'accueil' | 'personnes' | 'employes' | 'reglages'
 
 const TITLES: Record<Tab, string> = {
-  accueil: 'Accueil',
+  accueil: 'Tableau de bord',
   personnes: 'Personnes',
   employes: 'Employés',
   reglages: 'Réglages',
@@ -21,7 +20,7 @@ const TITLES: Record<Tab, string> = {
 // Mise en page : barre latérale shadcn (ordinateur, tablette) + barre du bas à 4 onglets
 // et un seul bouton « + » (téléphone). Une seule entrée « nouveau mouvement » par appareil.
 export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { shop, activeTab, setActiveTab, setSelectedPersonId, openNewMovement, theme, toggleTheme, lockApp } =
+  const { activeTab, setActiveTab, setSelectedPersonId, openNewMovement, theme, toggleTheme, lockApp } =
     useStore()
 
   const go = (tab: Tab) => {
@@ -41,25 +40,12 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
-        {/* En-tête ordinateur (structure sidebar-03) */}
-        <header className="hidden h-14 shrink-0 items-center gap-2 border-b px-4 md:flex">
-          <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
-          <span className="text-sm font-medium">{TITLES[activeTab]}</span>
-        </header>
-
-        {/* En-tête téléphone */}
-        <header className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b bg-background px-4 py-2 md:hidden">
-          <div className="flex min-w-0 items-center gap-2">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Store className="size-4" />
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">{shop.name}</p>
-              <Badge variant="outline">Démonstration</Badge>
-            </div>
-          </div>
-          <div className="flex shrink-0 items-center">
+        {/* En-tête : le nom de la page, le thème et le verrouillage. */}
+        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4">
+          <SidebarTrigger className="-ml-1 hidden md:inline-flex" />
+          <Separator orientation="vertical" className="mr-2 hidden data-[orientation=vertical]:h-4 md:block" />
+          <h1 className="flex-1 truncate text-lg font-semibold tracking-tight md:text-base">{TITLES[activeTab]}</h1>
+          <div className="flex shrink-0 items-center md:hidden">
             <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Changer de thème">
               {theme === 'dark' ? <Sun /> : <Moon />}
             </Button>

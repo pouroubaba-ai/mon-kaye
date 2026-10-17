@@ -1,225 +1,201 @@
 import React from 'react'
 import { Label, Pie, PieChart } from 'recharts'
-import { AlertTriangle, ArrowDownLeft, ArrowUpRight, ChevronRight, Clock } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, ChevronRight } from 'lucide-react'
 
 import { useStore } from '@/data/store'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
-import { formatFCFA } from '@/lib/utils'
+import { cn, formatFCFA } from '@/lib/utils'
 
-// Accueil construit sur les modèles shadcn/ui :
-// - cartes d'indicateurs « section-cards » du bloc dashboard-01 ;
-// - graphique en anneau « chart-pie-donut-text » ;
-// - listes dans des Card standard.
-// Chaque chiffre n'apparaît qu'une fois à l'écran.
+// Tableau de bord léger :
+// 1. deux cartes côte à côte : « On me doit » / « Je dois » (le total, rien d'autre) ;
+// 2. deux anneaux : de qui vient ce qu'on me doit, à qui va ce que je dois (le détail) ;
+// 3. deux listes courtes : salaires à payer, clients en retard.
+// Chaque montant n'apparaît qu'une fois.
 
-const chartConfig = {
-  partenairesMeDoivent: { label: 'Partenaires qui me doivent', color: 'var(--color-credit)' },
-  avancesEmployes: { label: 'Avances des employés', color: 'color-mix(in oklch, var(--color-credit) 50%, transparent)' },
-  jeDoisPartenaires: { label: 'Ce que je dois aux partenaires', color: 'var(--color-debt)' },
-  salairesDus: { label: 'Salaires dus', color: 'color-mix(in oklch, var(--color-debt) 50%, transparent)' },
-} satisfies ChartConfig
+const amount = (v: number) => formatFCFA(v).replace(/\s?FCFA$/, '')
+
+function StatCard({
+  label,
+  value,
+  tone,
+  Icon,
+  onClick,
+}: {
+  label: string
+  value: number
+  tone: 'credit' | 'debt'
+  Icon: React.ComponentType<{ className?: string }>
+  onClick: () => void
+}) {
+  return (
+    <Card className="cursor-pointer gap-6 py-4 transition-colors hover:bg-muted/40" onClick={onClick}>
+      <CardContent className="flex flex-col gap-6 px-4">
+        <div className={cn('flex size-9 items-center justify-center rounded-lg bg-muted', tone === 'credit' ? 'text-credit' : 'text-debt')}>
+          <Icon className="size-5" />
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-sm text-muted-foreground">{label}</span>
+          <span className="text-2xl font-semibold tabular-nums leading-none">
+            {amount(value)} <span className="text-sm font-normal text-muted-foreground">FCFA</span>
+          </span>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+type Slice = { key: string; label: string; value: number; color: string }
+
+function DonutCard({ title, description, slices, people }: { title: string; description: string; slices: Slice[]; people: number }) {
+  const total = slices.reduce((a, s) => a + s.value, 0)
+  const config = Object.fromEntries(slices.map(s => [s.key, { label: s.label, color: s.color }])) satisfies ChartConfig
+  const data = slices.filter(s => s.value > 0).map(s => ({ key: s.key, value: s.value, fill: `var(--color-${s.key})` }))
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <ChartContainer config={config} className="mx-auto aspect-square h-[180px]">
+          <PieChart>
+            <ChartTooltip cursor={false} content={<ChartTooltipContent formatter={formatFCFA} />} />
+            <Pie data={data} dataKey="value" nameKey="key" innerRadius={58} outerRadius={84} strokeWidth={3} isAnimationActive={false}>
+              <Label
+                content={({ viewBox }) =>
+                  viewBox && 'cx' in viewBox && 'cy' in viewBox ? (
+                    <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
+                      <tspan x={viewBox.cx} y={viewBox.cy} className="fill-foreground text-2xl font-semibold">
+                        {people}
+                      </tspan>
+                      <tspan x={viewBox.cx} y={(viewBox.cy || 0) + 20} className="fill-muted-foreground text-xs">
+                        {people > 1 ? 'personnes' : 'personne'}
+                      </tspan>
+                    </text>
+                  ) : null
+                }
+              />
+            </Pie>
+          </PieChart>
+        </ChartContainer>
+
+        <div className="flex flex-col gap-2.5">
+          {slices.map(s => (
+            <div key={s.key} className="flex items-center gap-2 text-sm">
+              <span className="size-2.5 shrink-0 rounded-full" style={{ background: s.color }} />
+              <span className="flex-1 text-muted-foreground">{s.label}</span>
+              <span className="font-medium tabular-nums">{formatFCFA(s.value)}</span>
+              <span className="w-10 text-right text-xs tabular-nums text-muted-foreground">
+                {total > 0 ? Math.round((s.value / total) * 100) : 0} %
+              </span>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function Row({ name, sub, value, tone, onClick }: { name: string; sub: string; value: number; tone: 'credit' | 'debt'; onClick: () => void }) {
+  const initials = name
+    .replace(/\(.*\)/, '')
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map(w => w[0])
+    .join('')
+    .toUpperCase()
+  return (
+    <button type="button" onClick={onClick} className="flex w-full items-center gap-3 p-3 text-left transition-colors hover:bg-muted/50">
+      <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-sm font-semibold">{initials}</div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium">{name}</p>
+        <p className="truncate text-xs text-muted-foreground">{sub}</p>
+      </div>
+      <span className={cn('shrink-0 text-sm font-medium tabular-nums', tone === 'credit' ? 'text-credit' : 'text-debt')}>
+        {formatFCFA(value)}
+      </span>
+      <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+    </button>
+  )
+}
 
 export const DashboardScreen: React.FC = () => {
-  const { totals, persons, setActiveTab, setSelectedPersonId, openNewMovement } = useStore()
+  const { totals, persons, setActiveTab, setSelectedPersonId } = useStore()
 
-  const soonPayEmployees = persons.filter(
-    p => p.type === 'employee' && p.status === 'actif' && (p.currentSalaryDue || 0) > 0
-  )
-  const latePartners = persons.filter(
-    p => p.type === 'partner' && (p.owesMe || 0) > 0 && (p.daysSinceLastPayment || 0) >= 30
-  )
+  const partners = persons.filter(p => p.type === 'partner')
+  const employees = persons.filter(p => p.type === 'employee')
+  const owesMePeople = partners.filter(p => (p.owesMe || 0) > 0).length + employees.filter(p => (p.advanceBalance || 0) > 0).length
+  const iOwePeople = partners.filter(p => (p.iOweHim || 0) > 0).length + employees.filter(p => (p.currentSalaryDue || 0) > 0).length
 
-  const chartData = [
-    { key: 'partenairesMeDoivent', value: totals.partnersOwesMe, fill: 'var(--color-partenairesMeDoivent)' },
-    { key: 'avancesEmployes', value: totals.employeesAdvanceOwed, fill: 'var(--color-avancesEmployes)' },
-    { key: 'jeDoisPartenaires', value: totals.partnersIOwe, fill: 'var(--color-jeDoisPartenaires)' },
-    { key: 'salairesDus', value: totals.employeesSalaryDue, fill: 'var(--color-salairesDus)' },
-  ].filter(d => d.value > 0)
+  const toPay = employees.filter(p => p.status === 'actif' && (p.currentSalaryDue || 0) > 0)
+  const late = partners.filter(p => (p.owesMe || 0) > 0 && (p.daysSinceLastPayment || 0) >= 30)
 
-  const net = totals.totalOwesMe - totals.totalIOwe
-
-  const openPerson = (id: string, tab: 'personnes' | 'employes') => {
+  const open = (id: string, tab: 'personnes' | 'employes') => {
     setSelectedPersonId(id)
     setActiveTab(tab)
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Tableau de bord</h1>
-        <p className="text-sm text-muted-foreground">Qui me doit, à qui je dois.</p>
+    <div className="flex flex-col gap-6">
+      <div className="grid grid-cols-2 gap-3 md:gap-4">
+        <StatCard label="On me doit" value={totals.totalOwesMe} tone="credit" Icon={ArrowDownLeft} onClick={() => setActiveTab('personnes')} />
+        <StatCard label="Je dois" value={totals.totalIOwe} tone="debt" Icon={ArrowUpRight} onClick={() => setActiveTab('personnes')} />
       </div>
 
-      {/* Cartes d'indicateurs (section-cards) */}
-      <div className="grid grid-cols-1 gap-4 @container/main sm:grid-cols-2">
-        <Card className="@container/card">
-          <CardHeader>
-            <CardDescription className="flex items-center gap-1.5">
-              <ArrowDownLeft className="size-4 text-credit" />
-              On me doit
-            </CardDescription>
-            <CardTitle className="text-3xl font-semibold tabular-nums text-credit">
-              {formatFCFA(totals.totalOwesMe)}
-            </CardTitle>
-            <CardAction>
-              <Badge variant="outline">À encaisser</Badge>
-            </CardAction>
-          </CardHeader>
-          <CardFooter className="flex-col items-start gap-1.5 text-sm">
-            <div className="flex w-full justify-between">
-              <span className="text-muted-foreground">Partenaires</span>
-              <span className="font-medium tabular-nums">{formatFCFA(totals.partnersOwesMe)}</span>
-            </div>
-            <div className="flex w-full justify-between">
-              <span className="text-muted-foreground">Avances des employés</span>
-              <span className="font-medium tabular-nums">{formatFCFA(totals.employeesAdvanceOwed)}</span>
-            </div>
-            <Button variant="link" className="h-auto px-0" onClick={() => setActiveTab('personnes')}>
-              Voir qui me doit <ChevronRight />
-            </Button>
-          </CardFooter>
-        </Card>
-
-        <Card className="@container/card">
-          <CardHeader>
-            <CardDescription className="flex items-center gap-1.5">
-              <ArrowUpRight className="size-4 text-debt" />
-              Je dois
-            </CardDescription>
-            <CardTitle className="text-3xl font-semibold tabular-nums text-debt">
-              {formatFCFA(totals.totalIOwe)}
-            </CardTitle>
-            <CardAction>
-              <Badge variant="outline">À payer</Badge>
-            </CardAction>
-          </CardHeader>
-          <CardFooter className="flex-col items-start gap-1.5 text-sm">
-            <div className="flex w-full justify-between">
-              <span className="text-muted-foreground">Partenaires</span>
-              <span className="font-medium tabular-nums">{formatFCFA(totals.partnersIOwe)}</span>
-            </div>
-            <div className="flex w-full justify-between">
-              <span className="text-muted-foreground">Salaires dus</span>
-              <span className="font-medium tabular-nums">{formatFCFA(totals.employeesSalaryDue)}</span>
-            </div>
-            <Button variant="link" className="h-auto px-0" onClick={() => setActiveTab('personnes')}>
-              Voir à qui je dois <ChevronRight />
-            </Button>
-          </CardFooter>
-        </Card>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <DonutCard
+          title="Qui me doit"
+          description="D'où vient l'argent que j'attends"
+          people={owesMePeople}
+          slices={[
+            { key: 'partenaires', label: 'Partenaires', value: totals.partnersOwesMe, color: 'var(--color-credit)' },
+            { key: 'avances', label: 'Avances des employés', value: totals.employeesAdvanceOwed, color: 'color-mix(in oklch, var(--color-credit) 45%, var(--muted))' },
+          ]}
+        />
+        <DonutCard
+          title="À qui je dois"
+          description="Où va l'argent que je dois"
+          people={iOwePeople}
+          slices={[
+            { key: 'partenaires', label: 'Partenaires', value: totals.partnersIOwe, color: 'var(--color-debt)' },
+            { key: 'salaires', label: 'Salaires dus', value: totals.employeesSalaryDue, color: 'color-mix(in oklch, var(--color-debt) 45%, var(--muted))' },
+          ]}
+        />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* Anneau (chart-pie-donut-text) : seule nouvelle information = le solde net */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Solde net</CardTitle>
-            <CardDescription>Ce qu'on me doit moins ce que je dois</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer config={chartConfig} className="mx-auto aspect-auto h-[240px] w-full max-w-[280px]">
-              <PieChart>
-                <ChartTooltip cursor={false} content={<ChartTooltipContent formatter={formatFCFA} />} />
-                <Pie data={chartData} dataKey="value" nameKey="key" cx="50%" cy="50%" innerRadius={72} outerRadius={105} strokeWidth={4} isAnimationActive={false}>
-                  <Label
-                    content={({ viewBox }) => {
-                      if (viewBox && 'cx' in viewBox && 'cy' in viewBox) {
-                        return (
-                          <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
-                            <tspan
-                              x={viewBox.cx}
-                              y={viewBox.cy}
-                              className={net >= 0 ? 'fill-credit text-xl font-bold' : 'fill-debt text-xl font-bold'}
-                            >
-                              {(net >= 0 ? '+' : '−') + formatFCFA(Math.abs(net)).replace(' FCFA', '')}
-                            </tspan>
-                            <tspan x={viewBox.cx} y={(viewBox.cy || 0) + 22} className="fill-muted-foreground text-xs">
-                              FCFA au net
-                            </tspan>
-                          </text>
-                        )
-                      }
-                      return null
-                    }}
-                  />
-                </Pie>
-              </PieChart>
-            </ChartContainer>
-          </CardContent>
-          <CardFooter className="flex-col items-start gap-1 text-sm text-muted-foreground">
-            {net >= 0 ? 'On vous doit plus que vous ne devez.' : 'Vous devez plus qu’on ne vous doit.'}
-          </CardFooter>
-        </Card>
-
-        {/* À payer bientôt */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="size-4 text-debt" /> À payer bientôt
-            </CardTitle>
-            <CardDescription>Salaires dus</CardDescription>
-            <CardAction>
-              <Badge variant="outline">{soonPayEmployees.length}</Badge>
-            </CardAction>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2">
-            {soonPayEmployees.length === 0 && <p className="text-sm text-muted-foreground">Aucun salaire en attente.</p>}
-            {soonPayEmployees.map(emp => (
-              <div key={emp.id} className="flex items-center gap-2 rounded-lg border p-3">
-                <button type="button" className="min-w-0 flex-1 text-left" onClick={() => openPerson(emp.id, 'employes')}>
-                  <p className="truncate font-medium">{emp.name}</p>
-                  <p className="text-xs text-muted-foreground">Le {emp.dueDay} du mois</p>
-                </button>
-                <span className="font-medium tabular-nums text-debt">{formatFCFA(emp.currentSalaryDue || 0)}</span>
-                <Button size="sm" variant="outline" onClick={() => openNewMovement(emp.id, 'je_lui_ai_verse')}>
-                  Payer
-                </Button>
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <section className="flex flex-col gap-3">
+          <h2 className="text-base font-medium">Salaires à payer</h2>
+          <Card className="gap-0 overflow-hidden py-0">
+            {toPay.length === 0 ? (
+              <p className="p-4 text-sm text-muted-foreground">Aucun salaire en attente.</p>
+            ) : (
+              <div className="divide-y">
+                {toPay.map(e => (
+                  <Row key={e.id} name={e.name} sub={`Le ${e.dueDay} du mois`} value={e.currentSalaryDue || 0} tone="debt" onClick={() => open(e.id, 'employes')} />
+                ))}
               </div>
-            ))}
-          </CardContent>
-        </Card>
+            )}
+          </Card>
+        </section>
 
-        {/* Ils tardent à payer */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="size-4 text-debt" /> Ils tardent à payer
-            </CardTitle>
-            <CardDescription>Rien versé depuis plus de 30 jours</CardDescription>
-            <CardAction>
-              <Badge variant="outline">{latePartners.length}</Badge>
-            </CardAction>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2">
-            {latePartners.length === 0 && <p className="text-sm text-muted-foreground">Personne en retard.</p>}
-            {latePartners.map(p => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => openPerson(p.id, 'personnes')}
-                className="flex items-center gap-2 rounded-lg border p-3 text-left"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{p.name}</p>
-                  <p className="text-xs text-muted-foreground">Dernier versement il y a {p.daysSinceLastPayment} jours</p>
-                </div>
-                <span className="font-medium tabular-nums text-credit">{formatFCFA(p.owesMe || 0)}</span>
-                <ChevronRight className="size-4 text-muted-foreground" />
-              </button>
-            ))}
-          </CardContent>
-        </Card>
+        <section className="flex flex-col gap-3">
+          <h2 className="text-base font-medium">Ils tardent à payer</h2>
+          <Card className="gap-0 overflow-hidden py-0">
+            {late.length === 0 ? (
+              <p className="p-4 text-sm text-muted-foreground">Personne en retard.</p>
+            ) : (
+              <div className="divide-y">
+                {late.map(p => (
+                  <Row key={p.id} name={p.name} sub={`Rien versé depuis ${p.daysSinceLastPayment} jours`} value={p.owesMe || 0} tone="credit" onClick={() => open(p.id, 'personnes')} />
+                ))}
+              </div>
+            )}
+          </Card>
+        </section>
       </div>
     </div>
   )

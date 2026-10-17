@@ -116,3 +116,10 @@ Motif : doublons d'affichage et fenêtres bricolées signalés par le propriéta
 Vérifié : `npm run build` passe, aucune erreur dans la console du navigateur, captures téléphone (360 px) et ordinateur (1366 px) sur Accueil, Personnes, fiche partenaire, Employés, fiche employé, Réglages et fenêtre de saisie.
 
 Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé numérique et boutons de paiement de la fenêtre de saisie encore stylés à la main.
+
+## Tableau de bord allégé (17/10/2026, Claude)
+
+- En-tête : uniquement le nom de la page, plus les boutons thème et verrouillage (téléphone). Les titres répétés dans les pages sont retirés.
+- Accueil : deux cartes côte à côte (On me doit / Je dois), deux anneaux de répartition (Qui me doit / À qui je dois) avec le nombre de personnes au centre, puis les listes « Salaires à payer » et « Ils tardent à payer ».
+- Police : Urbanist (gratuite, Google Fonts) à la place de Geist. Lancer `npm install`.
+- Le « solde net » n'est plus affiché sur l'accueil.

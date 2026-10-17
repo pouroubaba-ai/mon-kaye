@@ -45,20 +45,6 @@ export const PersonsListScreen: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      {/* Title + Action */}
-      <div className="flex items-center justify-between gap-2">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            {activeTab === 'employes' ? 'Mes Employés' : 'Personnes & Comptes'}
-          </h1>
-          <p className="text-xs sm:text-sm text-muted-foreground">
-            {activeTab === 'employes'
-              ? 'Suivi des salaires dus, versements et avances'
-              : 'Partenaires, clients, fournisseurs et employés'}
-          </p>
-        </div>
-      </div>
-
       {/* Barre de Recherche instantanée */}
       <div className="relative">
         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
