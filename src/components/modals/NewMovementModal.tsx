@@ -135,7 +135,7 @@ export const NewMovementModal: React.FC = () => {
 
   const back = () => {
     if (step === 'combien') setStep('quoi')
-    else if (step === 'quoi') setStep('qui')
+    else if (step === 'quoi' && !newMovementTargetPersonId) setStep('qui')
   }
 
   const save = () => {
@@ -188,7 +188,8 @@ export const NewMovementModal: React.FC = () => {
       <DialogContent fixedHeight>
         <DialogHeader className="shrink-0">
           <div className="flex items-center gap-1">
-            {step !== 'qui' && (
+            {/* Ouverte depuis une fiche : la personne est fixée, pas de retour vers la liste des personnes */}
+            {step !== 'qui' && !(step === 'quoi' && newMovementTargetPersonId) && (
               <Button variant="ghost" size="icon" className="-ml-2" onClick={back} aria-label="Retour">
                 <ArrowLeft />
               </Button>
