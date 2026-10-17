@@ -63,8 +63,6 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
           tone="debt"
           remaining={salaryDue}
           paid={salaryPaid}
-          badge={<Badge variant="outline">Le {emp.dueDay} du mois</Badge>}
-          totalLabel="Salaire du mois"
         />
         <BalanceCard
           title="Avance à rendre"

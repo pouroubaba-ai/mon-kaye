@@ -18,6 +18,8 @@ export const PersonsListScreen: React.FC = () => {
   const filteredPersons = persons.filter(p => {
     // If we came directly from Employes tab, default filter to employee
     if (activeTab === 'employes' && p.type !== 'employee') return false
+    // La liste Personnes ne contient que les clients, fournisseurs… : les employés ont leur page.
+    if (activeTab !== 'employes' && p.type === 'employee') return false
 
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           p.phone.includes(searchQuery) ||
