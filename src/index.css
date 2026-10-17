@@ -149,9 +149,3 @@
     touch-action: manipulation;
   }
 }
-
-/* Barres de défilement discrètes, dans les couleurs du thème */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
-}

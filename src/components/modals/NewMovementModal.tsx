@@ -131,26 +131,23 @@ export const NewMovementModal: React.FC = () => {
   const visible = (activeGroup === 'partner' ? partnersList : employeesList)
     .filter(p => !search || p.name.toLowerCase().includes(search.toLowerCase()) || (p.phone || '').includes(search))
 
-  // Indicateur à droite de chaque ligne : mini flèche verte (on me doit) ou orange (je dois) + montant.
-  const indicator = (p: (typeof persons)[number]) => {
-    let value = 0
-    let tone: 'credit' | 'debt' = 'credit'
-    if (p.type === 'employee') {
-      value = p.currentSalaryDue || 0
-      tone = 'debt'
-    } else {
-      const net = (p.owesMe || 0) - (p.iOweHim || 0)
-      value = Math.abs(net)
-      tone = net >= 0 ? 'credit' : 'debt'
-    }
-    if (value === 0) return null
+  const sub = (p: (typeof persons)[number]) => {
+    if (p.type === 'employee') return p.role || 'Employé'
+    const net = (p.owesMe || 0) - (p.iOweHim || 0)
+    if (net > 0) return `Me doit ${formatFCFA(net)}`
+    if (net < 0) return `Je lui dois ${formatFCFA(-net)}`
+    return 'À jour'
+  }
+
+  // Mini icône : flèche verte (on me doit) ou orange (je dois), comme sur le tableau de bord.
+  const icon = (p: (typeof persons)[number]) => {
+    const net = (p.owesMe || 0) - (p.iOweHim || 0)
+    const tone = p.type === 'employee' ? ((p.currentSalaryDue || 0) > 0 ? 'debt' : null) : net > 0 ? 'credit' : net < 0 ? 'debt' : null
+    if (!tone) return null
     const Icon = tone === 'credit' ? ArrowDownLeft : ArrowUpRight
     return (
-      <span className="flex shrink-0 items-center gap-2">
-        <span className={cn('flex size-6 items-center justify-center rounded-md bg-muted', tone === 'credit' ? 'text-credit' : 'text-debt')}>
-          <Icon className="size-3.5" />
-        </span>
-        <span className={cn('text-sm font-medium tabular-nums', tone === 'credit' ? 'text-credit' : 'text-debt')}>{formatFCFA(value)}</span>
+      <span className={cn('flex size-6 shrink-0 items-center justify-center rounded-md bg-muted', tone === 'credit' ? 'text-credit' : 'text-debt')}>
+        <Icon className="size-3.5" />
       </span>
     )
   }
@@ -200,9 +197,9 @@ export const NewMovementModal: React.FC = () => {
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{p.name}</p>
-                    {p.type === 'employee' && p.role && <p className="truncate text-xs text-muted-foreground">{p.role}</p>}
+                    <p className="truncate text-xs text-muted-foreground">{sub(p)}</p>
                   </div>
-                  {indicator(p)}
+                  {icon(p)}
                   <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
                 </button>
               ))}
