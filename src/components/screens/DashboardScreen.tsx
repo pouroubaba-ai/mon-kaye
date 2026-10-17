@@ -19,25 +19,22 @@ function StatCard({
   value,
   tone,
   Icon,
-  onClick,
 }: {
   label: string
   value: number
   tone: 'credit' | 'debt'
   Icon: React.ComponentType<{ className?: string }>
-  onClick: () => void
 }) {
   const base = tone === 'credit' ? 'var(--color-credit)' : 'var(--color-debt)'
   // Carte « vivante » : fond en dégradé de la couleur du compte, bordure teintée,
   // pastille d'icône pleine et halo lumineux dans le coin.
   return (
     <Card
-      className="relative cursor-pointer gap-6 overflow-hidden py-4 transition-transform active:scale-[0.98]"
+      className="relative gap-6 overflow-hidden py-4"
       style={{
         background: `linear-gradient(145deg, color-mix(in srgb, ${base} 22%, var(--card)) 0%, var(--card) 70%)`,
         borderColor: `color-mix(in srgb, ${base} 35%, transparent)`,
       }}
-      onClick={onClick}
     >
       <div
         aria-hidden
@@ -184,7 +181,7 @@ function DonutCard({
 }
 
 export const DashboardScreen: React.FC = () => {
-  const { totals, persons, setActiveTab } = useStore()
+  const { totals, persons } = useStore()
 
   const partners = persons.filter(p => p.type === 'partner')
   const employees = persons.filter(p => p.type === 'employee')
@@ -201,8 +198,8 @@ export const DashboardScreen: React.FC = () => {
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-2 gap-3 md:gap-4">
-        <StatCard label="On me doit" value={totals.totalOwesMe} tone="credit" Icon={ArrowDownLeft} onClick={() => setActiveTab('personnes')} />
-        <StatCard label="Je dois" value={totals.totalIOwe} tone="debt" Icon={ArrowUpRight} onClick={() => setActiveTab('personnes')} />
+        <StatCard label="On me doit" value={totals.totalOwesMe} tone="credit" Icon={ArrowDownLeft} />
+        <StatCard label="Je dois" value={totals.totalIOwe} tone="debt" Icon={ArrowUpRight} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
