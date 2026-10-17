@@ -90,11 +90,26 @@ export const NewMovementModal: React.FC = () => {
   const op = OPS[kind].find(o => o.type === type)
   const amount = parseInt(amountStr, 10) || 0
 
-  // Versement plus grand que ce qui était dû : le reste devient une avance (une ligne, pas un pavé).
-  let surplus = 0
-  if (person?.type === 'partner') {
-    if (type === 'il_m_a_verse') surplus = amount - (person.owesMe || 0)
-    if (type === 'je_lui_ai_verse') surplus = amount - (person.iOweHim || 0)
+  // Le compte que l'opération fait bouger, et son montant actuel.
+  // Un versement (ou un remboursement) ne peut jamais dépasser ce qui est dû.
+  type Balance = { label: string; value: number; tone: 'credit' | 'debt'; isPayment: boolean }
+  const balanceFor = (t: MType): Balance | null => {
+    if (!person) return null
+    if (person.type === 'partner') {
+      if (t === 'il_m_a_verse' || t === 'il_a_pris_credit')
+        return { label: 'Il me doit', value: person.owesMe || 0, tone: 'credit', isPayment: t === 'il_m_a_verse' }
+      return { label: 'Je lui dois', value: person.iOweHim || 0, tone: 'debt', isPayment: t === 'je_lui_ai_verse' }
+    }
+    if (t === 'je_lui_ai_verse') return { label: 'Salaire dû', value: person.currentSalaryDue || 0, tone: 'debt', isPayment: true }
+    if (t === 'remboursement_direct') return { label: 'Avance à rendre', value: person.advanceBalance || 0, tone: 'credit', isPayment: true }
+    return { label: 'Avance en cours', value: person.advanceBalance || 0, tone: 'credit', isPayment: false }
+  }
+  const balance = balanceFor(type)
+  const tooMuch = !!balance?.isPayment && amount > balance.value
+  // Versement impossible quand rien n'est dû : le bouton est grisé à l'étape « Quelle opération ? ».
+  const blocked = (t: MType) => {
+    const b = balanceFor(t)
+    return !!b?.isPayment && b.value <= 0
   }
 
   const press = (k: string) => {
@@ -109,7 +124,7 @@ export const NewMovementModal: React.FC = () => {
   }
 
   const save = () => {
-    if (!person || amount <= 0) return
+    if (!person || amount <= 0 || tooMuch) return
     addMovement({
       personId: person.id,
       personName: person.name,
@@ -215,7 +230,7 @@ export const NewMovementModal: React.FC = () => {
           // Personnes : même disposition que la fiche. Deux colonnes, chacune sous son compteur,
           // avec les deux gros boutons qui le font bouger. On regarde où va l'argent, on touche.
           <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
-            <p className="truncate text-sm text-muted-foreground">{person.name}</p>
+            <p className="truncate py-0.5 text-sm leading-6 text-muted-foreground">{person.name}</p>
             <div className="grid grid-cols-2 gap-3">
               {([
                 { title: 'Il me doit', value: person.owesMe || 0, tone: 'credit' as const, ops: OPS.partner.filter(o => o.tone === 'credit') },
@@ -232,11 +247,12 @@ export const NewMovementModal: React.FC = () => {
                     <button
                       key={o.type}
                       type="button"
+                      disabled={blocked(o.type)}
                       onClick={() => {
                         setType(o.type)
                         setStep('combien')
                       }}
-                      className="flex min-h-24 flex-col items-start justify-between gap-3 rounded-xl border p-3 text-left transition-colors hover:bg-muted/50 active:scale-[0.98]"
+                      className="flex min-h-24 flex-col items-start justify-between gap-3 rounded-xl border p-3 text-left transition-colors hover:bg-muted/50 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40"
                     >
                       <div className={cn('flex size-9 items-center justify-center rounded-lg bg-muted', o.tone === 'credit' ? 'text-credit' : 'text-debt')}>
                         <o.Icon className="size-5" />
@@ -252,7 +268,7 @@ export const NewMovementModal: React.FC = () => {
 
         {step === 'quoi' && person && kind === 'employee' && (
           <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
-            <p className="truncate text-sm text-muted-foreground">{person.name}</p>
+            <p className="truncate py-0.5 text-sm leading-6 text-muted-foreground">{person.name}</p>
             <div className="flex flex-col divide-y rounded-lg border">
               {OPS[kind].map(o => (
                 <button
@@ -262,7 +278,8 @@ export const NewMovementModal: React.FC = () => {
                     setType(o.type)
                     setStep('combien')
                   }}
-                  className="flex items-center gap-3 p-4 text-left hover:bg-muted/50"
+                  disabled={blocked(o.type)}
+                  className="flex items-center gap-3 p-4 text-left hover:bg-muted/50 disabled:pointer-events-none disabled:opacity-40"
                 >
                   <div className={cn('flex size-9 items-center justify-center rounded-lg bg-muted', o.tone === 'credit' ? 'text-credit' : 'text-debt')}>
                     <o.Icon className="size-5" />
@@ -277,56 +294,69 @@ export const NewMovementModal: React.FC = () => {
 
         {/* 3. Combien ? */}
         {step === 'combien' && person && (
-          <div className="flex min-h-0 flex-1 flex-col gap-3">
-          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
-            <button type="button" onClick={() => setStep('quoi')} className="truncate text-left text-sm text-muted-foreground">
-              {person.name} · <span className={op?.tone === 'credit' ? 'text-credit' : 'text-debt'}>{op?.label}</span>
-            </button>
-
-            <div className="py-2 text-center">
-              <span className="text-5xl font-semibold tabular-nums tracking-tight">{formatFCFA(amount).replace(/\s?FCFA$/, '')}</span>
-              <span className="ml-2 text-lg text-muted-foreground">FCFA</span>
-              {surplus > 0 && (
-                <p className="mt-2 text-xs text-muted-foreground">{formatFCFA(surplus)} de plus que dû : gardé comme avance.</p>
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
+            <div className="flex shrink-0 flex-col gap-1">
+              <button type="button" onClick={() => setStep('quoi')} className="truncate py-0.5 text-left text-sm leading-6 text-muted-foreground">
+                {person.name} · <span className={op?.tone === 'credit' ? 'text-credit' : 'text-debt'}>{op?.label}</span>
+              </button>
+              {balance && (
+                <p className="text-sm">
+                  <span className="text-muted-foreground">{balance.label} : </span>
+                  <span className={cn('font-medium tabular-nums', balance.tone === 'credit' ? 'text-credit' : 'text-debt')}>
+                    {formatFCFA(balance.value)}
+                  </span>
+                </p>
               )}
             </div>
 
-            <div className="grid grid-cols-3 gap-1">
+            <div className="shrink-0 text-center">
+              <span className={cn('text-4xl font-semibold tabular-nums tracking-tight', tooMuch && 'text-destructive')}>
+                {formatFCFA(amount).replace(/\s?FCFA$/, '')}
+              </span>
+              <span className="ml-2 text-base text-muted-foreground">FCFA</span>
+              {tooMuch && balance && (
+                <p className="mt-1 text-xs text-destructive">Pas plus de {formatFCFA(balance.value)}</p>
+              )}
+            </div>
+
+            {/* Pavé : les 4 rangées se partagent la hauteur disponible */}
+            <div className="grid min-h-44 flex-1 grid-cols-3 grid-rows-4 gap-1">
               {['1', '2', '3', '4', '5', '6', '7', '8', '9', '000', '0', 'del'].map(k => (
-                <Button key={k} type="button" variant="ghost" className="h-14 text-2xl font-normal" onClick={() => press(k)} aria-label={k === 'del' ? 'Effacer' : k}>
+                <Button key={k} type="button" variant="ghost" className="h-full min-h-10 text-2xl font-normal" onClick={() => press(k)} aria-label={k === 'del' ? 'Effacer' : k}>
                   {k === 'del' ? <Delete className="size-6" /> : k}
                 </Button>
               ))}
             </div>
 
-            <Tabs value={payment} onValueChange={v => setPayment(v as typeof payment)}>
-              <TabsList className="w-full">
-                <TabsTrigger value="especes">Espèces</TabsTrigger>
-                <TabsTrigger value="momo_mtn">MTN MoMo</TabsTrigger>
-                <TabsTrigger value="airtel_money">Airtel</TabsTrigger>
-              </TabsList>
-            </Tabs>
+            <div className="flex shrink-0 flex-col gap-3">
+              <Tabs value={payment} onValueChange={v => setPayment(v as typeof payment)}>
+                <TabsList className="w-full">
+                  <TabsTrigger value="especes">Espèces</TabsTrigger>
+                  <TabsTrigger value="momo_mtn">MTN MoMo</TabsTrigger>
+                  <TabsTrigger value="airtel_money">Airtel</TabsTrigger>
+                </TabsList>
+              </Tabs>
 
-            {showMore ? (
-              <div className="flex flex-col gap-2">
-                {payment !== 'especes' && (
-                  <Input placeholder="Numéro de transaction" value={reference} onChange={e => setReference(e.target.value)} />
-                )}
-                <Input placeholder="Note" value={note} onChange={e => setNote(e.target.value)} />
-                <Button type="button" variant={photo ? 'secondary' : 'outline'} onClick={() => setPhoto(!photo)}>
-                  <Camera /> {photo ? 'Photo ajoutée' : 'Ajouter une photo'}
+              {showMore ? (
+                <div className="flex flex-col gap-2">
+                  {payment !== 'especes' && (
+                    <Input placeholder="Numéro de transaction" value={reference} onChange={e => setReference(e.target.value)} />
+                  )}
+                  <Input placeholder="Note" value={note} onChange={e => setNote(e.target.value)} />
+                  <Button type="button" variant={photo ? 'secondary' : 'outline'} onClick={() => setPhoto(!photo)}>
+                    <Camera /> {photo ? 'Photo ajoutée' : 'Ajouter une photo'}
+                  </Button>
+                </div>
+              ) : (
+                <Button type="button" variant="link" className="h-auto self-center text-muted-foreground" onClick={() => setShowMore(true)}>
+                  Ajouter une note ou une photo
                 </Button>
-              </div>
-            ) : (
-              <Button type="button" variant="link" className="h-auto self-center text-muted-foreground" onClick={() => setShowMore(true)}>
-                Ajouter une note ou une photo
-              </Button>
-            )}
+              )}
 
-          </div>
-            <Button size="lg" className="h-12 shrink-0 text-base" disabled={amount <= 0} onClick={save}>
-              Enregistrer
-            </Button>
+              <Button size="lg" className="h-12 text-base" disabled={amount <= 0 || tooMuch} onClick={save}>
+                Enregistrer
+              </Button>
+            </div>
           </div>
         )}
       </DialogContent>
