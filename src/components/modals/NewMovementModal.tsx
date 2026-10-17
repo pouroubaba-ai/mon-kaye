@@ -31,9 +31,9 @@ type MType = Movement['type']
 
 const OPS: Record<'partner' | 'employee', { type: MType; label: string; Icon: React.ComponentType<{ className?: string }>; tone: 'credit' | 'debt' }[]> = {
   partner: [
-    { type: 'il_m_a_verse', label: 'Il paie', Icon: ArrowDownLeft, tone: 'credit' },
+    { type: 'il_m_a_verse', label: 'Il verse', Icon: ArrowDownLeft, tone: 'credit' },
     { type: 'il_a_pris_credit', label: 'Crédit', Icon: Plus, tone: 'credit' },
-    { type: 'je_lui_ai_verse', label: 'Je paie', Icon: ArrowUpRight, tone: 'debt' },
+    { type: 'je_lui_ai_verse', label: 'Je verse', Icon: ArrowUpRight, tone: 'debt' },
     { type: 'j_ai_pris_credit', label: 'Dette', Icon: Plus, tone: 'debt' },
   ],
   employee: [
