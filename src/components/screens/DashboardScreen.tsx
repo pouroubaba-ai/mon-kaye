@@ -119,7 +119,7 @@ export const DashboardScreen: React.FC = () => {
           delay={0}
           people={owesMePeople}
           slices={[
-            { key: 'partenaires', label: 'Partenaires', value: totals.partnersOwesMe, color: 'var(--color-credit)' },
+            { key: 'partenaires', label: 'Personnes', value: totals.partnersOwesMe, color: 'var(--color-credit)' },
             { key: 'avances', label: 'Avances des employés', value: totals.employeesAdvanceOwed, color: 'color-mix(in oklch, var(--color-credit) 45%, var(--muted))' },
           ]}
         />
@@ -128,7 +128,7 @@ export const DashboardScreen: React.FC = () => {
           delay={100}
           people={iOwePeople}
           slices={[
-            { key: 'partenaires', label: 'Partenaires', value: totals.partnersIOwe, color: 'var(--color-debt)' },
+            { key: 'partenaires', label: 'Personnes', value: totals.partnersIOwe, color: 'var(--color-debt)' },
             { key: 'salaires', label: 'Salaires dus', value: totals.employeesSalaryDue, color: 'color-mix(in oklch, var(--color-debt) 45%, var(--muted))' },
           ]}
         />
