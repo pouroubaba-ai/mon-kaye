@@ -1,5 +1,7 @@
 import React, { useState } from 'react'
 import { useStore } from '@/data/store'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { EmployeesOverview } from '@/components/screens/EmployeesOverview'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -10,6 +12,7 @@ import { Search, UserCheck, PlusCircle, ArrowDownLeft, ArrowUpRight, Phone, Brie
 export const PersonsListScreen: React.FC = () => {
   const { persons, setSelectedPersonId, activeTab } = useStore()
   const [searchQuery, setSearchQuery] = useState('')
+  const [employeeView, setEmployeeView] = useState<'liste' | 'ensemble'>('liste')
   const [filterType, setFilterType] = useState<'all' | 'owes_me' | 'i_owe' | 'employees'>('all')
 
   // Filter list
@@ -43,8 +46,27 @@ export const PersonsListScreen: React.FC = () => {
     return maxB - maxA
   })
 
+  const employeeTabs = activeTab === 'employes' && (
+    <Tabs value={employeeView} onValueChange={v => setEmployeeView(v as 'liste' | 'ensemble')}>
+      <TabsList className="w-full">
+        <TabsTrigger value="liste">Liste</TabsTrigger>
+        <TabsTrigger value="ensemble">Vue d'ensemble</TabsTrigger>
+      </TabsList>
+    </Tabs>
+  )
+
+  if (activeTab === 'employes' && employeeView === 'ensemble') {
+    return (
+      <div className="space-y-4">
+        {employeeTabs}
+        <EmployeesOverview />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4">
+      {employeeTabs}
       {/* Barre de Recherche instantanée */}
       <div className="relative">
         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />

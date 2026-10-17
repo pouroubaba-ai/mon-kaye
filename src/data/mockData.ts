@@ -20,6 +20,7 @@ export interface Person {
   currentSalaryDue?: number // Salaire échu en cours
   advanceBalance?: number // Avance restante
   advanceDeductionPerPeriod?: number // Retenue par paie
+  lastAdvanceRepaymentDate?: string // Dernier remboursement d'avance (jj/mm/aaaa)
 }
 
 export interface Movement {
@@ -80,6 +81,7 @@ export const INITIAL_PERSONS: Person[] = [
     status: "actif",
     currentSalaryDue: 60000,
     advanceBalance: 20000,
+    lastAdvanceRepaymentDate: "28/09/2026",
     advanceDeductionPerPeriod: 10000,
     notes: "Avance accordée pour frais médicaux familiaux.",
   },
@@ -96,6 +98,7 @@ export const INITIAL_PERSONS: Person[] = [
     status: "actif",
     currentSalaryDue: 70000,
     advanceBalance: 35000,
+    lastAdvanceRepaymentDate: "02/08/2026",
     advanceDeductionPerPeriod: 15000,
     notes: "Livraisons quartier Mpila et Moungali.",
   },
@@ -128,6 +131,7 @@ export const INITIAL_PERSONS: Person[] = [
     status: "actif",
     currentSalaryDue: 40000,
     advanceBalance: 15000,
+    lastAdvanceRepaymentDate: "06/10/2026",
     advanceDeductionPerPeriod: 10000,
     notes: "Demande de départ pour reprise des études.",
   },

@@ -214,9 +214,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           updated.advanceBalance = advance + amt
         } else if (newMov.type === 'remboursement_direct') {
           updated.advanceBalance = Math.max(0, advance - amt)
+          updated.lastAdvanceRepaymentDate = dateStr
         } else if (newMov.type === 'retenue_salaire') {
           updated.currentSalaryDue = Math.max(0, currentSalary - amt)
           updated.advanceBalance = Math.max(0, advance - amt)
+          updated.lastAdvanceRepaymentDate = dateStr
         }
       }
       return updated

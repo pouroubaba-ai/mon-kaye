@@ -123,3 +123,11 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 - Accueil : deux cartes côte à côte (On me doit / Je dois), deux anneaux de répartition (Qui me doit / À qui je dois) avec le nombre de personnes au centre, puis les listes « Salaires à payer » et « Ils tardent à payer ».
 - Police : Urbanist (gratuite, Google Fonts) à la place de Geist. Lancer `npm install`.
 - Le « solde net » n'est plus affiché sur l'accueil.
+
+## Employés : vue d'ensemble (17/10/2026, Claude)
+
+- Page Employés : deux onglets, « Liste » et « Vue d'ensemble ».
+- Graphique « Salaires » en barres empilées : gris = versé, orange = reste dû. Filtre par année (mois par mois) ou « Tout » (année par année).
+- Graphique « Avances » : barres horizontales, jours depuis le dernier remboursement par employé, le plus ancien en haut.
+- DÉMONSTRATION : les mois passés sont fabriqués de façon fixe (src/data/payHistory.ts) ; le mois en cours suit l'état réel. À remplacer par le calcul à partir des opérations enregistrées.
+- Nouveau champ `lastAdvanceRepaymentDate`, mis à jour à chaque remboursement ou retenue d'avance.
