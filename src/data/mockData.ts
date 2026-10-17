@@ -21,6 +21,7 @@ export interface Person {
   advanceBalance?: number // Avance restante
   advanceDeductionPerPeriod?: number // Retenue par paie
   lastAdvanceRepaymentDate?: string // Dernier remboursement d'avance (jj/mm/aaaa)
+  lastSalaryPaymentDate?: string // Dernier salaire versé (jj/mm/aaaa)
 }
 
 export interface Movement {
@@ -64,6 +65,7 @@ export const INITIAL_PERSONS: Person[] = [
     startDate: "01/02/2025",
     status: "actif",
     currentSalaryDue: 85000,
+    lastSalaryPaymentDate: "29/08/2026",
     advanceBalance: 0,
     advanceDeductionPerPeriod: 0,
     notes: "Tenue exemplaire de la caisse centrale.",
@@ -80,6 +82,7 @@ export const INITIAL_PERSONS: Person[] = [
     startDate: "15/05/2025",
     status: "actif",
     currentSalaryDue: 60000,
+    lastSalaryPaymentDate: "26/09/2026",
     advanceBalance: 20000,
     lastAdvanceRepaymentDate: "28/09/2026",
     advanceDeductionPerPeriod: 10000,
@@ -97,6 +100,7 @@ export const INITIAL_PERSONS: Person[] = [
     startDate: "10/08/2025",
     status: "actif",
     currentSalaryDue: 70000,
+    lastSalaryPaymentDate: "28/09/2026",
     advanceBalance: 35000,
     lastAdvanceRepaymentDate: "02/08/2026",
     advanceDeductionPerPeriod: 15000,
@@ -114,6 +118,7 @@ export const INITIAL_PERSONS: Person[] = [
     startDate: "01/11/2025",
     status: "actif",
     currentSalaryDue: 50000,
+    lastSalaryPaymentDate: "01/10/2026",
     advanceBalance: 0,
     advanceDeductionPerPeriod: 0,
     notes: "Gestion des frigos et réassortiment lait/boissons.",
@@ -130,6 +135,7 @@ export const INITIAL_PERSONS: Person[] = [
     startDate: "01/01/2026",
     status: "actif",
     currentSalaryDue: 40000,
+    lastSalaryPaymentDate: "30/09/2026",
     advanceBalance: 15000,
     lastAdvanceRepaymentDate: "06/10/2026",
     advanceDeductionPerPeriod: 10000,

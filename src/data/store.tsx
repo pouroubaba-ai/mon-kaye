@@ -210,6 +210,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         if (newMov.type === 'je_lui_ai_verse') {
           updated.currentSalaryDue = Math.max(0, currentSalary - amt)
+          updated.lastSalaryPaymentDate = dateStr
         } else if (newMov.type === 'avance_salaire') {
           updated.advanceBalance = advance + amt
         } else if (newMov.type === 'remboursement_direct') {

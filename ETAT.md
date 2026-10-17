@@ -131,3 +131,4 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 - Graphique « Avances » : barres horizontales, jours depuis le dernier remboursement par employé, le plus ancien en haut.
 - DÉMONSTRATION : les mois passés sont fabriqués de façon fixe (src/data/payHistory.ts) ; le mois en cours suit l'état réel. À remplacer par le calcul à partir des opérations enregistrées.
 - Nouveau champ `lastAdvanceRepaymentDate`, mis à jour à chaque remboursement ou retenue d'avance.
+- Vue d'ensemble (suite) : choix d'un employé avec recherche (shadcn Combobox = Popover + Command, `cmdk` ajouté ; popover.tsx et command.tsx écrits d'après la source officielle, registre injoignable). « Total » à la place de « Versé ». Cartes Avances et Salaires dus : montant + jours, 5 premiers et « Voir plus » au-delà de 7. Nouveau champ `lastSalaryPaymentDate`. Lancer `npm install`.
