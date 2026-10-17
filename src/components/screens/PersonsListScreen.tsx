@@ -13,7 +13,6 @@ export const PersonsListScreen: React.FC = () => {
   const { persons, setSelectedPersonId, activeTab } = useStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [employeeView, setEmployeeView] = useState<'liste' | 'ensemble'>('liste')
-  const [filterType, setFilterType] = useState<'all' | 'owes_me' | 'i_owe' | 'employees'>('all')
 
   // Filter list
   const filteredPersons = persons.filter(p => {
@@ -25,18 +24,6 @@ export const PersonsListScreen: React.FC = () => {
                           (p.role && p.role.toLowerCase().includes(searchQuery.toLowerCase()))
 
     if (!matchesSearch) return false
-
-    if (filterType === 'owes_me') {
-      if (p.type === 'partner') return (p.owesMe || 0) > 0
-      if (p.type === 'employee') return (p.advanceBalance || 0) > 0
-    }
-    if (filterType === 'i_owe') {
-      if (p.type === 'partner') return (p.iOweHim || 0) > 0
-      if (p.type === 'employee') return (p.currentSalaryDue || 0) > 0
-    }
-    if (filterType === 'employees') {
-      return p.type === 'employee'
-    }
 
     return true
   }).sort((a, b) => {
@@ -77,43 +64,6 @@ export const PersonsListScreen: React.FC = () => {
         />
       </div>
 
-      {/* Filtres par Onglets / Boutons Rapides */}
-      {activeTab !== 'employes' && (
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs">
-          <Button
-            variant={filterType === 'all' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFilterType('all')}
-            className="rounded-full px-3 h-8 text-xs shrink-0"
-          >
-            Tous ({persons.length})
-          </Button>
-          <Button
-            variant={filterType === 'owes_me' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFilterType('owes_me')}
-            className={`rounded-full px-3 h-8 text-xs shrink-0 ${filterType === 'owes_me' ? 'bg-credit text-white hover:bg-credit/90' : 'text-credit border-credit/30'}`}
-          >
-            Me doivent ({persons.filter(p => (p.owesMe || 0) > 0 || (p.advanceBalance || 0) > 0).length})
-          </Button>
-          <Button
-            variant={filterType === 'i_owe' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFilterType('i_owe')}
-            className={`rounded-full px-3 h-8 text-xs shrink-0 ${filterType === 'i_owe' ? 'bg-debt text-white hover:bg-debt/90' : 'text-debt border-debt/30'}`}
-          >
-            Je leur dois ({persons.filter(p => (p.iOweHim || 0) > 0 || (p.currentSalaryDue || 0) > 0).length})
-          </Button>
-          <Button
-            variant={filterType === 'employees' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFilterType('employees')}
-            className="rounded-full px-3 h-8 text-xs shrink-0"
-          >
-            Employés ({persons.filter(p => p.type === 'employee').length})
-          </Button>
-        </div>
-      )}
 
       <p className="text-sm text-muted-foreground">
         {filteredPersons.length}{' '}
