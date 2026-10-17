@@ -44,7 +44,7 @@ function StatCard({
   )
 }
 
-type Slice = { key: string; label: string; value: number; color: string }
+type Slice = { key: string; label: string; value: number; color: string; count: number; unit: [string, string] }
 
 function DonutCard({ title, slices, people, delay = 0 }: { title: string; slices: Slice[]; people: number; delay?: number }) {
   const total = slices.reduce((a, s) => a + s.value, 0)
@@ -84,7 +84,12 @@ function DonutCard({ title, slices, people, delay = 0 }: { title: string; slices
           {slices.filter(s => s.value > 0).map(s => (
             <div key={s.key} className="flex items-center gap-2 text-sm">
               <span className="size-2.5 shrink-0 rounded-full" style={{ background: s.color }} />
-              <span className="flex-1 text-muted-foreground">{s.label}</span>
+              <span className="flex flex-1 flex-col">
+                <span className="text-muted-foreground">{s.label}</span>
+                <span className="text-xs text-muted-foreground/70">
+                  {s.count} {s.count > 1 ? s.unit[1] : s.unit[0]}
+                </span>
+              </span>
               <span className="font-medium tabular-nums">{formatFCFA(s.value)}</span>
               <span className="w-10 text-right text-xs tabular-nums text-muted-foreground">
                 {total > 0 ? Math.round((s.value / total) * 100) : 0} %
@@ -102,8 +107,14 @@ export const DashboardScreen: React.FC = () => {
 
   const partners = persons.filter(p => p.type === 'partner')
   const employees = persons.filter(p => p.type === 'employee')
-  const owesMePeople = partners.filter(p => (p.owesMe || 0) > 0).length + employees.filter(p => (p.advanceBalance || 0) > 0).length
-  const iOwePeople = partners.filter(p => (p.iOweHim || 0) > 0).length + employees.filter(p => (p.currentSalaryDue || 0) > 0).length
+  const PEOPLE: [string, string] = ['personne', 'personnes']
+  const STAFF: [string, string] = ['employé', 'employés']
+  const nOwesMe = partners.filter(p => (p.owesMe || 0) > 0).length
+  const nAdvances = employees.filter(p => (p.advanceBalance || 0) > 0).length
+  const nIOwe = partners.filter(p => (p.iOweHim || 0) > 0).length
+  const nSalaries = employees.filter(p => (p.currentSalaryDue || 0) > 0).length
+  const owesMePeople = nOwesMe + nAdvances
+  const iOwePeople = nIOwe + nSalaries
 
 
   return (
@@ -119,8 +130,8 @@ export const DashboardScreen: React.FC = () => {
           delay={0}
           people={owesMePeople}
           slices={[
-            { key: 'partenaires', label: 'Personnes', value: totals.partnersOwesMe, color: 'var(--color-credit)' },
-            { key: 'avances', label: 'Avances des employés', value: totals.employeesAdvanceOwed, color: 'color-mix(in oklch, var(--color-credit) 45%, var(--muted))' },
+            { key: 'partenaires', label: 'Personnes', value: totals.partnersOwesMe, color: 'var(--color-credit)', count: nOwesMe, unit: PEOPLE },
+            { key: 'avances', label: 'Avances', value: totals.employeesAdvanceOwed, color: 'color-mix(in oklch, var(--color-credit) 45%, var(--muted))', count: nAdvances, unit: STAFF },
           ]}
         />
         <DonutCard
@@ -128,8 +139,8 @@ export const DashboardScreen: React.FC = () => {
           delay={100}
           people={iOwePeople}
           slices={[
-            { key: 'partenaires', label: 'Personnes', value: totals.partnersIOwe, color: 'var(--color-debt)' },
-            { key: 'salaires', label: 'Salaires dus', value: totals.employeesSalaryDue, color: 'color-mix(in oklch, var(--color-debt) 45%, var(--muted))' },
+            { key: 'partenaires', label: 'Personnes', value: totals.partnersIOwe, color: 'var(--color-debt)', count: nIOwe, unit: PEOPLE },
+            { key: 'salaires', label: 'Salaires', value: totals.employeesSalaryDue, color: 'color-mix(in oklch, var(--color-debt) 45%, var(--muted))', count: nSalaries, unit: STAFF },
           ]}
         />
       </div>
