@@ -1,5 +1,5 @@
 import React from 'react'
-import { ArrowDownLeft, ArrowLeft, ArrowUpRight, Phone, Plus, Scale } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, Phone, Plus, Scale } from 'lucide-react'
 
 import { useStore } from '@/data/store'
 import { Badge } from '@/components/ui/badge'
@@ -19,7 +19,7 @@ import { formatFCFA } from '@/lib/utils'
 // Chaque compteur porte ses deux actions : on agit là où on lit le chiffre.
 
 export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId }) => {
-  const { persons, movements, setSelectedPersonId, openNewMovement, openCompensation, openMovementDetail } = useStore()
+  const { persons, movements, openNewMovement, openCompensation, openMovementDetail } = useStore()
 
   const partner = persons.find(p => p.id === partnerId)
   if (!partner) return null
@@ -32,9 +32,6 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-start gap-2">
-        <Button variant="ghost" size="icon" onClick={() => setSelectedPersonId(null)} aria-label="Retour">
-          <ArrowLeft />
-        </Button>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h1 className="truncate text-xl font-semibold tracking-tight">{partner.name}</h1>

@@ -6,6 +6,14 @@ import { Separator } from '@/components/ui/separator'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/app-sidebar'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb'
 import { cn } from '@/lib/utils'
 
 type Tab = 'accueil' | 'personnes' | 'employes' | 'reglages'
@@ -20,7 +28,7 @@ const TITLES: Record<Tab, string> = {
 // Mise en page : barre latérale shadcn (ordinateur, tablette) + barre du bas à 4 onglets
 // et un seul bouton « + » (téléphone). Une seule entrée « nouveau mouvement » par appareil.
 export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { shop, activeTab, selectedPersonId, setActiveTab, setSelectedPersonId, openNewMovement, theme, toggleTheme, lockApp } =
+  const { shop, persons, activeTab, selectedPersonId, setActiveTab, setSelectedPersonId, openNewMovement, theme, toggleTheme, lockApp } =
     useStore()
 
   // Chaque changement de page (ou ouverture / fermeture d'une fiche) revient tout en haut.
@@ -29,6 +37,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
   }, [activeTab, selectedPersonId])
 
   const shopName = shop.name?.trim()
+  const openPerson = selectedPersonId ? persons.find(p => p.id === selectedPersonId) : undefined
 
   const go = (tab: Tab) => {
     setSelectedPersonId(null)
@@ -52,9 +61,30 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
           <SidebarTrigger className="-ml-1 hidden md:inline-flex" />
           <Separator orientation="vertical" className="mr-2 hidden data-[orientation=vertical]:h-4 md:block" />
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-lg leading-tight font-semibold tracking-tight md:text-base">{TITLES[activeTab]}</h1>
-            {activeTab === 'accueil' && shopName && (
-              <p className="truncate text-xs leading-tight text-muted-foreground">{shopName}</p>
+            {openPerson ? (
+              // Fiche ouverte : fil d'Ariane « Page › Nom ». Toucher la page ramène à la liste.
+              <Breadcrumb>
+                <BreadcrumbList className="flex-nowrap text-base md:text-sm">
+                  <BreadcrumbItem className="shrink-0">
+                    <BreadcrumbLink asChild>
+                      <button type="button" onClick={() => setSelectedPersonId(null)}>
+                        {TITLES[activeTab]}
+                      </button>
+                    </BreadcrumbLink>
+                  </BreadcrumbItem>
+                  <BreadcrumbSeparator />
+                  <BreadcrumbItem className="min-w-0">
+                    <BreadcrumbPage className="truncate font-semibold">{openPerson.name}</BreadcrumbPage>
+                  </BreadcrumbItem>
+                </BreadcrumbList>
+              </Breadcrumb>
+            ) : (
+              <>
+                <h1 className="truncate text-lg leading-tight font-semibold tracking-tight md:text-base">{TITLES[activeTab]}</h1>
+                {activeTab === 'accueil' && shopName && (
+                  <p className="truncate text-xs leading-tight text-muted-foreground">{shopName}</p>
+                )}
+              </>
             )}
           </div>
           <div className="flex shrink-0 items-center md:hidden">

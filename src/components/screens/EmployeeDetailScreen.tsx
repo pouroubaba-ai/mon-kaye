@@ -1,5 +1,5 @@
 import React from 'react'
-import { ArrowLeft, Coins, HandCoins, Phone, Undo2, UserMinus } from 'lucide-react'
+import { Coins, HandCoins, Phone, Undo2, UserMinus } from 'lucide-react'
 
 import { useStore } from '@/data/store'
 import { Badge } from '@/components/ui/badge'
@@ -19,7 +19,7 @@ import { formatFCFA } from '@/lib/utils'
 // Chaque compteur porte ses actions ; le départ est une action secondaire, en bas.
 
 export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employeeId }) => {
-  const { persons, movements, setSelectedPersonId, openNewMovement, openDeparture, openMovementDetail } = useStore()
+  const { persons, movements, openNewMovement, openDeparture, openMovementDetail } = useStore()
 
   const emp = persons.find(p => p.id === employeeId)
   if (!emp) return null
@@ -32,9 +32,6 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-start gap-2">
-        <Button variant="ghost" size="icon" onClick={() => setSelectedPersonId(null)} aria-label="Retour">
-          <ArrowLeft />
-        </Button>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h1 className="truncate text-xl font-semibold tracking-tight">{emp.name}</h1>
