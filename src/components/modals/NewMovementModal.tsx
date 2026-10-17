@@ -68,6 +68,7 @@ export const NewMovementModal: React.FC = () => {
   const [photo, setPhoto] = useState(false)
   const [showMore, setShowMore] = useState(false)
   const [search, setSearch] = useState('')
+  const [group, setGroup] = useState<'partner' | 'employee'>('partner')
 
   useEffect(() => {
     if (!isNewMovementOpen) return
@@ -81,6 +82,7 @@ export const NewMovementModal: React.FC = () => {
     setPhoto(false)
     setShowMore(false)
     setSearch('')
+    setGroup('partner')
   }, [isNewMovementOpen, newMovementTargetPersonId, newMovementInitialType])
 
   const person = persons.find(p => p.id === personId)
@@ -122,12 +124,15 @@ export const NewMovementModal: React.FC = () => {
     closeNewMovement()
   }
 
-  const visible = persons
-    .filter(p => p.type === 'partner' || p.status === 'actif')
+  const partnersList = persons.filter(p => p.type === 'partner')
+  const employeesList = persons.filter(p => p.type === 'employee' && p.status === 'actif')
+  const bothGroups = partnersList.length > 0 && employeesList.length > 0
+  const activeGroup = bothGroups ? group : partnersList.length > 0 ? 'partner' : 'employee'
+  const visible = (activeGroup === 'partner' ? partnersList : employeesList)
     .filter(p => !search || p.name.toLowerCase().includes(search.toLowerCase()) || (p.phone || '').includes(search))
 
   const sub = (p: (typeof persons)[number]) => {
-    if (p.type === 'employee') return 'Employé'
+    if (p.type === 'employee') return p.role || 'Employé'
     const net = (p.owesMe || 0) - (p.iOweHim || 0)
     if (net > 0) return `Me doit ${formatFCFA(net)}`
     if (net < 0) return `Je lui dois ${formatFCFA(-net)}`
@@ -152,9 +157,17 @@ export const NewMovementModal: React.FC = () => {
         {/* 1. Qui ? */}
         {step === 'qui' && (
           <div className="flex flex-col gap-3">
+            {bothGroups && (
+              <Tabs value={activeGroup} onValueChange={v => { setGroup(v as 'partner' | 'employee'); setSearch('') }}>
+                <TabsList className="w-full">
+                  <TabsTrigger value="partner">Personnes</TabsTrigger>
+                  <TabsTrigger value="employee">Employés</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            )}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Nom ou téléphone" value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+              <Input placeholder={activeGroup === 'employee' ? 'Chercher un employé' : 'Chercher une personne'} value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
             </div>
             <div className="flex max-h-[55dvh] flex-col divide-y overflow-y-auto rounded-lg border">
               {visible.map(p => (
