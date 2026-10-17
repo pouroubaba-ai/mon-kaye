@@ -40,6 +40,8 @@ export const PersonsListScreen: React.FC = () => {
 
     return true
   }).sort((a, b) => {
+    // Employés : ordre alphabétique (la liste n'affiche plus de montants)
+    if (activeTab === 'employes') return a.name.localeCompare(b.name, 'fr')
     // Tri par défaut : plus gros montant en jeu
     const maxA = Math.max(a.owesMe || 0, a.iOweHim || 0, a.currentSalaryDue || 0, a.advanceBalance || 0)
     const maxB = Math.max(b.owesMe || 0, b.iOweHim || 0, b.currentSalaryDue || 0, b.advanceBalance || 0)
@@ -116,6 +118,12 @@ export const PersonsListScreen: React.FC = () => {
         </div>
       )}
 
+      {activeTab === 'employes' && (
+        <p className="text-sm text-muted-foreground">
+          {filteredPersons.length} {filteredPersons.length > 1 ? 'employés' : 'employé'}
+        </p>
+      )}
+
       {/* Liste des personnes triée */}
       <div className="space-y-2.5">
         {filteredPersons.length === 0 ? (
@@ -156,14 +164,24 @@ export const PersonsListScreen: React.FC = () => {
                           </Badge>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
-                        <Phone className="w-3 h-3" /> {p.phone}
-                        {p.role && <span>· {p.role}</span>}
-                      </p>
+                      {activeTab === 'employes' ? (
+                        <>
+                          {p.role && <p className="truncate text-xs text-muted-foreground">{p.role}</p>}
+                          <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
+                            <Phone className="size-3" /> {p.phone}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                          <Phone className="w-3 h-3" /> {p.phone}
+                          {p.role && <span>· {p.role}</span>}
+                        </p>
+                      )}
                     </div>
                   </div>
 
-                  {/* Compteurs visibles en grand */}
+                  {/* Montants : uniquement dans Personnes (la liste Employés n'en affiche plus) */}
+                  {activeTab !== 'employes' && (
                   <div className="text-right shrink-0">
                     {!isEmployee ? (
                       <div>
@@ -213,6 +231,7 @@ export const PersonsListScreen: React.FC = () => {
                       </div>
                     )}
                   </div>
+                  )}
 
                 </div>
               </Card>

@@ -31,6 +31,8 @@ const payConfig = {
   unpaid: { label: 'Reste dû', color: 'var(--color-debt)' },
 } satisfies ChartConfig
 
+const countLabel = (n: number) => `${n} ${n > 1 ? 'employés' : 'employé'}`
+
 const short = (v: number) => (v >= 1_000_000 ? `${Math.round(v / 100_000) / 10} M` : v >= 1000 ? `${Math.round(v / 1000)} k` : String(v))
 
 function EmployeePicker({ employees, value, onChange }: { employees: Person[]; value: string; onChange: (id: string) => void }) {
@@ -80,6 +82,7 @@ function DaysCard({
   amountLabel,
   empty,
   totalLabel,
+  showCount,
 }: {
   title: string
   rows: DayRow[]
@@ -87,6 +90,7 @@ function DaysCard({
   amountLabel: string
   empty: string
   totalLabel?: string
+  showCount?: boolean
 }) {
   const [expanded, setExpanded] = React.useState(false)
   const [sort, setSort] = React.useState<SortKey>('days-desc')
@@ -105,6 +109,7 @@ function DaysCard({
             <span className={cn('text-lg font-semibold tabular-nums', tone === 'credit' ? 'text-credit' : 'text-debt')}>
               {formatFCFA(rawRows.reduce((a, r) => a + r.amount, 0))}
             </span>
+            {showCount && <span className="text-xs text-muted-foreground">{countLabel(rawRows.length)}</span>}
           </div>
         )}
         {rows.length > 1 && (
@@ -187,6 +192,13 @@ export const EmployeesOverview: React.FC = () => {
           return { label: name, paid: r?.paid ?? 0, unpaid: r ? r.due - r.paid : 0 }
         })
 
+  // Nombre d'employés concernés par chaque total de la période choisie.
+  const inPeriod = (y: number) => activePeriod === 'tout' || y === Number(activePeriod)
+  const perEmployee = selected.map(e => buildPayHistory([e]).filter(r => inPeriod(r.year)))
+  const countTotal = perEmployee.filter(rows => rows.some(r => r.due > 0)).length
+  const countUnpaid = perEmployee.filter(rows => rows.some(r => r.due - r.paid > 0)).length
+  const showCount = who === 'tous'
+
   const total = payData.reduce((a, d) => a + d.paid + d.unpaid, 0)
   const totalUnpaid = payData.reduce((a, d) => a + d.unpaid, 0)
 
@@ -228,12 +240,14 @@ export const EmployeesOverview: React.FC = () => {
             <div className="flex flex-col gap-1">
               <span className="text-xs text-muted-foreground">Total</span>
               <span className="text-lg font-semibold tabular-nums">{formatFCFA(total)}</span>
+              {showCount && <span className="text-xs text-muted-foreground">{countLabel(countTotal)}</span>}
             </div>
             <div className="flex flex-col gap-1">
               <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <span className="size-2.5 rounded-full bg-debt" /> Reste dû
               </span>
               <span className="text-lg font-semibold tabular-nums text-debt">{formatFCFA(totalUnpaid)}</span>
+              {showCount && <span className="text-xs text-muted-foreground">{countLabel(countUnpaid)}</span>}
             </div>
           </div>
 
@@ -261,6 +275,7 @@ export const EmployeesOverview: React.FC = () => {
       <DaysCard
         title="Dernier remboursement"
         totalLabel="Avances à rendre"
+        showCount={who === 'tous'}
         rows={advanceRows}
         tone="credit"
         amountLabel="Avance à rendre"
