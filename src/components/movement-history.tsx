@@ -46,8 +46,11 @@ export function MovementHistory({
     <Card>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
-        <CardDescription>Touchez une ligne pour voir le reçu ou l'annuler.</CardDescription>
-        <CardAction>{action ?? <Badge variant="outline">{movements.length}</Badge>}</CardAction>
+        {/* Avec un bouton à droite, la phrase passe en dessous sur toute la largeur. */}
+        <CardDescription className={action ? 'col-span-2' : undefined}>Touchez une ligne pour voir le reçu ou l'annuler.</CardDescription>
+        <CardAction className={action ? 'row-span-1 self-center' : undefined}>
+          {action ?? <Badge variant="outline">{movements.length}</Badge>}
+        </CardAction>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {toolbar}
