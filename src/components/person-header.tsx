@@ -28,11 +28,11 @@ export function PersonHeader({ person, badge }: { person: Person; badge?: React.
     <>
       <Card className="py-4">
         <CardContent className="flex items-center gap-4 px-4">
-          <div className="flex size-14 shrink-0 items-center justify-center rounded-full bg-primary text-lg font-semibold text-primary-foreground">
+          <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary text-base font-semibold text-primary-foreground">
             {initials(person.name)}
           </div>
           <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <h1 className="truncate text-lg leading-tight font-semibold">{person.name}</h1>
+            <h1 className="truncate text-base leading-tight font-semibold">{person.name}</h1>
             {(person.role || badge) && (
               <div className="flex min-w-0 items-center gap-2">
                 {person.role && <p className="truncate text-sm text-muted-foreground">{person.role}</p>}

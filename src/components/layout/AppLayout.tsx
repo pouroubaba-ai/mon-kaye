@@ -64,7 +64,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
             {openPerson ? (
               // Fiche ouverte : fil d'Ariane « Page › Nom ». Toucher la page ramène à la liste.
               <Breadcrumb>
-                <BreadcrumbList className="flex-nowrap text-base md:text-sm">
+                <BreadcrumbList className="flex-nowrap text-sm">
                   <BreadcrumbItem className="shrink-0">
                     <BreadcrumbLink asChild>
                       <button type="button" onClick={() => setSelectedPersonId(null)}>
@@ -74,7 +74,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
                   </BreadcrumbItem>
                   <BreadcrumbSeparator />
                   <BreadcrumbItem className="min-w-0">
-                    <BreadcrumbPage className="truncate font-semibold">{openPerson.name}</BreadcrumbPage>
+                    <BreadcrumbPage className="truncate font-medium">{openPerson.name}</BreadcrumbPage>
                   </BreadcrumbItem>
                 </BreadcrumbList>
               </Breadcrumb>
