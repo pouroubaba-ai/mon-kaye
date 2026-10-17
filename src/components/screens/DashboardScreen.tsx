@@ -14,21 +14,51 @@ import { cn, formatFCFA } from '@/lib/utils'
 
 const amount = (v: number) => formatFCFA(v).replace(/\s?FCFA$/, '')
 
+// Les chiffres montent de 0 jusqu'à leur valeur à l'ouverture de la page (désactivé si
+// le téléphone demande moins d'animations).
+function useCountUp(target: number, duration = 900) {
+  const [value, setValue] = React.useState(0)
+  React.useEffect(() => {
+    if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      setValue(target)
+      return
+    }
+    let frame = 0
+    const start = performance.now()
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / duration)
+      const eased = 1 - Math.pow(1 - t, 3)
+      setValue(Math.round(target * eased))
+      if (t < 1) frame = requestAnimationFrame(tick)
+    }
+    frame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frame)
+  }, [target, duration])
+  return value
+}
+
 function StatCard({
   label,
   value,
   tone,
   Icon,
   onClick,
+  delay = 0,
 }: {
   label: string
   value: number
   tone: 'credit' | 'debt'
   Icon: React.ComponentType<{ className?: string }>
   onClick: () => void
+  delay?: number
 }) {
+  const shown = useCountUp(value)
   return (
-    <Card className="cursor-pointer gap-6 py-4 transition-colors hover:bg-muted/40" onClick={onClick}>
+    <Card
+      className="animate-in fade-in slide-in-from-bottom-3 fill-mode-both cursor-pointer gap-6 py-4 duration-500 transition-colors hover:bg-muted/40 active:scale-[0.98]"
+      style={{ animationDelay: `${delay}ms` }}
+      onClick={onClick}
+    >
       <CardContent className="flex flex-col gap-6 px-4">
         <div className={cn('flex size-9 items-center justify-center rounded-lg bg-muted', tone === 'credit' ? 'text-credit' : 'text-debt')}>
           <Icon className="size-5" />
@@ -36,7 +66,7 @@ function StatCard({
         <div className="flex flex-col gap-1">
           <span className="text-sm text-muted-foreground">{label}</span>
           <span className="text-2xl font-semibold tabular-nums leading-none">
-            {amount(value)} <span className="text-sm font-normal text-muted-foreground">FCFA</span>
+            {amount(shown)} <span className="text-sm font-normal text-muted-foreground">FCFA</span>
           </span>
         </div>
       </CardContent>
@@ -46,13 +76,13 @@ function StatCard({
 
 type Slice = { key: string; label: string; value: number; color: string }
 
-function DonutCard({ title, slices, people }: { title: string; slices: Slice[]; people: number }) {
+function DonutCard({ title, slices, people, delay = 0 }: { title: string; slices: Slice[]; people: number; delay?: number }) {
   const total = slices.reduce((a, s) => a + s.value, 0)
   const config = Object.fromEntries(slices.map(s => [s.key, { label: s.label, color: s.color }])) satisfies ChartConfig
   const data = slices.filter(s => s.value > 0).map(s => ({ key: s.key, value: s.value, fill: `var(--color-${s.key})` }))
 
   return (
-    <Card>
+    <Card className="animate-in fade-in slide-in-from-bottom-3 fill-mode-both duration-500" style={{ animationDelay: `${delay}ms` }}>
       <CardHeader>
         <CardTitle className="text-sm font-normal text-muted-foreground">{title}</CardTitle>
       </CardHeader>
@@ -60,7 +90,7 @@ function DonutCard({ title, slices, people }: { title: string; slices: Slice[]; 
         <ChartContainer config={config} className="mx-auto aspect-square h-[180px]">
           <PieChart>
             <ChartTooltip cursor={false} content={<ChartTooltipContent formatter={formatFCFA} />} />
-            <Pie data={data} dataKey="value" nameKey="key" innerRadius={58} outerRadius={84} strokeWidth={3} isAnimationActive={false}>
+            <Pie data={data} dataKey="value" nameKey="key" innerRadius={58} outerRadius={84} strokeWidth={3} isAnimationActive animationBegin={delay + 150} animationDuration={900} animationEasing="ease-out">
               <Label
                 content={({ viewBox }) =>
                   viewBox && 'cx' in viewBox && 'cy' in viewBox ? (
@@ -108,13 +138,14 @@ export const DashboardScreen: React.FC = () => {
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-2 gap-3 md:gap-4">
-        <StatCard label="On me doit" value={totals.totalOwesMe} tone="credit" Icon={ArrowDownLeft} onClick={() => setActiveTab('personnes')} />
-        <StatCard label="Je dois" value={totals.totalIOwe} tone="debt" Icon={ArrowUpRight} onClick={() => setActiveTab('personnes')} />
+        <StatCard label="On me doit" value={totals.totalOwesMe} tone="credit" Icon={ArrowDownLeft} delay={0} onClick={() => setActiveTab('personnes')} />
+        <StatCard label="Je dois" value={totals.totalIOwe} tone="debt" Icon={ArrowUpRight} delay={80} onClick={() => setActiveTab('personnes')} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <DonutCard
           title="Qui me doit"
+          delay={160}
           people={owesMePeople}
           slices={[
             { key: 'partenaires', label: 'Partenaires', value: totals.partnersOwesMe, color: 'var(--color-credit)' },
@@ -123,6 +154,7 @@ export const DashboardScreen: React.FC = () => {
         />
         <DonutCard
           title="À qui je dois"
+          delay={240}
           people={iOwePeople}
           slices={[
             { key: 'partenaires', label: 'Partenaires', value: totals.partnersIOwe, color: 'var(--color-debt)' },
