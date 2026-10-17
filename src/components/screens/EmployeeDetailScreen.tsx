@@ -1,5 +1,5 @@
 import React from 'react'
-import { Coins, HandCoins, Phone, Undo2, UserMinus } from 'lucide-react'
+import { Coins, HandCoins, Undo2, UserMinus } from 'lucide-react'
 
 import { useStore } from '@/data/store'
 import { Badge } from '@/components/ui/badge'
@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { MovementHistory } from '@/components/movement-history'
+import { PersonHeader } from '@/components/person-header'
 import { formatFCFA } from '@/lib/utils'
 
 // Fiche employé (modèles shadcn : section-cards + Card).
@@ -31,18 +32,7 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h1 className="truncate text-xl font-semibold tracking-tight">{emp.name}</h1>
-            <Badge variant={active ? 'outline' : 'secondary'}>{active ? 'Actif' : 'Parti'}</Badge>
-          </div>
-          <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-            <Phone className="size-3.5" /> {emp.phone}
-          </p>
-          {emp.role && <p className="truncate text-sm text-muted-foreground">{emp.role}</p>}
-        </div>
-      </div>
+      <PersonHeader person={emp} badge={<Badge variant={active ? 'outline' : 'secondary'}>{active ? 'Actif' : 'Parti'}</Badge>} />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Card>

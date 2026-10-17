@@ -1,5 +1,5 @@
 import React from 'react'
-import { ArrowDownLeft, ArrowUpRight, Phone, Plus, Scale } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, Plus, Scale } from 'lucide-react'
 
 import { useStore } from '@/data/store'
 import { Badge } from '@/components/ui/badge'
@@ -14,6 +14,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { MovementHistory } from '@/components/movement-history'
+import { PersonHeader } from '@/components/person-header'
 import { formatFCFA } from '@/lib/utils'
 
 // Fiche d'une personne, inspirée des cartes « Payroll » :
@@ -94,18 +95,7 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h1 className="truncate text-xl font-semibold tracking-tight">{partner.name}</h1>
-            <Badge variant="outline">Partenaire</Badge>
-          </div>
-          <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-            <Phone className="size-3.5" /> {partner.phone}
-          </p>
-          {partner.role && <p className="truncate text-sm text-muted-foreground">{partner.role}</p>}
-        </div>
-      </div>
+      <PersonHeader person={partner} />
 
       {/* Bandeau : seulement quand chacun doit quelque chose à l'autre */}
       {owesMe > 0 && iOweHim > 0 && (

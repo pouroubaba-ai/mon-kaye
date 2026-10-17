@@ -67,6 +67,8 @@ interface StoreContextType {
   }
   
   exportCSV: () => void
+  // Modifier les informations d'une personne (nom, numéro, rôle, salaire…)
+  updatePerson: (id: string, changes: Partial<Pick<Person, 'name' | 'phone' | 'role' | 'salary' | 'dueDay'>>) => void
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined)
@@ -408,6 +410,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const latePartnersCount = persons.filter(p => p.type === 'partner' && (p.owesMe || 0) > 0 && (p.daysSinceLastPayment || 0) >= 30).length
 
   // CSV EXPORT
+  const updatePerson: StoreContextType['updatePerson'] = (id, changes) => {
+    setPersons(prev => prev.map(p => (p.id === id ? { ...p, ...changes } : p)))
+    // Le nom est aussi recopié dans ses opérations, pour que l'historique reste juste.
+    if (changes.name) {
+      setMovements(prev => prev.map(m => (m.personId === id ? { ...m, personName: changes.name as string } : m)))
+    }
+  }
+
   const exportCSV = () => {
     let csv = "ID;Type;Personne;Montant FCFA;Date;Moyen Paiement;Annule;Note\n"
     movements.forEach(m => {
@@ -471,6 +481,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           latePartnersCount,
         },
         exportCSV,
+        updatePerson,
       }}
     >
       {children}
