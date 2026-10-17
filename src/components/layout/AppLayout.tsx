@@ -97,10 +97,11 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-6xl flex-1 p-4 pb-28 md:p-6">{children}</main>
+        <main className={cn('mx-auto w-full max-w-6xl flex-1 p-4 md:p-6', openPerson ? 'pb-8' : 'pb-28')}>{children}</main>
       </SidebarInset>
 
-      {/* Barre du bas (téléphone) */}
+      {/* Barre du bas (téléphone) : masquée dans une fiche, le fil d'Ariane sert au retour */}
+      {!openPerson && (
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background md:hidden">
         <div className="grid grid-cols-5 items-end">
           {tabs.slice(0, 2).map(t => (
@@ -121,6 +122,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
           ))}
         </div>
       </nav>
+      )}
     </SidebarProvider>
     </TooltipProvider>
   )
