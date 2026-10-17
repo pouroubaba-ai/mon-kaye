@@ -8,7 +8,7 @@ import { formatFCFA } from '@/lib/utils'
 import { Search, UserCheck, PlusCircle, ArrowDownLeft, ArrowUpRight, Phone, Briefcase } from 'lucide-react'
 
 export const PersonsListScreen: React.FC = () => {
-  const { persons, setSelectedPersonId, openNewMovement, activeTab } = useStore()
+  const { persons, setSelectedPersonId, activeTab } = useStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [filterType, setFilterType] = useState<'all' | 'owes_me' | 'i_owe' | 'employees'>('all')
 
@@ -44,7 +44,7 @@ export const PersonsListScreen: React.FC = () => {
   })
 
   return (
-    <div className="space-y-4 pb-24 md:pb-8">
+    <div className="space-y-4">
       {/* Title + Action */}
       <div className="flex items-center justify-between gap-2">
         <div>
@@ -57,14 +57,6 @@ export const PersonsListScreen: React.FC = () => {
               : 'Partenaires, clients, fournisseurs et employés'}
           </p>
         </div>
-        <Button
-          onClick={() => openNewMovement()}
-          size="sm"
-          className="h-10 px-3 text-xs sm:text-sm font-semibold gap-1.5"
-        >
-          <PlusCircle className="w-4 h-4" />
-          <span className="hidden sm:inline">Nouveau</span> Mouvement
-        </Button>
       </div>
 
       {/* Barre de Recherche instantanée */}

@@ -1,207 +1,121 @@
 import * as React from "react"
+import { Briefcase, LayoutDashboard, Lock, Moon, Plus, Settings, Store, Sun, Users } from "lucide-react"
 
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
+  SidebarGroupContent,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { GalleryVerticalEndIcon } from "lucide-react"
+import { useStore } from "@/data/store"
 
-// This is sample data.
-const data = {
-  navMain: [
-    {
-      title: "Getting Started",
-      url: "#",
-      items: [
-        {
-          title: "Installation",
-          url: "#",
-        },
-        {
-          title: "Project Structure",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Build Your Application",
-      url: "#",
-      items: [
-        {
-          title: "Routing",
-          url: "#",
-        },
-        {
-          title: "Data Fetching",
-          url: "#",
-          isActive: true,
-        },
-        {
-          title: "Rendering",
-          url: "#",
-        },
-        {
-          title: "Caching",
-          url: "#",
-        },
-        {
-          title: "Styling",
-          url: "#",
-        },
-        {
-          title: "Optimizing",
-          url: "#",
-        },
-        {
-          title: "Configuring",
-          url: "#",
-        },
-        {
-          title: "Testing",
-          url: "#",
-        },
-        {
-          title: "Authentication",
-          url: "#",
-        },
-        {
-          title: "Deploying",
-          url: "#",
-        },
-        {
-          title: "Upgrading",
-          url: "#",
-        },
-        {
-          title: "Examples",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "API Reference",
-      url: "#",
-      items: [
-        {
-          title: "Components",
-          url: "#",
-        },
-        {
-          title: "File Conventions",
-          url: "#",
-        },
-        {
-          title: "Functions",
-          url: "#",
-        },
-        {
-          title: "next.config.js Options",
-          url: "#",
-        },
-        {
-          title: "CLI",
-          url: "#",
-        },
-        {
-          title: "Edge Runtime",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Architecture",
-      url: "#",
-      items: [
-        {
-          title: "Accessibility",
-          url: "#",
-        },
-        {
-          title: "Fast Refresh",
-          url: "#",
-        },
-        {
-          title: "Next.js Compiler",
-          url: "#",
-        },
-        {
-          title: "Supported Browsers",
-          url: "#",
-        },
-        {
-          title: "Turbopack",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Community",
-      url: "#",
-      items: [
-        {
-          title: "Contribution Guide",
-          url: "#",
-        },
-      ],
-    },
-  ],
-}
+// Barre latérale de « Carnet », construite sur la structure du bloc shadcn/ui « sidebar-03 »
+// (Sidebar, SidebarHeader, SidebarContent, SidebarGroup, SidebarMenu, SidebarRail),
+// repliable en icônes. Affichée sur ordinateur et tablette ; sur téléphone, la barre du bas la remplace.
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+type Tab = "accueil" | "personnes" | "employes" | "reglages"
+
+const NAV: { tab: Tab; title: string; icon: React.ComponentType }[] = [
+  { tab: "accueil", title: "Accueil", icon: LayoutDashboard },
+  { tab: "personnes", title: "Personnes", icon: Users },
+  { tab: "employes", title: "Employés", icon: Briefcase },
+  { tab: "reglages", title: "Réglages", icon: Settings },
+]
+
+export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
+  const { shop, activeTab, setActiveTab, setSelectedPersonId, openNewMovement, theme, toggleTheme, lockApp, totals } =
+    useStore()
+
+  const go = (tab: Tab) => {
+    setSelectedPersonId(null)
+    setActiveTab(tab)
+  }
+
+  const badgeFor = (tab: Tab) => {
+    if (tab === "personnes" && totals.latePartnersCount > 0) return totals.latePartnersCount
+    if (tab === "employes" && totals.soonSalariesDueCount > 0) return totals.soonSalariesDueCount
+    return null
+  }
+
   return (
-    <Sidebar {...props}>
+    <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
-              <a href="#">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                  <GalleryVerticalEndIcon className="size-4" />
-                </div>
-                <div className="flex flex-col gap-0.5 leading-none">
-                  <span className="font-medium">Documentation</span>
-                  <span className="">v1.0.0</span>
-                </div>
-              </a>
+            <SidebarMenuButton size="lg" onClick={() => go("accueil")} tooltip={shop.name}>
+              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                <Store className="size-4" />
+              </div>
+              <div className="flex flex-col gap-0.5 leading-none">
+                <span className="truncate font-medium">{shop.name}</span>
+                <span className="text-xs text-muted-foreground">Démonstration</span>
+              </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
+
       <SidebarContent>
         <SidebarGroup>
-          <SidebarMenu>
-            {data.navMain.map((item) => (
-              <SidebarMenuItem key={item.title}>
-                <SidebarMenuButton asChild>
-                  <a href={item.url} className="font-medium">
-                    {item.title}
-                  </a>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton tooltip="Nouveau mouvement" onClick={() => openNewMovement()}>
+                  <Plus />
+                  <span>Nouveau mouvement</span>
                 </SidebarMenuButton>
-                {item.items?.length ? (
-                  <SidebarMenuSub>
-                    {item.items.map((item) => (
-                      <SidebarMenuSubItem key={item.title}>
-                        <SidebarMenuSubButton asChild isActive={item.isActive}>
-                          <a href={item.url}>{item.title}</a>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    ))}
-                  </SidebarMenuSub>
-                ) : null}
               </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {NAV.map(item => {
+                const badge = badgeFor(item.tab)
+                return (
+                  <SidebarMenuItem key={item.tab}>
+                    <SidebarMenuButton
+                      isActive={activeTab === item.tab}
+                      tooltip={item.title}
+                      onClick={() => go(item.tab)}
+                    >
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </SidebarMenuButton>
+                    {badge !== null && <SidebarMenuBadge>{badge}</SidebarMenuBadge>}
+                  </SidebarMenuItem>
+                )
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton tooltip={theme === "dark" ? "Passer en mode clair" : "Passer en mode sombre"} onClick={toggleTheme}>
+              {theme === "dark" ? <Sun /> : <Moon />}
+              <span>{theme === "dark" ? "Mode clair" : "Mode sombre"}</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton tooltip="Verrouiller" onClick={lockApp}>
+              <Lock />
+              <span>Verrouiller</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   )

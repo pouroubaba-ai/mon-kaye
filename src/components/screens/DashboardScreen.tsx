@@ -1,382 +1,226 @@
 import React from 'react'
+import { Label, Pie, PieChart } from 'recharts'
+import { AlertTriangle, ArrowDownLeft, ArrowUpRight, ChevronRight, Clock } from 'lucide-react'
+
 import { useStore } from '@/data/store'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
 import { formatFCFA } from '@/lib/utils'
-import { 
-  ArrowDownLeft, 
-  ArrowUpRight, 
-  AlertTriangle, 
-  Clock, 
-  ChevronRight, 
-  Users, 
-  Briefcase, 
-  PlusCircle, 
-  CheckCircle2, 
-  WalletCards 
-} from 'lucide-react'
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
+
+// Accueil construit sur les modèles shadcn/ui :
+// - cartes d'indicateurs « section-cards » du bloc dashboard-01 ;
+// - graphique en anneau « chart-pie-donut-text » ;
+// - listes dans des Card standard.
+// Chaque chiffre n'apparaît qu'une fois à l'écran.
+
+const chartConfig = {
+  partenairesMeDoivent: { label: 'Partenaires qui me doivent', color: 'var(--color-credit)' },
+  avancesEmployes: { label: 'Avances des employés', color: 'color-mix(in oklch, var(--color-credit) 50%, transparent)' },
+  jeDoisPartenaires: { label: 'Ce que je dois aux partenaires', color: 'var(--color-debt)' },
+  salairesDus: { label: 'Salaires dus', color: 'color-mix(in oklch, var(--color-debt) 50%, transparent)' },
+} satisfies ChartConfig
 
 export const DashboardScreen: React.FC = () => {
   const { totals, persons, setActiveTab, setSelectedPersonId, openNewMovement } = useStore()
 
-  // Chart data for "On me doit" breakdown
-  const owesMeChartData = [
-    { name: 'Partenaires (crédits)', value: totals.partnersOwesMe, color: '#16a34a' },
-    { name: 'Employés (avances)', value: totals.employeesAdvanceOwed, color: '#4ade80' },
-  ]
+  const soonPayEmployees = persons.filter(
+    p => p.type === 'employee' && p.status === 'actif' && (p.currentSalaryDue || 0) > 0
+  )
+  const latePartners = persons.filter(
+    p => p.type === 'partner' && (p.owesMe || 0) > 0 && (p.daysSinceLastPayment || 0) >= 30
+  )
 
-  // Chart data for "Je dois" breakdown
-  const iOweChartData = [
-    { name: 'Partenaires (achats)', value: totals.partnersIOwe, color: '#ea580c' },
-    { name: 'Employés (salaires)', value: totals.employeesSalaryDue, color: '#fb923c' },
-  ]
+  const chartData = [
+    { key: 'partenairesMeDoivent', value: totals.partnersOwesMe, fill: 'var(--color-partenairesMeDoivent)' },
+    { key: 'avancesEmployes', value: totals.employeesAdvanceOwed, fill: 'var(--color-avancesEmployes)' },
+    { key: 'jeDoisPartenaires', value: totals.partnersIOwe, fill: 'var(--color-jeDoisPartenaires)' },
+    { key: 'salairesDus', value: totals.employeesSalaryDue, fill: 'var(--color-salairesDus)' },
+  ].filter(d => d.value > 0)
 
-  // "À payer bientôt" (Salaires dus et retards)
-  const soonPayEmployees = persons
-    .filter(p => p.type === 'employee' && p.status === 'actif' && (p.currentSalaryDue || 0) > 0)
+  const net = totals.totalOwesMe - totals.totalIOwe
 
-  // "Ils tardent à payer" (> 30 jours sans versement)
-  const latePartners = persons
-    .filter(p => p.type === 'partner' && (p.owesMe || 0) > 0 && (p.daysSinceLastPayment || 0) >= 30)
+  const openPerson = (id: string, tab: 'personnes' | 'employes') => {
+    setSelectedPersonId(id)
+    setActiveTab(tab)
+  }
 
   return (
-    <div className="space-y-6 pb-24 md:pb-8">
-      
-      {/* Top Banner / Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Tableau de bord</h1>
-          <p className="text-sm text-muted-foreground">
-            Aperçu immédiat de la situation financière de votre commerce
-          </p>
-        </div>
-        <Button
-          onClick={() => openNewMovement()}
-          size="lg"
-          className="h-12 px-6 gap-2 text-base font-semibold shadow-md active:scale-95 transition-all"
-        >
-          <PlusCircle className="w-5 h-5" />
-          Nouveau versement
-        </Button>
+    <div className="flex flex-col gap-4">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Tableau de bord</h1>
+        <p className="text-sm text-muted-foreground">Qui me doit, à qui je dois.</p>
       </div>
 
-      {/* LES DEUX GRANDES CARTES GÉANTES : ON ME DOIT & JE DOIS */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        
-        {/* CARTE 1 : ON ME DOIT (VERT) */}
-        <Card 
-          onClick={() => {
-            setActiveTab('personnes')
-          }}
-          className="cursor-pointer border-2 border-credit/30 bg-card hover:border-credit transition-all shadow-sm group relative overflow-hidden"
-        >
-          <div className="absolute top-0 left-0 right-0 h-1.5 bg-credit" />
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-xl bg-credit/10 text-credit flex items-center justify-center font-bold">
-                <ArrowDownLeft className="w-5 h-5" />
-              </div>
-              <div>
-                <span className="text-xs font-semibold uppercase tracking-wider text-credit block">
-                  Argent attendu
-                </span>
-                <CardTitle className="text-lg font-bold text-foreground">
-                  ON ME DOIT
-                </CardTitle>
-              </div>
-            </div>
-            <Badge className="bg-credit text-white text-xs px-2.5 py-0.5">
-              À encaisser
-            </Badge>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="text-3xl sm:text-4xl font-extrabold text-credit tracking-tight">
+      {/* Cartes d'indicateurs (section-cards) */}
+      <div className="grid grid-cols-1 gap-4 @container/main sm:grid-cols-2">
+        <Card className="@container/card">
+          <CardHeader>
+            <CardDescription className="flex items-center gap-1.5">
+              <ArrowDownLeft className="size-4 text-credit" />
+              On me doit
+            </CardDescription>
+            <CardTitle className="text-3xl font-semibold tabular-nums text-credit">
               {formatFCFA(totals.totalOwesMe)}
+            </CardTitle>
+            <CardAction>
+              <Badge variant="outline">À encaisser</Badge>
+            </CardAction>
+          </CardHeader>
+          <CardFooter className="flex-col items-start gap-1.5 text-sm">
+            <div className="flex w-full justify-between">
+              <span className="text-muted-foreground">Partenaires</span>
+              <span className="font-medium tabular-nums">{formatFCFA(totals.partnersOwesMe)}</span>
             </div>
-            
-            {/* Répartition Partenaires & Employés */}
-            <div className="grid grid-cols-2 gap-2 pt-2 border-t text-sm">
-              <div className="space-y-0.5">
-                <span className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Users className="w-3.5 h-3.5 text-credit" /> Partenaires :
-                </span>
-                <p className="font-bold text-foreground">{formatFCFA(totals.partnersOwesMe)}</p>
-              </div>
-              <div className="space-y-0.5">
-                <span className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Briefcase className="w-3.5 h-3.5 text-credit" /> Avances employés :
-                </span>
-                <p className="font-bold text-foreground">{formatFCFA(totals.employeesAdvanceOwed)}</p>
-              </div>
+            <div className="flex w-full justify-between">
+              <span className="text-muted-foreground">Avances des employés</span>
+              <span className="font-medium tabular-nums">{formatFCFA(totals.employeesAdvanceOwed)}</span>
             </div>
-
-            <div className="flex items-center justify-between text-xs text-muted-foreground group-hover:text-foreground pt-1">
-              <span>Voir la liste des personnes qui me doivent</span>
-              <ChevronRight className="w-4 h-4 text-credit transition-transform group-hover:translate-x-1" />
-            </div>
-          </CardContent>
+            <Button variant="link" className="h-auto px-0" onClick={() => setActiveTab('personnes')}>
+              Voir qui me doit <ChevronRight />
+            </Button>
+          </CardFooter>
         </Card>
 
-        {/* CARTE 2 : JE DOIS (ORANGE) */}
-        <Card 
-          onClick={() => {
-            setActiveTab('personnes')
-          }}
-          className="cursor-pointer border-2 border-debt/30 bg-card hover:border-debt transition-all shadow-sm group relative overflow-hidden"
-        >
-          <div className="absolute top-0 left-0 right-0 h-1.5 bg-debt" />
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-xl bg-debt/10 text-debt flex items-center justify-center font-bold">
-                <ArrowUpRight className="w-5 h-5" />
-              </div>
-              <div>
-                <span className="text-xs font-semibold uppercase tracking-wider text-debt block">
-                  Engagements à honorer
-                </span>
-                <CardTitle className="text-lg font-bold text-foreground">
-                  JE DOIS
-                </CardTitle>
-              </div>
-            </div>
-            <Badge className="bg-debt text-white text-xs px-2.5 py-0.5">
-              À payer
-            </Badge>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="text-3xl sm:text-4xl font-extrabold text-debt tracking-tight">
+        <Card className="@container/card">
+          <CardHeader>
+            <CardDescription className="flex items-center gap-1.5">
+              <ArrowUpRight className="size-4 text-debt" />
+              Je dois
+            </CardDescription>
+            <CardTitle className="text-3xl font-semibold tabular-nums text-debt">
               {formatFCFA(totals.totalIOwe)}
+            </CardTitle>
+            <CardAction>
+              <Badge variant="outline">À payer</Badge>
+            </CardAction>
+          </CardHeader>
+          <CardFooter className="flex-col items-start gap-1.5 text-sm">
+            <div className="flex w-full justify-between">
+              <span className="text-muted-foreground">Partenaires</span>
+              <span className="font-medium tabular-nums">{formatFCFA(totals.partnersIOwe)}</span>
             </div>
+            <div className="flex w-full justify-between">
+              <span className="text-muted-foreground">Salaires dus</span>
+              <span className="font-medium tabular-nums">{formatFCFA(totals.employeesSalaryDue)}</span>
+            </div>
+            <Button variant="link" className="h-auto px-0" onClick={() => setActiveTab('personnes')}>
+              Voir à qui je dois <ChevronRight />
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
 
-            {/* Répartition Partenaires & Employés */}
-            <div className="grid grid-cols-2 gap-2 pt-2 border-t text-sm">
-              <div className="space-y-0.5">
-                <span className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Users className="w-3.5 h-3.5 text-debt" /> Partenaires :
-                </span>
-                <p className="font-bold text-foreground">{formatFCFA(totals.partnersIOwe)}</p>
-              </div>
-              <div className="space-y-0.5">
-                <span className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Briefcase className="w-3.5 h-3.5 text-debt" /> Salaires échus :
-                </span>
-                <p className="font-bold text-foreground">{formatFCFA(totals.employeesSalaryDue)}</p>
-              </div>
-            </div>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        {/* Anneau (chart-pie-donut-text) : seule nouvelle information = le solde net */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Solde net</CardTitle>
+            <CardDescription>Ce qu'on me doit moins ce que je dois</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer config={chartConfig} className="mx-auto aspect-auto h-[240px] w-full max-w-[280px]">
+              <PieChart>
+                <ChartTooltip cursor={false} content={<ChartTooltipContent formatter={formatFCFA} />} />
+                <Pie data={chartData} dataKey="value" nameKey="key" cx="50%" cy="50%" innerRadius={72} outerRadius={105} strokeWidth={4} isAnimationActive={false}>
+                  <Label
+                    content={({ viewBox }) => {
+                      if (viewBox && 'cx' in viewBox && 'cy' in viewBox) {
+                        return (
+                          <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
+                            <tspan
+                              x={viewBox.cx}
+                              y={viewBox.cy}
+                              className={net >= 0 ? 'fill-credit text-xl font-bold' : 'fill-debt text-xl font-bold'}
+                            >
+                              {(net >= 0 ? '+' : '−') + formatFCFA(Math.abs(net)).replace(' FCFA', '')}
+                            </tspan>
+                            <tspan x={viewBox.cx} y={(viewBox.cy || 0) + 22} className="fill-muted-foreground text-xs">
+                              FCFA au net
+                            </tspan>
+                          </text>
+                        )
+                      }
+                      return null
+                    }}
+                  />
+                </Pie>
+              </PieChart>
+            </ChartContainer>
+          </CardContent>
+          <CardFooter className="flex-col items-start gap-1 text-sm text-muted-foreground">
+            {net >= 0 ? 'On vous doit plus que vous ne devez.' : 'Vous devez plus qu’on ne vous doit.'}
+          </CardFooter>
+        </Card>
 
-            <div className="flex items-center justify-between text-xs text-muted-foreground group-hover:text-foreground pt-1">
-              <span>Voir la liste de mes dettes</span>
-              <ChevronRight className="w-4 h-4 text-debt transition-transform group-hover:translate-x-1" />
-            </div>
+        {/* À payer bientôt */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="size-4 text-debt" /> À payer bientôt
+            </CardTitle>
+            <CardDescription>Salaires dus</CardDescription>
+            <CardAction>
+              <Badge variant="outline">{soonPayEmployees.length}</Badge>
+            </CardAction>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2">
+            {soonPayEmployees.length === 0 && <p className="text-sm text-muted-foreground">Aucun salaire en attente.</p>}
+            {soonPayEmployees.map(emp => (
+              <div key={emp.id} className="flex items-center gap-2 rounded-lg border p-3">
+                <button type="button" className="min-w-0 flex-1 text-left" onClick={() => openPerson(emp.id, 'employes')}>
+                  <p className="truncate font-medium">{emp.name}</p>
+                  <p className="text-xs text-muted-foreground">Le {emp.dueDay} du mois</p>
+                </button>
+                <span className="font-medium tabular-nums text-debt">{formatFCFA(emp.currentSalaryDue || 0)}</span>
+                <Button size="sm" variant="outline" onClick={() => openNewMovement(emp.id, 'je_lui_ai_verse')}>
+                  Payer
+                </Button>
+              </div>
+            ))}
           </CardContent>
         </Card>
 
-      </div>
-
-      {/* CARTE D'INDICATEUR AVEC ANNEAU RECHARTS (RÉFÉRENCE MISSION SHADCN) */}
-      <Card className="border shadow-sm">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base font-bold flex items-center gap-2">
-            <WalletCards className="w-5 h-5 text-muted-foreground" />
-            Répartition globale des flux en jeu
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-center">
-            
-            {/* Anneau 1 : ON ME DOIT */}
-            <div className="flex items-center gap-4 bg-muted/20 p-3 rounded-xl border">
-              <div className="w-24 h-24 shrink-0 relative flex items-center justify-center">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={owesMeChartData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={26}
-                      outerRadius={40}
-                      paddingAngle={4}
-                      dataKey="value"
-                    >
-                      {owesMeChartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(val: any) => [formatFCFA(Number(val) || 0), "Montant"]} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="space-y-1.5 text-xs">
-                <span className="font-bold text-credit block text-sm">Part On me doit :</span>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-credit shrink-0" />
-                  <span className="text-muted-foreground">Partenaires :</span>
-                  <span className="font-semibold text-foreground">{formatFCFA(totals.partnersOwesMe)}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0" />
-                  <span className="text-muted-foreground">Avances employés :</span>
-                  <span className="font-semibold text-foreground">{formatFCFA(totals.employeesAdvanceOwed)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Anneau 2 : JE DOIS */}
-            <div className="flex items-center gap-4 bg-muted/20 p-3 rounded-xl border">
-              <div className="w-24 h-24 shrink-0 relative flex items-center justify-center">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={iOweChartData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={26}
-                      outerRadius={40}
-                      paddingAngle={4}
-                      dataKey="value"
-                    >
-                      {iOweChartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(val: any) => [formatFCFA(Number(val) || 0), "Montant"]} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="space-y-1.5 text-xs">
-                <span className="font-bold text-debt block text-sm">Part Je dois :</span>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-debt shrink-0" />
-                  <span className="text-muted-foreground">Fournisseurs :</span>
-                  <span className="font-semibold text-foreground">{formatFCFA(totals.partnersIOwe)}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shrink-0" />
-                  <span className="text-muted-foreground">Salaires dus :</span>
-                  <span className="font-semibold text-foreground">{formatFCFA(totals.employeesSalaryDue)}</span>
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* SECTIONS ALERTES : « À PAYER BIENTÔT » ET « ILS TARDENT À PAYER » */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        
-        {/* À PAYER BIENTÔT */}
-        <Card className="border shadow-sm">
-          <CardHeader className="pb-3 flex flex-row items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Clock className="w-5 h-5 text-debt" />
-              <CardTitle className="text-base font-bold text-foreground">
-                À payer bientôt
-              </CardTitle>
-            </div>
-            <Badge variant="outline" className="text-xs text-debt border-debt/30">
-              {soonPayEmployees.length} salaires à solder
-            </Badge>
+        {/* Ils tardent à payer */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertTriangle className="size-4 text-debt" /> Ils tardent à payer
+            </CardTitle>
+            <CardDescription>Rien versé depuis plus de 30 jours</CardDescription>
+            <CardAction>
+              <Badge variant="outline">{latePartners.length}</Badge>
+            </CardAction>
           </CardHeader>
-          <CardContent className="space-y-2.5">
-            {soonPayEmployees.length === 0 ? (
-              <div className="text-center py-6 text-sm text-muted-foreground flex items-center justify-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-credit" />
-                Aucun salaire en attente de paiement.
-              </div>
-            ) : (
-              soonPayEmployees.slice(0, 3).map(emp => (
-                <div
-                  key={emp.id}
-                  onClick={() => {
-                    setSelectedPersonId(emp.id)
-                    setActiveTab('employes')
-                  }}
-                  className="p-3 rounded-xl border bg-muted/10 hover:bg-muted/40 cursor-pointer flex items-center justify-between transition-all"
-                >
-                  <div className="space-y-0.5">
-                    <p className="font-bold text-sm text-foreground">{emp.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Échéance le {emp.dueDay} du mois · {emp.role}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-sm font-extrabold text-debt block">
-                      {formatFCFA(emp.currentSalaryDue || 0)}
-                    </span>
-                    <span className="text-xs text-muted-foreground hover:underline">
-                      Payer →
-                    </span>
-                  </div>
-                </div>
-              ))
-            )}
-            {soonPayEmployees.length > 3 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full text-xs text-muted-foreground"
-                onClick={() => setActiveTab('employes')}
+          <CardContent className="flex flex-col gap-2">
+            {latePartners.length === 0 && <p className="text-sm text-muted-foreground">Personne en retard.</p>}
+            {latePartners.map(p => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => openPerson(p.id, 'personnes')}
+                className="flex items-center gap-2 rounded-lg border p-3 text-left"
               >
-                Voir tous les employés ({soonPayEmployees.length})
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* ILS TARDENT À PAYER */}
-        <Card className="border shadow-sm">
-          <CardHeader className="pb-3 flex flex-row items-center justify-between">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-amber-500" />
-              <CardTitle className="text-base font-bold text-foreground">
-                Ils tardent à payer
-              </CardTitle>
-            </div>
-            <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/30">
-              Sans versement &gt; 30j
-            </Badge>
-          </CardHeader>
-          <CardContent className="space-y-2.5">
-            {latePartners.length === 0 ? (
-              <div className="text-center py-6 text-sm text-muted-foreground flex items-center justify-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-credit" />
-                Tous vos partenaires sont à jour de leurs versements.
-              </div>
-            ) : (
-              latePartners.map(p => (
-                <div
-                  key={p.id}
-                  onClick={() => {
-                    setSelectedPersonId(p.id)
-                    setActiveTab('personnes')
-                  }}
-                  className="p-3 rounded-xl border border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10 cursor-pointer flex items-center justify-between transition-all"
-                >
-                  <div className="space-y-0.5">
-                    <p className="font-bold text-sm text-foreground">{p.name}</p>
-                    <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
-                      Dernier versement il y a {p.daysSinceLastPayment} jours ({p.lastPaymentDate})
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-sm font-extrabold text-credit block">
-                      {formatFCFA(p.owesMe || 0)}
-                    </span>
-                    <span className="text-xs text-muted-foreground hover:underline">
-                      Relancer →
-                    </span>
-                  </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium">{p.name}</p>
+                  <p className="text-xs text-muted-foreground">Dernier versement il y a {p.daysSinceLastPayment} jours</p>
                 </div>
-              ))
-            )}
+                <span className="font-medium tabular-nums text-credit">{formatFCFA(p.owesMe || 0)}</span>
+                <ChevronRight className="size-4 text-muted-foreground" />
+              </button>
+            ))}
           </CardContent>
         </Card>
-
       </div>
-
     </div>
   )
 }

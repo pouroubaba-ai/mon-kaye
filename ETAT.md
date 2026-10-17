@@ -97,3 +97,22 @@ Dès réception des retours et validation :
 5. **Départ employé :** Retenue de l'avance restante proposée et cochée par défaut sur le solde final.
 6. **Preuve :** Historique inaltérable non supprimable (annulation tracée), pièces jointes archivées, reçus WhatsApp/SMS.
 7. **Accès :** Code PIN à 4 chiffres hors ligne pour le quotidien, avec alternative Google/téléphone.
+
+---
+
+## Reprise de l'interface sur les modèles shadcn/ui (17/10/2026, faite par Claude dans claude.ai)
+
+Motif : doublons d'affichage et fenêtres bricolées signalés par le propriétaire.
+
+- Barre latérale : composant shadcn `Sidebar` (repliable en icônes), une seule entrée « Nouveau mouvement ».
+- Téléphone : barre du bas à 4 onglets + un seul bouton « + ».
+- Accueil : cartes d'indicateurs (section-cards) + anneau « Solde net » (chart-pie-donut-text) ; suppression du bloc « Répartition globale » qui répétait les chiffres.
+- Fenêtres de saisie : panneau qui monte du bas sur téléphone (`Drawer`), fenêtre centrée sur ordinateur (modèle « responsive dialog »). Quand la personne et l'opération sont déjà connues, les étapes 1 et 2 sont remplacées par un résumé avec « Modifier ».
+- Fiches partenaire et employé : chaque compteur porte ses propres boutons ; un seul historique filtrable (onglets Tout / Reçus / Versés / Crédits) remplace les blocs qui répétaient les mêmes lignes.
+- Réglages : trois cartes simples ; suppression du message « Tout est sauvegardé » (faux sur des données d'exemple).
+- Dépendance ajoutée : `vaul` (requis par le Drawer shadcn). Lancer `npm install` sur la machine.
+- `drawer.tsx` et `chart.tsx` écrits à la main d'après la source officielle shadcn, car le registre shadcn n'était pas joignable. À resynchroniser plus tard avec `npx shadcn add drawer chart --overwrite`.
+
+Vérifié : `npm run build` passe, aucune erreur dans la console du navigateur, captures téléphone (360 px) et ordinateur (1366 px) sur Accueil, Personnes, fiche partenaire, Employés, fiche employé, Réglages et fenêtre de saisie.
+
+Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé numérique et boutons de paiement de la fenêtre de saisie encore stylés à la main.

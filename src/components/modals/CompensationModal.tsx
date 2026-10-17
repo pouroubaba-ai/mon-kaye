@@ -1,6 +1,6 @@
 import React from 'react'
 import { useStore } from '@/data/store'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/responsive-dialog'
 import { Button } from '@/components/ui/button'
 import { formatFCFA } from '@/lib/utils'
 import { Scale, ArrowRight, Check } from 'lucide-react'

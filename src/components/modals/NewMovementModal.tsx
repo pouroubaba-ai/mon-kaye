@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useStore } from '@/data/store'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/responsive-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -18,6 +18,15 @@ import {
   Camera, 
   X 
 } from 'lucide-react'
+
+const OPERATION_LABELS: Record<string, string> = {
+  il_m_a_verse: "Il m'a versé",
+  il_a_pris_credit: 'Il a pris à crédit',
+  je_lui_ai_verse: 'Je lui ai versé',
+  j_ai_pris_credit: "J'ai pris à crédit",
+  avance_salaire: 'Donner une avance',
+  remboursement_direct: 'Il rembourse son avance de sa poche',
+}
 
 export const NewMovementModal: React.FC = () => {
   const { 
@@ -37,6 +46,7 @@ export const NewMovementModal: React.FC = () => {
   const [note, setNote] = useState('')
   const [hasReceiptPhoto, setHasReceiptPhoto] = useState(false)
   const [surplusConfirmed, setSurplusConfirmed] = useState(false)
+  const [showChoices, setShowChoices] = useState(true)
 
   // Initialize or reset when modal opens
   useEffect(() => {
@@ -59,6 +69,8 @@ export const NewMovementModal: React.FC = () => {
       setNote('')
       setHasReceiptPhoto(false)
       setSurplusConfirmed(false)
+      // Ouvert depuis une fiche avec l'opération déjà choisie : on ne redemande ni la personne ni l'opération.
+      setShowChoices(!(newMovementTargetPersonId && newMovementInitialType))
     }
   }, [isNewMovementOpen, newMovementTargetPersonId, newMovementInitialType, persons])
 
@@ -149,6 +161,19 @@ export const NewMovementModal: React.FC = () => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           
+          {!showChoices && currentPerson && (
+            <div className="flex items-center justify-between gap-2 rounded-lg border p-3">
+              <div className="min-w-0">
+                <p className="truncate font-medium">{currentPerson.name}</p>
+                <p className="text-sm text-muted-foreground">{OPERATION_LABELS[movementType] ?? movementType}</p>
+              </div>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setShowChoices(true)}>
+                Modifier
+              </Button>
+            </div>
+          )}
+          {showChoices && (
+            <>
           {/* Étape 1 : Choix de la Personne */}
           <div className="space-y-1">
             <Label className="text-xs font-semibold">1. Concerne qui ?</Label>
@@ -284,6 +309,9 @@ export const NewMovementModal: React.FC = () => {
               )}
             </div>
           </div>
+
+            </>
+          )}
 
           {/* Étape 3 : Grand Affichage du Montant & Pavé Numérique Géant */}
           <div className="space-y-2 bg-muted/20 p-3 rounded-2xl border">
