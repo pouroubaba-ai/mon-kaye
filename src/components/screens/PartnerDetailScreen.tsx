@@ -130,6 +130,11 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
                 movements={shown}
                 onOpen={openMovementDetail}
                 amountClass={() => (side === 'lui' ? 'text-credit' : 'text-debt')}
+                action={
+                  <Button size="sm" variant="outline" onClick={() => openNewMovement(partner.id)}>
+                    <Plus /> Opération
+                  </Button>
+                }
                 toolbar={
                   <div className="flex gap-2">
                     {chips.map(c => (
@@ -154,9 +159,11 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
         </>
       )}
 
-      <Button size="lg" className="h-12" onClick={() => openNewMovement(partner.id)}>
-        <Plus /> Enregistrer une opération
-      </Button>
+      {view === 'ensemble' && (
+        <Button size="lg" className="h-12" onClick={() => openNewMovement(partner.id)}>
+          <Plus /> Enregistrer une opération
+        </Button>
+      )}
     </div>
   )
 }

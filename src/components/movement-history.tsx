@@ -26,6 +26,7 @@ export function MovementHistory({
   amountClass,
   title = 'Historique',
   toolbar,
+  action,
 }: {
   movements: Movement[]
   filters?: Filter[]
@@ -34,6 +35,8 @@ export function MovementHistory({
   title?: string
   // Contenu libre affiché à la place des onglets de filtre (ex. pastilles Crédits / Versements)
   toolbar?: React.ReactNode
+  // Bouton affiché en haut à droite à la place du nombre de lignes (ex. « + Opération »)
+  action?: React.ReactNode
 }) {
   const [filter, setFilter] = React.useState('all')
   const active = filters?.find(f => f.value === filter)
@@ -44,9 +47,7 @@ export function MovementHistory({
       <CardHeader>
         <CardTitle>{title}</CardTitle>
         <CardDescription>Touchez une ligne pour voir le reçu ou l'annuler.</CardDescription>
-        <CardAction>
-          <Badge variant="outline">{movements.length}</Badge>
-        </CardAction>
+        <CardAction>{action ?? <Badge variant="outline">{movements.length}</Badge>}</CardAction>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {toolbar}
