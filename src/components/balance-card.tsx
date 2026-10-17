@@ -1,6 +1,7 @@
 import * as React from 'react'
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatFCFA } from '@/lib/utils'
 
 // Carte de solde inspirée des cartes « Payroll » : en grand ce qui reste dû,
@@ -39,6 +40,9 @@ export function BalanceCard({
         <CardTitle className="text-3xl font-bold tabular-nums" style={{ color }}>
           {formatFCFA(remaining)}
         </CardTitle>
+        <CardAction>
+          <Badge variant="outline" className="tabular-nums">{paidPct} % versé</Badge>
+        </CardAction>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <div className="flex h-2.5 w-full gap-1 overflow-hidden rounded-full">
@@ -46,19 +50,17 @@ export function BalanceCard({
           {remaining > 0 && <div className="h-full flex-1 rounded-full" style={{ background: light }} />}
           {total === 0 && <div className="h-full flex-1 rounded-full bg-muted" />}
         </div>
-        <div className="flex flex-col gap-1.5 text-sm">
-          <div className="flex items-center justify-between">
-            <span className="flex items-center gap-2 text-muted-foreground">
-              <span className="size-2 rounded-full" style={{ background: light }} /> Total
-            </span>
+        <div className="flex items-center justify-between gap-2 text-xs whitespace-nowrap min-[360px]:text-sm">
+          <span className="flex items-center gap-2">
+            <span className="size-2 rounded-full" style={{ background: light }} />
+            <span className="text-muted-foreground">Total</span>
             <span className="tabular-nums">{formatFCFA(total)}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="flex items-center gap-2 text-muted-foreground">
-              <span className="size-2 rounded-full" style={{ background: color }} /> Versé
-            </span>
+          </span>
+          <span className="flex items-center gap-2">
+            <span className="size-2 rounded-full" style={{ background: color }} />
+            <span className="text-muted-foreground">Versé</span>
             <span className="tabular-nums">{formatFCFA(paid)}</span>
-          </div>
+          </span>
         </div>
         {note && <p className="text-xs text-muted-foreground">{note}</p>}
       </CardContent>
