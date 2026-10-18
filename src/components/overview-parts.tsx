@@ -148,14 +148,14 @@ export function DaysCard({
                 <SelectContent position="popper" align="end">
                   <SelectGroup>
                     <SelectLabel>Jours</SelectLabel>
-                    <SelectItem value="days-asc"><ArrowUpNarrowWide /> Croissant</SelectItem>
-                    <SelectItem value="days-desc"><ArrowDownWideNarrow /> Décroissant</SelectItem>
+                    <SelectItem value="days-asc"><ArrowUpNarrowWide /> Petit → Grand</SelectItem>
+                    <SelectItem value="days-desc"><ArrowDownWideNarrow /> Grand → Petit</SelectItem>
                   </SelectGroup>
                   <SelectSeparator />
                   <SelectGroup>
                     <SelectLabel>Montant</SelectLabel>
-                    <SelectItem value="amount-asc"><ArrowUpNarrowWide /> Croissant</SelectItem>
-                    <SelectItem value="amount-desc"><ArrowDownWideNarrow /> Décroissant</SelectItem>
+                    <SelectItem value="amount-asc"><ArrowUpNarrowWide /> Petit → Grand</SelectItem>
+                    <SelectItem value="amount-desc"><ArrowDownWideNarrow /> Grand → Petit</SelectItem>
                   </SelectGroup>
                 </SelectContent>
               </Select>
