@@ -23,6 +23,20 @@ const SHOW_FIRST = 5
 
 export const countLabel = (n: number, unit: [string, string] = ['employé', 'employés']) => `${n} ${n > 1 ? unit[1] : unit[0]}`
 
+// Recherche exacte : le texte tapé doit se trouver dans le nom, ou les chiffres tapés dans le numéro
+// (espaces ignorés). Évite qu'un numéro tapé fasse apparaître d'autres numéros « qui y ressemblent ».
+const plain = (t: string) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+function matchPerson(value: string, search: string, keywords?: string[]) {
+  const q = plain(search.trim())
+  if (!q) return 1
+  if (plain(value.split('\u200b')[0]).includes(q)) return 1
+  const digits = q.replace(/\D/g, '')
+  if (digits.length > 0 && digits.length === q.replace(/[\s+]/g, '').length) {
+    return (keywords ?? []).some(k => k.replace(/\D/g, '').includes(digits)) ? 1 : 0
+  }
+  return 0
+}
+
 export function PersonPicker({
   people,
   value,
@@ -49,7 +63,7 @@ export function PersonPicker({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
-        <Command>
+        <Command filter={matchPerson}>
           <CommandInput placeholder={searchPlaceholder} />
           <CommandList>
             <CommandEmpty>{emptyText}</CommandEmpty>
@@ -59,8 +73,17 @@ export function PersonPicker({
                 <Check className={cn('ml-auto', value === 'tous' ? 'opacity-100' : 'opacity-0')} />
               </CommandItem>
               {people.map(e => (
-                <CommandItem key={e.id} value={e.name} onSelect={() => { onChange(e.id); setOpen(false) }}>
-                  <span className="truncate">{e.name}</span>
+                // Recherche par nom ou par numéro (avec ou sans espaces).
+                <CommandItem
+                  key={e.id}
+                  value={`${e.name}\u200b${e.id}`}
+                  keywords={[e.phone || '', (e.phone || '').replace(/\D/g, '')]}
+                  onSelect={() => { onChange(e.id); setOpen(false) }}
+                >
+                  <div className="flex min-w-0 flex-col">
+                    <span className="truncate">{e.name}</span>
+                    {e.phone && <span className="truncate text-xs text-muted-foreground">{e.phone}</span>}
+                  </div>
                   <Check className={cn('ml-auto', value === e.id ? 'opacity-100' : 'opacity-0')} />
                 </CommandItem>
               ))}

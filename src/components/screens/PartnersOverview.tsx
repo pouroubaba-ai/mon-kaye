@@ -33,7 +33,7 @@ export const PartnersOverview: React.FC = () => {
         value={who}
         onChange={setWho}
         allLabel="Toutes les personnes"
-        searchPlaceholder="Chercher une personne"
+        searchPlaceholder="Nom ou numéro"
         emptyText="Aucune personne trouvée."
       />
       <DaysCard

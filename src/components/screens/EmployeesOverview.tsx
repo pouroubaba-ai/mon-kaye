@@ -74,7 +74,7 @@ export const EmployeesOverview: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-4">
-      <PersonPicker people={employees} value={who} onChange={setWho} allLabel="Tous les employés" searchPlaceholder="Chercher un employé" emptyText="Aucun employé trouvé." />
+      <PersonPicker people={employees} value={who} onChange={setWho} allLabel="Tous les employés" searchPlaceholder="Nom ou numéro" emptyText="Aucun employé trouvé." />
 
       <Card>
         <CardHeader>
