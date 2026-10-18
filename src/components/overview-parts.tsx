@@ -1,8 +1,9 @@
 import * as React from 'react'
-import { ArrowDownWideNarrow, ArrowUpDown, ArrowUpNarrowWide, Check, ChevronsUpDown, List, PieChart as PieIcon } from 'lucide-react'
+import { ArrowDownWideNarrow, ArrowUpDown, ArrowUpNarrowWide, Check, ChevronsUpDown, Eye, List, PieChart as PieIcon, X } from 'lucide-react'
 import { Label, Pie, PieChart } from 'recharts'
 
 import type { Person } from '@/data/mockData'
+import { useStore } from '@/data/store'
 import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
@@ -56,12 +57,25 @@ export function PersonPicker({
   const current = people.find(e => e.id === value)
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between font-normal">
-          <span className="truncate">{current ? current.name : allLabel}</span>
-          <ChevronsUpDown className="opacity-50" />
-        </Button>
-      </PopoverTrigger>
+      <div className="relative">
+        <PopoverTrigger asChild>
+          <Button variant="outline" role="combobox" aria-expanded={open} className={cn('w-full justify-between font-normal', current && 'pr-16')}>
+            <span className="truncate">{current ? current.name : allLabel}</span>
+            <ChevronsUpDown className="opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        {/* Une personne choisie : petite croix pour revenir à « Tous » */}
+        {current && (
+          <button
+            type="button"
+            aria-label="Effacer"
+            onClick={() => onChange('tous')}
+            className="absolute top-1/2 right-8 flex size-6 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            <X className="size-3.5" />
+          </button>
+        )}
+      </div>
       <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
         <Command filter={matchPerson}>
           <CommandInput placeholder={searchPlaceholder} />
@@ -119,6 +133,7 @@ export function DaysCard({
   showCount?: boolean
   unit?: [string, string]
 }) {
+  const { setSelectedPersonId } = useStore()
   const [expanded, setExpanded] = React.useState(false)
   const [sort, setSort] = React.useState<SortKey>('days-desc')
   const [field, dir] = sort.split('-') as ['days' | 'amount', 'asc' | 'desc']
@@ -190,11 +205,15 @@ export function DaysCard({
         {mode === 'graphique' && rows.length > 0 && <RoleDonut rows={rawRows} tone={tone} unit={unit} />}
         {mode === 'liste' && shown.map(r => (
           <div key={r.id} className="flex flex-col gap-1.5">
-            <div className="flex items-baseline justify-between gap-2 text-sm">
-              <span className="truncate">{r.name}</span>
+            <div className="flex items-center justify-between gap-2 text-sm">
+              <span className="min-w-0 flex-1 truncate">{r.name}</span>
               <span className={cn('shrink-0 font-medium tabular-nums', tone === 'credit' ? 'text-credit' : 'text-debt')} title={amountLabel}>
                 {formatFCFA(r.amount)}
               </span>
+              {/* L'œil : ouvrir la fiche de cette personne (au retour, on revient ici) */}
+              <Button variant="ghost" size="icon" className="-my-1 -mr-2 size-7 shrink-0 text-muted-foreground" aria-label={`Voir la fiche de ${r.name}`} onClick={() => setSelectedPersonId(r.id)}>
+                <Eye className="size-4" />
+              </Button>
             </div>
             <div className="flex items-center gap-2">
               <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-muted">

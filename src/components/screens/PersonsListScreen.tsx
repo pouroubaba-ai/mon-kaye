@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Search, Phone, Plus } from 'lucide-react'
+import { Search, Phone, Plus, X } from 'lucide-react'
 import { PersonFormDialog } from '@/components/person-header'
 
 export const PersonsListScreen: React.FC = () => {
@@ -42,8 +42,19 @@ export const PersonsListScreen: React.FC = () => {
           placeholder="Rechercher par nom ou numéro de téléphone..."
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
-          className="pl-10 h-12 text-sm bg-card border shadow-sm rounded-xl"
+          className="pl-10 pr-11 h-12 text-sm bg-card border shadow-sm rounded-xl"
         />
+        {/* Petite croix : effacer la recherche (elle est gardée quand on ouvre une fiche puis revient) */}
+        {searchQuery && (
+          <button
+            type="button"
+            aria-label="Effacer la recherche"
+            onClick={() => setSearchQuery('')}
+            className="absolute right-3 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            <X className="size-4" />
+          </button>
+        )}
       </div>
 
 

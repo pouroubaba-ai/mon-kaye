@@ -35,7 +35,7 @@ export interface Movement {
   label: string
   amount: number
   date: string
-  paymentMethod?: 'especes' | 'mobile_money'
+  paymentMethod?: 'especes' | 'mobile_money' | 'compensation'
   reference?: string
   note?: string
   receiptPhoto?: string

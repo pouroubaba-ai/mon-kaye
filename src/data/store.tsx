@@ -31,6 +31,9 @@ interface StoreContextType {
   // Navigation
   activeTab: 'accueil' | 'personnes' | 'employes' | 'reglages'
   setActiveTab: (tab: 'accueil' | 'personnes' | 'employes' | 'reglages') => void
+  // Bouton du menu : ferme la fiche ouverte, va à la page et remonte en haut (navKey change à chaque appui).
+  navigate: (tab: 'accueil' | 'personnes' | 'employes' | 'reglages') => void
+  navKey: number
   selectedPersonId: string | null
   // Écran ouvert depuis le tableau de bord : « Leurs comptes » ou « Mes comptes », et le côté choisi.
   accountsView: { dir: 'leurs' | 'mes'; group: 'partner' | 'employee' } | null
@@ -108,6 +111,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const setActiveTab = (tab: 'accueil' | 'personnes' | 'employes' | 'reglages') => {
     setAccountsView(null)
     setActiveTabRaw(tab)
+  }
+  const [navKey, setNavKey] = useState(0)
+  const navigate = (tab: 'accueil' | 'personnes' | 'employes' | 'reglages') => {
+    setSelectedPersonId(null)
+    setAccountsView(null)
+    setActiveTabRaw(tab)
+    setNavKey(k => k + 1)
   }
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null)
   
@@ -338,7 +348,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     let updated: Person = { ...person }
     const amt = targetMov.amount
 
-    if (person.type === 'partner') {
+    // Compensation : les deux versements liés s'annulent ensemble, les deux comptes remontent.
+    const twinId = targetMov.paymentMethod === 'compensation' ? targetMov.linkedMovementId : undefined
+
+    if (person.type === 'partner' && twinId) {
+      updated.owesMe = (person.owesMe || 0) + amt
+      updated.iOweHim = (person.iOweHim || 0) + amt
+    } else if (person.type === 'partner') {
       const owesMe = person.owesMe || 0
       const iOweHim = person.iOweHim || 0
       if (targetMov.type === 'il_m_a_verse') updated.owesMe = owesMe + amt
@@ -368,6 +384,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       ...extra,
       ...prev.map(m => {
         if (m.id === id) return mark(m, reason)
+        if (twinId && m.id === twinId && !m.isCancelled) return mark(m, reason)
         if (isCredit && m.linkedMovementId === id && !m.isCancelled && (m.type === 'il_a_retourne' || m.type === 'j_ai_retourne'))
           return mark(m, 'Crédit annulé')
         return m
@@ -404,54 +421,44 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setPersons(prev => prev.map(p => (p.id === person.id ? r.updated : p)))
   }
 
-  // APPLY MUTUAL DEBT COMPENSATION
+  // COMPENSATION : chacun « verse » à l'autre le plus petit des deux montants.
+  // Deux versements liés, motif « Compensation » : un dans son compte, un dans le mien.
   const applyCompensation = (partnerId: string) => {
     const partner = persons.find(p => p.id === partnerId)
     if (!partner || partner.type !== 'partner') return
 
-    const owesMe = partner.owesMe || 0
-    const iOweHim = partner.iOweHim || 0
-    const compAmount = Math.min(owesMe, iOweHim)
-
+    const compAmount = Math.min(partner.owesMe || 0, partner.iOweHim || 0)
     if (compAmount <= 0) return
 
-    const today = new Date()
-    const dateStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`
-    const movId1 = `mov-comp-1-${Date.now()}`
-    const movId2 = `mov-comp-2-${Date.now()}`
+    const dateStr = todayStr()
+    const stamp = Date.now()
+    const id1 = `mov-comp-lui-${stamp}`
+    const id2 = `mov-comp-moi-${stamp}`
+    const note = `Compensation de ${compAmount.toLocaleString('fr-FR')} FCFA entre son compte et mon compte`
 
     const m1: Movement = {
-      id: movId1,
+      id: id1,
       personId: partner.id,
       personName: partner.name,
-      type: 'compensation',
-      label: 'Compensation mutuelle (diminue son compte)',
+      type: 'il_m_a_verse',
+      label: 'Compensation',
       amount: compAmount,
       date: dateStr,
-      note: `Compensation bilatérale appliquée à hauteur de ${compAmount.toLocaleString()} FCFA`,
-      linkedMovementId: movId2,
+      paymentMethod: 'compensation',
+      note,
+      linkedMovementId: id2,
     }
-
-    const m2: Movement = {
-      id: movId2,
-      personId: partner.id,
-      personName: partner.name,
-      type: 'compensation',
-      label: 'Compensation mutuelle (diminue mon compte)',
-      amount: compAmount,
-      date: dateStr,
-      note: `Compensation bilatérale appliquée à hauteur de ${compAmount.toLocaleString()} FCFA`,
-      linkedMovementId: movId1,
-    }
+    const m2: Movement = { ...m1, id: id2, type: 'je_lui_ai_verse', linkedMovementId: id1 }
 
     setMovements(prev => [m1, m2, ...prev])
-
     setPersons(prev => prev.map(p => {
       if (p.id !== partnerId) return p
       return {
         ...p,
         owesMe: (p.owesMe || 0) - compAmount,
         iOweHim: (p.iOweHim || 0) - compAmount,
+        lastPaymentDate: dateStr,
+        lastPaidByMeDate: dateStr,
       }
     }))
 
@@ -584,6 +591,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         toggleTheme,
         activeTab,
         setActiveTab,
+        navigate,
+        navKey,
         selectedPersonId,
         accountsView,
         setAccountsView,

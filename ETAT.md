@@ -156,3 +156,9 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 - Un crédit annulé emporte ses retours. Les opérations annulées restent visibles : montant barré en rouge, pastille « Annulé ».
 - Onglet « Retours » dans l'historique d'une personne, seulement s'il y en a.
 - Reste à faire : le reçu WhatsApp d'un crédit ou d'un retour parle encore de « versement ».
+
+## Compensation, retour à la même position, recherche gardée, œil (18/10/2026)
+- Compenser crée deux versements liés, motif « Compensation » : un dans Son compte, un dans Mon compte. Annuler l'un annule l'autre.
+- Ouvrir une fiche puis revenir (fil d'Ariane) ramène exactement à la même position, avec la recherche, le tri et « Tout voir » conservés (la page reste montée sous la fiche).
+- Bouton du menu (barre du bas ou latérale), même celui de la page actuelle : retour en haut.
+- Recherche des listes : petite croix pour effacer. Vues « Leurs comptes / Mes comptes » : croix pour revenir à « Toutes les personnes », œil sur chaque ligne pour ouvrir la fiche.

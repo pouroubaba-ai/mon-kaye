@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { PAYMENT_LABELS } from '@/components/movement-history'
 import { useStore, excessOf, returnedOn, type ExcessChoice } from '@/data/store'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/responsive-dialog'
 import { Button } from '@/components/ui/button'
@@ -62,7 +63,7 @@ export const MovementDetailModal: React.FC = () => {
   const remainingDebt = person?.type === 'partner' ? ((person.owesMe || 0) - (person.iOweHim || 0)) : (person?.currentSalaryDue || 0)
 
   // Message formaté pour WhatsApp / SMS
-  const receiptMessage = `${shop.name}\nReçu de versement du ${selectedMovement.date}\nClient / Employé : ${selectedMovement.personName}\nMontant versé : ${formatFCFA(selectedMovement.amount)}\nMoyen de paiement : ${selectedMovement.paymentMethod === 'mobile_money' ? 'Mobile Money' : 'Espèces'}${selectedMovement.reference ? ` (Réf : ${selectedMovement.reference})` : ''}\nSolde restant dû : ${formatFCFA(Math.max(0, remainingDebt))}\nMerci pour votre confiance !`
+  const receiptMessage = `${shop.name}\nReçu de versement du ${selectedMovement.date}\nClient / Employé : ${selectedMovement.personName}\nMontant versé : ${formatFCFA(selectedMovement.amount)}\nMoyen de paiement : ${PAYMENT_LABELS[selectedMovement.paymentMethod || 'especes']}${selectedMovement.reference ? ` (Réf : ${selectedMovement.reference})` : ''}\nSolde restant dû : ${formatFCFA(Math.max(0, remainingDebt))}\nMerci pour votre confiance !`
 
   const handleCopyReceipt = () => {
     navigator.clipboard.writeText(receiptMessage)
@@ -137,7 +138,7 @@ export const MovementDetailModal: React.FC = () => {
               </div>
               <div className="flex items-center gap-1.5">
                 <Smartphone className="w-3.5 h-3.5" />
-                {selectedMovement.paymentMethod === 'mobile_money' ? 'Mobile Money' : 'Espèces'}
+                {PAYMENT_LABELS[selectedMovement.paymentMethod || 'especes']}
               </div>
             </div>
 

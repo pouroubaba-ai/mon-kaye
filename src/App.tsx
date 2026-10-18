@@ -21,36 +21,20 @@ const AppContent: React.FC = () => {
     return <AuthPinScreen />
   }
 
-  // Navigation vers la fiche détaillée si une personne est sélectionnée
-  if (selectedPersonId) {
-    const person = persons.find(p => p.id === selectedPersonId)
-    if (person?.type === 'employee') {
-      return (
-        <AppLayout>
-          <EmployeeDetailScreen employeeId={selectedPersonId} />
-          <NewMovementModal />
-          <DepartureModal />
-          <MovementDetailModal />
-        </AppLayout>
-      )
-    } else if (person) {
-      return (
-        <AppLayout>
-          <PartnerDetailScreen partnerId={selectedPersonId} />
-          <NewMovementModal />
-          <CompensationModal />
-          <MovementDetailModal />
-        </AppLayout>
-      )
-    }
-  }
+  // Fiche ouverte par-dessus la page : la page reste montée (cachée), pour retrouver au retour
+  // sa recherche, ses filtres et sa position.
+  const person = selectedPersonId ? persons.find(p => p.id === selectedPersonId) : undefined
 
   return (
     <AppLayout>
-      {activeTab === 'accueil' && (accountsView ? <AccountsScreen /> : <DashboardScreen />)}
-      {activeTab === 'personnes' && <PersonsListScreen />}
-      {activeTab === 'employes' && <PersonsListScreen />}
-      {activeTab === 'reglages' && <SettingsScreen />}
+      <div hidden={!!person}>
+        {activeTab === 'accueil' && (accountsView ? <AccountsScreen /> : <DashboardScreen />)}
+        {activeTab === 'personnes' && <PersonsListScreen />}
+        {activeTab === 'employes' && <PersonsListScreen />}
+        {activeTab === 'reglages' && <SettingsScreen />}
+      </div>
+      {person?.type === 'employee' && <EmployeeDetailScreen key={person.id} employeeId={person.id} />}
+      {person && person.type !== 'employee' && <PartnerDetailScreen key={person.id} partnerId={person.id} />}
 
       {/* Modales globales interactives */}
       <NewMovementModal />

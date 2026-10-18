@@ -30,13 +30,11 @@ const NAV: { tab: Tab; title: string; icon: React.ComponentType }[] = [
 ]
 
 export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
-  const { shop, activeTab, setActiveTab, setSelectedPersonId, openNewMovement, theme, toggleTheme, lockApp, totals } =
+  const { shop, activeTab, navigate, openNewMovement, theme, toggleTheme, lockApp, totals } =
     useStore()
 
-  const go = (tab: Tab) => {
-    setSelectedPersonId(null)
-    setActiveTab(tab)
-  }
+  // Bouton du menu : toujours en haut de la page (même si on y est déjà).
+  const go = (tab: Tab) => navigate(tab)
 
   const badgeFor = (tab: Tab) => {
     if (tab === "personnes" && totals.latePartnersCount > 0) return totals.latePartnersCount

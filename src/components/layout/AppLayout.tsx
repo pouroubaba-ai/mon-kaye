@@ -28,13 +28,35 @@ const TITLES: Record<Tab, string> = {
 // Mise en page : barre latérale shadcn (ordinateur, tablette) + barre du bas à 4 onglets
 // et un seul bouton « + » (téléphone). Une seule entrée « nouveau mouvement » par appareil.
 export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { shop, persons, activeTab, selectedPersonId, setActiveTab, setSelectedPersonId, openNewMovement, theme, toggleTheme, lockApp, accountsView, setAccountsView } =
+  const { shop, persons, activeTab, selectedPersonId, navigate, navKey, setSelectedPersonId, openNewMovement, theme, toggleTheme, lockApp, accountsView, setAccountsView } =
     useStore()
 
-  // Chaque changement de page (ou ouverture / fermeture d'une fiche) revient tout en haut.
+  // Position de défilement :
+  // - ouvrir une fiche : en haut de la fiche ; la position de la page en dessous est gardée ;
+  // - revenir de la fiche : exactement là où on était ;
+  // - changer de page, ou toucher le bouton du menu (même celui de la page actuelle) : en haut.
+  const top = () => window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+  const pageScroll = React.useRef(0)
+  const personOpen = React.useRef(false)
   React.useEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
-  }, [activeTab, selectedPersonId, accountsView?.dir])
+    const onScroll = () => {
+      if (!personOpen.current) pageScroll.current = window.scrollY
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+  const prevPerson = React.useRef(selectedPersonId)
+  React.useLayoutEffect(() => {
+    const prev = prevPerson.current
+    prevPerson.current = selectedPersonId
+    personOpen.current = !!selectedPersonId
+    if (selectedPersonId && selectedPersonId !== prev) top()
+    else if (!selectedPersonId && prev) window.scrollTo({ top: pageScroll.current, left: 0, behavior: 'instant' })
+  }, [selectedPersonId])
+  React.useLayoutEffect(() => {
+    pageScroll.current = 0
+    top()
+  }, [activeTab, accountsView?.dir, navKey])
 
   const shopName = shop.name?.trim()
   const openPerson = selectedPersonId ? persons.find(p => p.id === selectedPersonId) : undefined
@@ -45,10 +67,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
       ? { label: accountsView.dir === 'leurs' ? 'Leurs comptes' : 'Mes comptes', back: () => setAccountsView(null) }
       : null
 
-  const go = (tab: Tab) => {
-    setSelectedPersonId(null)
-    setActiveTab(tab)
-  }
+  const go = (tab: Tab) => navigate(tab)
 
   const tabs: { tab: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { tab: 'accueil', label: 'Accueil', icon: LayoutDashboard },
