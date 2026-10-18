@@ -149,3 +149,10 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 - En haut, un choix Personnes / Employés. Leurs comptes : personnes qui me doivent, avances à rendre. Mes comptes : personnes à qui je dois, graphique des salaires et salaires dus.
 - Toucher une ligne de légende sous un anneau ouvre directement le bon côté.
 - Les onglets « Vue d'ensemble » des pages Personnes et Employés sont retirés : ces pages sont un simple carnet d'adresses.
+
+## Retours, trop versé, annulations barrées (18/10/2026)
+- Détail d'un crédit ou d'une dette : bouton « Retour » à côté de « Annuler ». Le retour de marchandise diminue le compte sans argent ni moyen de paiement ; le crédit affiche « dont X retournés » et le reste.
+- Si une annulation ou un retour fait passer un compte sous zéro : « Il a trop versé de X » avec trois choix : « Je lui rends plus tard » (la différence passe dans l'autre compte), « Je lui ai déjà rendu » (dette inscrite et réglée aussitôt, pour l'historique), « Ne pas annuler / Ne pas faire le retour ». Même logique dans l'autre sens.
+- Un crédit annulé emporte ses retours. Les opérations annulées restent visibles : montant barré en rouge, pastille « Annulé ».
+- Onglet « Retours » dans l'historique d'une personne, seulement s'il y en a.
+- Reste à faire : le reçu WhatsApp d'un crédit ou d'un retour parle encore de « versement ».

@@ -27,6 +27,7 @@ export function MovementHistory({
   toolbar,
   action,
   hideLabel,
+  sub,
 }: {
   movements: Movement[]
   filters?: Filter[]
@@ -39,6 +40,8 @@ export function MovementHistory({
   action?: React.ReactNode
   // La liste n'a qu'un type d'opération (ex. « Crédits ») : le libellé répète le filtre, on le cache.
   hideLabel?: boolean
+  // Petite ligne en plus sous une opération (ex. « dont 20 000 FCFA retournés » sur un crédit)
+  sub?: (m: Movement) => string | undefined
 }) {
   const [filter, setFilter] = React.useState('all')
   const active = filters?.find(f => f.value === filter)
@@ -92,9 +95,17 @@ export function MovementHistory({
                     )}
                   >
                     <span>{m.date}</span>
-                    <span>·</span>
-                    <span>{PAYMENT_LABELS[m.paymentMethod || 'especes']}</span>
-                    {m.isCancelled && <Badge variant="destructive">Annulé</Badge>}
+                    {/* Annulée : la pastille prend la place du moyen de paiement, pour tenir sur un téléphone. */}
+                    {m.isCancelled ? (
+                      <Badge variant="destructive">Annulé</Badge>
+                    ) : (
+                      m.type !== 'il_a_retourne' && m.type !== 'j_ai_retourne' && (
+                        <>
+                          <span>·</span>
+                          <span>{PAYMENT_LABELS[m.paymentMethod || 'especes']}</span>
+                        </>
+                      )
+                    )}
                   </div>
                   {hideLabel ? (
                     m.note && <p className={cn('truncate text-sm', m.isCancelled && 'line-through')}>{m.note}</p>
@@ -104,8 +115,10 @@ export function MovementHistory({
                       {m.note && <p className="truncate text-xs text-muted-foreground">{m.note}</p>}
                     </>
                   )}
+                  {sub?.(m) && <p className="truncate text-xs text-muted-foreground">{sub(m)}</p>}
                 </div>
-                <span className={cn('shrink-0 font-semibold tabular-nums', amountClass?.(m))}>{formatFCFA(m.amount)}</span>
+                {/* Opération annulée : montant barré, en rouge, comme une ligne barrée dans le cahier. */}
+                <span className={cn('shrink-0 font-semibold tabular-nums', m.isCancelled ? 'text-destructive line-through' : amountClass?.(m))}>{formatFCFA(m.amount)}</span>
                 <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
               </button>
             ))}

@@ -1,6 +1,21 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { type Person, type Movement, INITIAL_SHOP, INITIAL_PERSONS, INITIAL_MOVEMENTS } from './mockData'
 
+// Trop versé : « plus tard » = la différence passe dans l'autre compte ; « déjà rendu » = réglé en main propre.
+export type ExcessChoice = 'plus_tard' | 'deja_rendu'
+
+// Ce qu'une opération retire d'un compte, et de combien elle le ferait passer sous zéro.
+export const returnedOn = (movements: Movement[], creditId: string) =>
+  movements
+    .filter(m => m.linkedMovementId === creditId && !m.isCancelled && (m.type === 'il_a_retourne' || m.type === 'j_ai_retourne'))
+    .reduce((a, m) => a + m.amount, 0)
+
+export const excessOf = (person: Person | undefined, side: 'lui' | 'moi', reduce: number) => {
+  if (!person) return 0
+  const balance = side === 'lui' ? person.owesMe || 0 : person.iOweHim || 0
+  return Math.max(0, reduce - balance)
+}
+
 interface StoreContextType {
   shop: typeof INITIAL_SHOP
   setShopName: (name: string) => void
@@ -49,7 +64,10 @@ interface StoreContextType {
   persons: Person[]
   movements: Movement[]
   addMovement: (movement: Omit<Movement, 'id' | 'date'> & { date?: string }) => void
-  cancelMovement: (id: string, reason: string) => void
+  // excess : que faire si l'annulation fait passer le compte sous zéro (il a trop versé).
+  cancelMovement: (id: string, reason: string, excess?: ExcessChoice) => void
+  // Retour de marchandise sur un crédit (le sien ou le mien), sans argent.
+  addReturn: (creditId: string, amount: number, excess?: ExcessChoice) => void
   applyCompensation: (partnerId: string) => void
   processDeparture: (
     employeeId: string,
@@ -247,66 +265,143 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }))
   }
 
-  // CANCEL MOVEMENT (NEVER DELETE)
-  const cancelMovement = (id: string, reason: string) => {
+  const todayStr = () => {
+    const d = new Date()
+    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
+  }
+
+  // Trop versé. side = le compte qui passe sous zéro ('lui' = son compte, 'moi' = mon compte).
+  // La différence change de côté : on l'inscrit comme une dette dans l'autre compte
+  // (« plus tard »), ou comme une dette aussitôt réglée (« déjà rendu »), pour que l'historique explique tout.
+  const excessMovements = (p: Person, side: 'lui' | 'moi', excess: number, choice: ExcessChoice, linkedId: string, why: string) => {
+    const date = todayStr()
+    const stamp = Date.now()
+    const out: Movement[] = [
+      {
+        id: `mov-trop-${stamp}`,
+        personId: p.id,
+        personName: p.name,
+        type: side === 'lui' ? 'j_ai_pris_credit' : 'il_a_pris_credit',
+        label: side === 'lui' ? 'Trop versé : à lui rendre' : 'Trop versé : à me rendre',
+        amount: excess,
+        date,
+        note: `Trop versé après ${why}.`,
+        linkedMovementId: linkedId,
+      },
+    ]
+    if (choice === 'deja_rendu') {
+      out.push({
+        id: `mov-rendu-${stamp}`,
+        personId: p.id,
+        personName: p.name,
+        type: side === 'lui' ? 'je_lui_ai_verse' : 'il_m_a_verse',
+        label: 'Trop versé : rendu',
+        amount: excess,
+        date,
+        paymentMethod: 'especes',
+        note: `Différence déjà rendue après ${why}.`,
+        linkedMovementId: linkedId,
+      })
+    }
+    return out
+  }
+
+  // Retire `reduce` d'un compte. S'il passe sous zéro, il revient à 0 et la différence va dans l'autre compte
+  // (sauf si elle a déjà été rendue).
+  const reduceAccount = (p: Person, side: 'lui' | 'moi', reduce: number, choice: ExcessChoice | undefined) => {
+    const updated = { ...p }
+    const balance = side === 'lui' ? p.owesMe || 0 : p.iOweHim || 0
+    const excess = Math.max(0, reduce - balance)
+    if (side === 'lui') updated.owesMe = Math.max(0, balance - reduce)
+    else updated.iOweHim = Math.max(0, balance - reduce)
+    if (excess > 0 && (choice ?? 'plus_tard') === 'plus_tard') {
+      if (side === 'lui') updated.iOweHim = (p.iOweHim || 0) + excess
+      else updated.owesMe = (p.owesMe || 0) + excess
+    }
+    return { updated, excess }
+  }
+
+  // CANCEL MOVEMENT (NEVER DELETE) : la ligne reste, barrée, avec la pastille « Annulé ».
+  const cancelMovement = (id: string, reason: string, choice?: ExcessChoice) => {
     const today = new Date()
-    const cancelledAt = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()} ${String(today.getHours()).padStart(2, '0')}:${String(today.getMinutes()).padStart(2, '0')}`
+    const cancelledAt = `${todayStr()} ${String(today.getHours()).padStart(2, '0')}:${String(today.getMinutes()).padStart(2, '0')}`
 
     const targetMov = movements.find(m => m.id === id)
     if (!targetMov || targetMov.isCancelled) return
+    const person = persons.find(p => p.id === targetMov.personId)
+    if (!person) return
 
-    setMovements(prev => prev.map(m => {
-      if (m.id === id) {
-        return {
-          ...m,
-          isCancelled: true,
-          cancellationReason: reason,
-          cancelledAt,
-        }
+    const isCredit = targetMov.type === 'il_a_pris_credit' || targetMov.type === 'j_ai_pris_credit'
+    // Un crédit annulé emporte ses retours : on ne retire que ce qui restait de ce crédit.
+    const net = isCredit ? targetMov.amount - returnedOn(movements, id) : targetMov.amount
+    let extra: Movement[] = []
+    let updated: Person = { ...person }
+    const amt = targetMov.amount
+
+    if (person.type === 'partner') {
+      const owesMe = person.owesMe || 0
+      const iOweHim = person.iOweHim || 0
+      if (targetMov.type === 'il_m_a_verse') updated.owesMe = owesMe + amt
+      else if (targetMov.type === 'je_lui_ai_verse') updated.iOweHim = iOweHim + amt
+      else if (targetMov.type === 'il_a_retourne') updated.owesMe = owesMe + amt
+      else if (targetMov.type === 'j_ai_retourne') updated.iOweHim = iOweHim + amt
+      else if (isCredit) {
+        const side = targetMov.type === 'il_a_pris_credit' ? 'lui' : 'moi'
+        const r = reduceAccount(person, side, net, choice)
+        updated = r.updated
+        if (r.excess > 0) extra = excessMovements(person, side, r.excess, choice ?? 'plus_tard', id, `l'annulation du crédit du ${targetMov.date}`)
       }
-      return m
-    }))
-
-    // Reverse counters for this person
-    setPersons(prev => prev.map(p => {
-      if (p.id !== targetMov.personId) return p
-      const updated = { ...p }
-      const amt = targetMov.amount
-
-      if (p.type === 'partner') {
-        const owesMe = updated.owesMe || 0
-        const iOweHim = updated.iOweHim || 0
-
-        if (targetMov.type === 'il_m_a_verse') {
-          updated.owesMe = owesMe + amt
-        } else if (targetMov.type === 'il_a_pris_credit') {
-          updated.owesMe = Math.max(0, owesMe - amt)
-        } else if (targetMov.type === 'je_lui_ai_verse') {
-          updated.iOweHim = iOweHim + amt
-        } else if (targetMov.type === 'j_ai_pris_credit') {
-          updated.iOweHim = Math.max(0, iOweHim - amt)
-        }
-      } else if (p.type === 'employee') {
-        const currentSalary = updated.currentSalaryDue || 0
-        const advance = updated.advanceBalance || 0
-
-        if (targetMov.type === 'je_lui_ai_verse') {
-          updated.currentSalaryDue = currentSalary + amt
-        } else if (targetMov.type === 'avance_salaire') {
-          updated.advanceBalance = Math.max(0, advance - amt)
-        } else if (targetMov.type === 'remboursement_direct') {
-          updated.advanceBalance = advance + amt
-        } else if (targetMov.type === 'retenue_salaire') {
-          updated.currentSalaryDue = currentSalary + amt
-          updated.advanceBalance = advance + amt
-        }
+    } else if (person.type === 'employee') {
+      const currentSalary = person.currentSalaryDue || 0
+      const advance = person.advanceBalance || 0
+      if (targetMov.type === 'je_lui_ai_verse') updated.currentSalaryDue = currentSalary + amt
+      else if (targetMov.type === 'avance_salaire') updated.advanceBalance = Math.max(0, advance - amt)
+      else if (targetMov.type === 'remboursement_direct') updated.advanceBalance = advance + amt
+      else if (targetMov.type === 'retenue_salaire') {
+        updated.currentSalaryDue = currentSalary + amt
+        updated.advanceBalance = advance + amt
       }
-      return updated
-    }))
+    }
+
+    const mark = (m: Movement, why: string): Movement => ({ ...m, isCancelled: true, cancellationReason: why, cancelledAt })
+    setMovements(prev => [
+      ...extra,
+      ...prev.map(m => {
+        if (m.id === id) return mark(m, reason)
+        if (isCredit && m.linkedMovementId === id && !m.isCancelled && (m.type === 'il_a_retourne' || m.type === 'j_ai_retourne'))
+          return mark(m, 'Crédit annulé')
+        return m
+      }),
+    ])
+    setPersons(prev => prev.map(p => (p.id === person.id ? updated : p)))
 
     if (selectedMovement && selectedMovement.id === id) {
-      setSelectedMovement(prev => prev ? { ...prev, isCancelled: true, cancellationReason: reason, cancelledAt } : null)
+      setSelectedMovement(prev => (prev ? mark(prev, reason) : null))
     }
+  }
+
+  // RETOUR DE MARCHANDISE : diminue le compte comme un versement, mais sans argent ni moyen de paiement.
+  const addReturn = (creditId: string, amount: number, choice?: ExcessChoice) => {
+    const credit = movements.find(m => m.id === creditId)
+    if (!credit || credit.isCancelled || amount <= 0) return
+    const person = persons.find(p => p.id === credit.personId)
+    if (!person) return
+    const side = credit.type === 'il_a_pris_credit' ? 'lui' : 'moi'
+    const ret: Movement = {
+      id: `mov-retour-${Date.now()}`,
+      personId: person.id,
+      personName: person.name,
+      type: side === 'lui' ? 'il_a_retourne' : 'j_ai_retourne',
+      label: 'Retour de marchandise',
+      amount,
+      date: todayStr(),
+      note: `Sur le crédit du ${credit.date} (${credit.amount.toLocaleString('fr-FR')} FCFA)`,
+      linkedMovementId: creditId,
+    }
+    const r = reduceAccount(person, side, amount, choice)
+    const extra = r.excess > 0 ? excessMovements(person, side, r.excess, choice ?? 'plus_tard', ret.id, `le retour du ${ret.date}`) : []
+    setMovements(prev => [...extra, ret, ...prev])
+    setPersons(prev => prev.map(p => (p.id === person.id ? r.updated : p)))
   }
 
   // APPLY MUTUAL DEBT COMPENSATION
@@ -514,6 +609,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         movements,
         addMovement,
         cancelMovement,
+        addReturn,
         applyCompensation,
         processDeparture,
         totals: {

@@ -31,7 +31,7 @@ export interface Movement {
   id: string
   personId: string
   personName: string
-  type: 'il_a_pris_credit' | 'j_ai_pris_credit' | 'il_m_a_verse' | 'je_lui_ai_verse' | 'salaire_du' | 'avance_salaire' | 'retenue_salaire' | 'remboursement_direct' | 'compensation'
+  type: 'il_a_pris_credit' | 'j_ai_pris_credit' | 'il_m_a_verse' | 'je_lui_ai_verse' | 'salaire_du' | 'avance_salaire' | 'retenue_salaire' | 'remboursement_direct' | 'compensation' | 'il_a_retourne' | 'j_ai_retourne'
   label: string
   amount: number
   date: string

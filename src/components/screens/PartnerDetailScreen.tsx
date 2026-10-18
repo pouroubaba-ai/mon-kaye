@@ -1,7 +1,7 @@
 import React from 'react'
 import { ArrowDownLeft, ArrowUpRight, Plus, Scale } from 'lucide-react'
 
-import { useStore } from '@/data/store'
+import { useStore, returnedOn } from '@/data/store'
 import { Button } from '@/components/ui/button'
 import { MovementHistory } from '@/components/movement-history'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -21,7 +21,7 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
 
   const [view, setView] = React.useState<'ensemble' | 'historique'>('ensemble')
   const [side, setSide] = React.useState<'lui' | 'moi'>('lui')
-  const [kind, setKind] = React.useState<'credit' | 'versement'>('credit')
+  const [kind, setKind] = React.useState<'credit' | 'versement' | 'retour'>('credit')
   const partner = persons.find(p => p.id === partnerId)
   if (!partner) return null
 
@@ -118,10 +118,15 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
           {(() => {
             const creditType = side === 'lui' ? 'il_a_pris_credit' : 'j_ai_pris_credit'
             const payType = side === 'lui' ? 'il_m_a_verse' : 'je_lui_ai_verse'
-            const shown = partnerMovements.filter(m => m.type === (kind === 'credit' ? creditType : payType))
-            const chips: { value: 'credit' | 'versement'; label: string }[] = [
+            const returnType = side === 'lui' ? 'il_a_retourne' : 'j_ai_retourne'
+            const typeOf = (k: 'credit' | 'versement' | 'retour') => (k === 'credit' ? creditType : k === 'versement' ? payType : returnType)
+            const nReturns = partnerMovements.filter(m => m.type === returnType).length
+            const shown = partnerMovements.filter(m => m.type === typeOf(kind))
+            // « Retours » n'apparaît que s'il y en a.
+            const chips: { value: 'credit' | 'versement' | 'retour'; label: string }[] = [
               { value: 'credit', label: side === 'lui' ? 'Crédits' : 'Dettes' },
               { value: 'versement', label: 'Versements' },
+              ...(nReturns > 0 ? [{ value: 'retour' as const, label: 'Retours' }] : []),
             ]
             return (
               <MovementHistory
@@ -129,6 +134,11 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
                 title={side === 'lui' ? 'Son compte' : 'Mon compte'}
                 movements={shown}
                 hideLabel
+                sub={m => {
+                  if (m.type !== creditType) return undefined
+                  const r = returnedOn(movements, m.id)
+                  return r > 0 ? `dont ${formatFCFA(r)} retournés` : undefined
+                }}
                 onOpen={openMovementDetail}
                 amountClass={() => (side === 'lui' ? 'text-credit' : 'text-debt')}
                 action={
@@ -148,7 +158,7 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
                       >
                         {c.label}
                         <span className="text-xs text-muted-foreground tabular-nums">
-                          {partnerMovements.filter(m => m.type === (c.value === 'credit' ? creditType : payType)).length}
+                          {partnerMovements.filter(m => m.type === typeOf(c.value)).length}
                         </span>
                       </Button>
                     ))}

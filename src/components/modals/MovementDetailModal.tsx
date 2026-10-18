@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useStore } from '@/data/store'
+import { useStore, excessOf, returnedOn, type ExcessChoice } from '@/data/store'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/responsive-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,24 +14,51 @@ import {
   Calendar, 
   Coins, 
   Smartphone, 
-  Camera 
+  Camera,
+  Undo2,
 } from 'lucide-react'
 
 export const MovementDetailModal: React.FC = () => {
-  const { selectedMovement, closeMovementDetail, cancelMovement, shop, persons } = useStore()
-  const [showCancelPrompt, setShowCancelPrompt] = useState(false)
+  const { selectedMovement, closeMovementDetail, cancelMovement, addReturn, shop, persons, movements } = useStore()
+  // Panneau ouvert en bas : rien, l'annulation (motif) ou le retour (montant).
+  const [panel, setPanel] = useState<'none' | 'annuler' | 'retour'>('none')
   const [cancelReason, setCancelReason] = useState('')
+  const [returnStr, setReturnStr] = useState('')
+  // Trop versé : la question posée avant d'appliquer l'annulation ou le retour.
+  const [excessAsk, setExcessAsk] = useState<{ amount: number; apply: (c: ExcessChoice) => void } | null>(null)
   const [copySuccess, setCopySuccess] = useState(false)
 
-  // Nouvelle opération affichée : on efface un éventuel motif d'annulation en cours.
+  // Nouvelle opération affichée : on referme les panneaux en cours.
   React.useEffect(() => {
-    setShowCancelPrompt(false)
+    setPanel('none')
     setCancelReason('')
+    setReturnStr('')
+    setExcessAsk(null)
   }, [selectedMovement?.id])
 
   if (!selectedMovement) return null
+  const mov = movements.find(m => m.id === selectedMovement.id) ?? selectedMovement
+  const isCredit = mov.type === 'il_a_pris_credit' || mov.type === 'j_ai_pris_credit'
+  const side: 'lui' | 'moi' = mov.type === 'il_a_pris_credit' || mov.type === 'il_a_retourne' ? 'lui' : 'moi'
+  const returns = isCredit ? movements.filter(m => m.linkedMovementId === mov.id && (m.type === 'il_a_retourne' || m.type === 'j_ai_retourne')) : []
+  const returned = isCredit ? returnedOn(movements, mov.id) : 0
+  const returnable = isCredit ? mov.amount - returned : 0
+  const returnAmount = parseInt(returnStr, 10) || 0
 
-  const person = persons.find(p => p.id === selectedMovement.personId)
+  const person = persons.find(p => p.id === mov.personId)
+
+  // Applique tout de suite, ou pose d'abord la question du trop versé.
+  const runOrAsk = (reduce: number, apply: (c?: ExcessChoice) => void) => {
+    const excess = person?.type === 'partner' ? excessOf(person, side, reduce) : 0
+    if (excess > 0) setExcessAsk({ amount: excess, apply })
+    else apply()
+  }
+  const finish = () => {
+    setPanel('none')
+    setCancelReason('')
+    setReturnStr('')
+    setExcessAsk(null)
+  }
   const remainingDebt = person?.type === 'partner' ? ((person.owesMe || 0) - (person.iOweHim || 0)) : (person?.currentSalaryDue || 0)
 
   // Message formaté pour WhatsApp / SMS
@@ -51,13 +78,25 @@ export const MovementDetailModal: React.FC = () => {
   const handleConfirmCancel = (e: React.FormEvent) => {
     e.preventDefault()
     if (!cancelReason.trim()) return
-    cancelMovement(selectedMovement.id, cancelReason.trim())
-    setShowCancelPrompt(false)
-    setCancelReason('')
+    const reason = cancelReason.trim()
+    runOrAsk(isCredit ? returnable : 0, c => {
+      cancelMovement(mov.id, reason, c)
+      finish()
+    })
+  }
+
+  const handleConfirmReturn = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (returnAmount <= 0 || returnAmount > returnable) return
+    const amount = returnAmount
+    runOrAsk(amount, c => {
+      addReturn(mov.id, amount, c)
+      finish()
+    })
   }
 
   return (
-    <Dialog open={!!selectedMovement} onOpenChange={open => !open && closeMovementDetail()} dirty={cancelReason.trim() !== ''} dirtyKind="modification">
+    <Dialog open={!!selectedMovement} onOpenChange={open => !open && closeMovementDetail()} dirty={cancelReason.trim() !== '' || returnAmount > 0} dirtyKind="modification">
       <DialogContent className="max-w-md p-4 sm:p-6 rounded-2xl">
         <DialogHeader className="pb-2">
           <div className="flex items-center justify-between">
@@ -87,8 +126,8 @@ export const MovementDetailModal: React.FC = () => {
                 <p className="font-bold text-foreground text-sm">{selectedMovement.personName}</p>
                 <p className="text-xs text-muted-foreground">{selectedMovement.label}</p>
               </div>
-              <span className="text-xl font-black text-foreground">
-                {formatFCFA(selectedMovement.amount)}
+              <span className={`text-xl font-black ${mov.isCancelled ? 'text-destructive line-through' : 'text-foreground'}`}>
+                {formatFCFA(mov.amount)}
               </span>
             </div>
 
@@ -121,6 +160,25 @@ export const MovementDetailModal: React.FC = () => {
               </div>
             )}
           </div>
+
+          {/* Crédit : les retours de marchandise déjà faits dessus */}
+          {returns.length > 0 && (
+            <div className="space-y-1.5 rounded-xl border p-3 text-xs">
+              <p className="font-semibold text-foreground">Retours de marchandise</p>
+              {returns.map(r => (
+                <div key={r.id} className="flex items-center justify-between gap-2 text-muted-foreground">
+                  <span>{r.date}{r.isCancelled ? ' · annulé' : ''}</span>
+                  <span className={r.isCancelled ? 'line-through' : 'font-medium text-foreground'}>− {formatFCFA(r.amount)}</span>
+                </div>
+              ))}
+              {!mov.isCancelled && (
+                <div className="flex items-center justify-between gap-2 border-t pt-1.5 font-semibold text-foreground">
+                  <span>Reste de ce crédit</span>
+                  <span>{formatFCFA(returnable)}</span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Si annulé : motif */}
           {selectedMovement.isCancelled && (
@@ -165,19 +223,58 @@ export const MovementDetailModal: React.FC = () => {
             </div>
           )}
 
-          {/* ANNULATION DU MOUVEMENT (JAMAIS DE SUPPRESSION) */}
-          {!selectedMovement.isCancelled && (
+          {/* ACTIONS : « Retour » (crédits) à côté de « Annuler ». Jamais de suppression. */}
+          {!mov.isCancelled && (
             <div className="pt-2 border-t">
-              {!showCancelPrompt ? (
-                <Button
-                  variant="ghost"
-                  onClick={() => setShowCancelPrompt(true)}
-                  className="w-full text-xs text-destructive hover:bg-destructive/10 h-10"
-                >
-                  <Ban className="w-4 h-4 mr-1.5" />
-                  Annuler ce mouvement (Erreur de saisie)
-                </Button>
-              ) : (
+              {excessAsk ? (
+                // Trop versé : la différence change de côté, sauf si elle a déjà été rendue.
+                <div className="space-y-3 rounded-xl border border-destructive/30 bg-destructive/5 p-3">
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold">
+                      {side === 'lui' ? 'Il a trop versé' : "J'ai trop versé"} de {formatFCFA(excessAsk.amount)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {side === 'lui'
+                        ? 'Sans cette somme, ses versements dépassent ce qu\'il devait.'
+                        : 'Sans cette somme, mes versements dépassent ce que je devais.'}
+                    </p>
+                  </div>
+                  <div className="grid gap-2">
+                    <Button onClick={() => excessAsk.apply('plus_tard')}>
+                      {side === 'lui' ? 'Je lui rends plus tard' : 'Il me rend plus tard'}
+                    </Button>
+                    <Button variant="outline" onClick={() => excessAsk.apply('deja_rendu')}>
+                      {side === 'lui' ? 'Je lui ai déjà rendu' : "Il m'a déjà rendu"}
+                    </Button>
+                    <Button variant="ghost" onClick={finish}>
+                      {panel === 'retour' ? 'Ne pas faire le retour' : 'Ne pas annuler'}
+                    </Button>
+                  </div>
+                </div>
+              ) : panel === 'retour' ? (
+                <form onSubmit={handleConfirmReturn} className="space-y-2 rounded-xl border p-3">
+                  <span className="block text-xs font-bold">Montant de la marchandise rendue</span>
+                  <Input
+                    autoFocus
+                    inputMode="numeric"
+                    placeholder={`Jusqu'à ${formatFCFA(returnable)}`}
+                    value={returnStr}
+                    onChange={e => setReturnStr(e.target.value.replace(/\D/g, ''))}
+                    className="h-10"
+                  />
+                  {returnAmount > returnable && (
+                    <p className="text-xs text-destructive">Pas plus de {formatFCFA(returnable)}</p>
+                  )}
+                  <div className="flex gap-2">
+                    <Button type="button" variant="ghost" size="sm" onClick={finish} className="flex-1 text-xs">
+                      Fermer
+                    </Button>
+                    <Button type="submit" size="sm" className="flex-1 text-xs font-bold" disabled={returnAmount <= 0 || returnAmount > returnable}>
+                      Valider le retour
+                    </Button>
+                  </div>
+                </form>
+              ) : panel === 'annuler' ? (
                 <form onSubmit={handleConfirmCancel} className="space-y-2 p-3 border border-destructive/30 rounded-xl bg-destructive/5">
                   <span className="text-xs font-bold text-destructive block">
                     Motif obligatoire de l'annulation :
@@ -190,25 +287,29 @@ export const MovementDetailModal: React.FC = () => {
                     className="h-9 text-xs"
                   />
                   <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowCancelPrompt(false)}
-                      className="flex-1 text-xs"
-                    >
-                      Retour
+                    <Button type="button" variant="ghost" size="sm" onClick={finish} className="flex-1 text-xs">
+                      Garder
                     </Button>
-                    <Button
-                      type="submit"
-                      variant="destructive"
-                      size="sm"
-                      className="flex-1 text-xs font-bold"
-                    >
+                    <Button type="submit" variant="destructive" size="sm" className="flex-1 text-xs font-bold">
                       Confirmer l'annulation
                     </Button>
                   </div>
                 </form>
+              ) : (
+                <div className={isCredit && returnable > 0 ? 'grid grid-cols-2 gap-2' : 'grid'}>
+                  {isCredit && returnable > 0 && (
+                    <Button variant="outline" onClick={() => setPanel('retour')} className="h-10 text-xs">
+                      <Undo2 className="w-4 h-4" /> Retour
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    onClick={() => setPanel('annuler')}
+                    className="h-10 text-xs text-destructive hover:bg-destructive/10"
+                  >
+                    <Ban className="w-4 h-4" /> Annuler
+                  </Button>
+                </div>
               )}
             </div>
           )}
