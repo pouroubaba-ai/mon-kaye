@@ -17,6 +17,9 @@ interface StoreContextType {
   activeTab: 'accueil' | 'personnes' | 'employes' | 'reglages'
   setActiveTab: (tab: 'accueil' | 'personnes' | 'employes' | 'reglages') => void
   selectedPersonId: string | null
+  // Écran ouvert depuis le tableau de bord : « Leurs comptes » ou « Mes comptes », et le côté choisi.
+  accountsView: { dir: 'leurs' | 'mes'; group: 'partner' | 'employee' } | null
+  setAccountsView: (v: { dir: 'leurs' | 'mes'; group: 'partner' | 'employee' } | null) => void
   setSelectedPersonId: (id: string | null) => void
   
   // Modals state
@@ -81,7 +84,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [shop, setShop] = useState(INITIAL_SHOP)
   const [isLocked, setIsLocked] = useState(false)
   const [theme, setTheme] = useState<'dark' | 'light'>('dark')
-  const [activeTab, setActiveTab] = useState<'accueil' | 'personnes' | 'employes' | 'reglages'>('accueil')
+  const [activeTab, setActiveTabRaw] = useState<'accueil' | 'personnes' | 'employes' | 'reglages'>('accueil')
+  const [accountsView, setAccountsView] = useState<{ dir: 'leurs' | 'mes'; group: 'partner' | 'employee' } | null>(null)
+  // Changer de page referme l'écran « Leurs comptes / Mes comptes ».
+  const setActiveTab = (tab: 'accueil' | 'personnes' | 'employes' | 'reglages') => {
+    setAccountsView(null)
+    setActiveTabRaw(tab)
+  }
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null)
   
   const [persons, setPersons] = useState<Person[]>(INITIAL_PERSONS)
@@ -481,6 +490,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         activeTab,
         setActiveTab,
         selectedPersonId,
+        accountsView,
+        setAccountsView,
         setSelectedPersonId,
         isNewMovementOpen,
         openNewMovement,

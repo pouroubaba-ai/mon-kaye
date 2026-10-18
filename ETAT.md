@@ -143,3 +143,9 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 - Saisie (règle) : un versement ou un remboursement ne peut pas dépasser ce qui est dû (message « Pas plus de … », Enregistrer désactivé) ; bouton de versement grisé quand rien n'est dû. L'écran « Combien ? » affiche le compte concerné (Il me doit, Je lui dois, Salaire dû, Avance à rendre). L'ancienne règle « surplus gardé comme avance » est retirée.
 - Règle (17/10/2026) : salaire toujours mensuel, dû à la fin du mois. Plus de jour de paie à saisir (champ retiré du formulaire Ajouter / Modifier un employé).
 - Fenêtres (17/10/2026) : confirmation avant de fermer une fenêtre contenant une saisie non enregistrée (toucher à côté, glisser, Échap, croix). « Abandonner l'ajout ? » ou « Abandonner les modifications ? », boutons « Continuer la saisie » (mis en avant) / « Abandonner ». Réglé une seule fois dans src/components/ui/responsive-dialog.tsx (props `dirty`, `dirtyKind`) ; chaque fenêtre indique si elle est modifiée.
+
+## Comptes depuis le tableau de bord (18/10/2026)
+- Toucher « On me doit » ouvre « Leurs comptes », toucher « Je dois » ouvre « Mes comptes » (fil d'Ariane pour revenir).
+- En haut, un choix Personnes / Employés. Leurs comptes : personnes qui me doivent, avances à rendre. Mes comptes : personnes à qui je dois, graphique des salaires et salaires dus.
+- Toucher une ligne de légende sous un anneau ouvre directement le bon côté.
+- Les onglets « Vue d'ensemble » des pages Personnes et Employés sont retirés : ces pages sont un simple carnet d'adresses.

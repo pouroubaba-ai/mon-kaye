@@ -7,13 +7,14 @@ import { PersonsListScreen } from '@/components/screens/PersonsListScreen'
 import { PartnerDetailScreen } from '@/components/screens/PartnerDetailScreen'
 import { EmployeeDetailScreen } from '@/components/screens/EmployeeDetailScreen'
 import { SettingsScreen } from '@/components/screens/SettingsScreen'
+import { AccountsScreen } from '@/components/screens/AccountsScreen'
 import { NewMovementModal } from '@/components/modals/NewMovementModal'
 import { DepartureModal } from '@/components/modals/DepartureModal'
 import { CompensationModal } from '@/components/modals/CompensationModal'
 import { MovementDetailModal } from '@/components/modals/MovementDetailModal'
 
 const AppContent: React.FC = () => {
-  const { isLocked, activeTab, selectedPersonId, persons } = useStore()
+  const { isLocked, activeTab, selectedPersonId, persons, accountsView } = useStore()
 
   // Si verrouillé -> Écran PIN obligatoire
   if (isLocked) {
@@ -46,7 +47,7 @@ const AppContent: React.FC = () => {
 
   return (
     <AppLayout>
-      {activeTab === 'accueil' && <DashboardScreen />}
+      {activeTab === 'accueil' && (accountsView ? <AccountsScreen /> : <DashboardScreen />)}
       {activeTab === 'personnes' && <PersonsListScreen />}
       {activeTab === 'employes' && <PersonsListScreen />}
       {activeTab === 'reglages' && <SettingsScreen />}

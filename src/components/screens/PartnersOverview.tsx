@@ -4,6 +4,8 @@ import { useStore } from '@/data/store'
 import { daysSince } from '@/data/payHistory'
 import { DaysCard, PersonPicker, type DayRow } from '@/components/overview-parts'
 
+// Comptes des personnes, ouverts depuis le tableau de bord : un seul sens à la fois
+// (side = « leurs » : ce qu'on me doit ; « mes » : ce que je dois).
 // Vue d'ensemble des personnes (clients, fournisseurs…) : même système que pour les employés,
 // sans graphique.
 // - « Dernier versement reçu » : les gens qui me doivent, jours depuis leur dernier versement.
@@ -11,7 +13,7 @@ import { DaysCard, PersonPicker, type DayRow } from '@/components/overview-parts
 
 const PEOPLE: [string, string] = ['personne', 'personnes']
 
-export const PartnersOverview: React.FC = () => {
+export const PartnersOverview: React.FC<{ side: 'leurs' | 'mes' }> = ({ side }) => {
   const { persons } = useStore()
   const partners = persons.filter(p => p.type === 'partner')
   const [who, setWho] = React.useState('tous')
@@ -36,7 +38,7 @@ export const PartnersOverview: React.FC = () => {
         searchPlaceholder="Nom ou numéro"
         emptyText="Aucune personne trouvée."
       />
-      <DaysCard
+      {side === 'leurs' && <DaysCard
         title="Leurs comptes"
         rows={owesMeRows}
         tone="credit"
@@ -45,8 +47,8 @@ export const PartnersOverview: React.FC = () => {
         showCount={showCount}
         unit={PEOPLE}
         empty="Personne ne vous doit d'argent."
-      />
-      <DaysCard
+      />}
+      {side === 'mes' && <DaysCard
         title="Mes comptes"
         rows={iOweRows}
         tone="debt"
@@ -55,7 +57,7 @@ export const PartnersOverview: React.FC = () => {
         showCount={showCount}
         unit={PEOPLE}
         empty="Vous ne devez rien à personne."
-      />
+      />}
     </div>
   )
 }

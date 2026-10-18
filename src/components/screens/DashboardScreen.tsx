@@ -1,6 +1,6 @@
 import React from 'react'
 import { Label, Pie, PieChart, Sector, type PieSectorDataItem } from 'recharts'
-import { ArrowDownLeft, ArrowUpRight } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, ChevronRight } from 'lucide-react'
 
 import { useStore } from '@/data/store'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -19,18 +19,25 @@ function StatCard({
   value,
   tone,
   Icon,
+  onClick,
 }: {
   label: string
   value: number
   tone: 'credit' | 'debt'
   Icon: React.ComponentType<{ className?: string }>
+  onClick: () => void
 }) {
   const base = tone === 'credit' ? 'var(--color-credit)' : 'var(--color-debt)'
   // Carte « vivante » : fond en dégradé de la couleur du compte, bordure teintée,
   // pastille d'icône pleine et halo lumineux dans le coin.
   return (
+    // Toucher la carte ouvre la liste des comptes : on voit le total, puis tout de suite « qui ».
     <Card
-      className="relative gap-6 overflow-hidden py-4"
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onClick()}
+      className="relative cursor-pointer gap-6 overflow-hidden py-4 transition-transform active:scale-[0.98]"
       style={{
         background: `linear-gradient(145deg, color-mix(in srgb, ${base} 22%, var(--card)) 0%, var(--card) 70%)`,
         borderColor: `color-mix(in srgb, ${base} 35%, transparent)`,
@@ -42,6 +49,7 @@ function StatCard({
         style={{ background: `color-mix(in srgb, ${base} 40%, transparent)` }}
       />
       <CardContent className="relative flex flex-col gap-6 px-4">
+        <ChevronRight className="absolute top-0 right-3 size-5 text-muted-foreground" />
         <div
           className="flex size-10 items-center justify-center rounded-xl text-white"
           style={{ background: base, boxShadow: `0 6px 18px -4px color-mix(in srgb, ${base} 60%, transparent)` }}
@@ -70,12 +78,14 @@ function DonutCard({
   people,
   tone,
   delay = 0,
+  onOpen,
 }: {
   title: string
   slices: Slice[]
   people: number
   tone: 'credit' | 'debt'
   delay?: number
+  onOpen: (group: 'partner' | 'employee') => void
 }) {
   const total = slices.reduce((a, s) => a + s.value, 0)
   const shown = slices.filter(s => s.value > 0)
@@ -156,7 +166,13 @@ function DonutCard({
           {shown.map(s => {
             const pct = total > 0 ? Math.round((s.value / total) * 100) : 0
             return (
-              <div key={s.key} className="flex flex-col gap-1.5">
+              // Toucher une ligne ouvre directement ce côté (Personnes ou Employés).
+              <button
+                type="button"
+                key={s.key}
+                onClick={() => onOpen(s.key === 'partenaires' ? 'partner' : 'employee')}
+                className="-mx-2 flex flex-col gap-1.5 rounded-lg px-2 py-1 text-left transition-colors hover:bg-muted/50"
+              >
                 <div className="flex items-baseline gap-2 text-sm">
                   <span className="size-2.5 shrink-0 translate-y-px rounded-full" style={{ background: s.color }} />
                   <span className="flex-1 text-muted-foreground">{s.label}</span>
@@ -171,7 +187,7 @@ function DonutCard({
                   </div>
                   <span className="w-9 shrink-0 text-right text-xs tabular-nums text-muted-foreground">{pct} %</span>
                 </div>
-              </div>
+              </button>
             )
           })}
         </div>
@@ -181,7 +197,7 @@ function DonutCard({
 }
 
 export const DashboardScreen: React.FC = () => {
-  const { totals, persons } = useStore()
+  const { totals, persons, setAccountsView } = useStore()
 
   const partners = persons.filter(p => p.type === 'partner')
   const employees = persons.filter(p => p.type === 'employee')
@@ -198,8 +214,8 @@ export const DashboardScreen: React.FC = () => {
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-2 gap-3 md:gap-4">
-        <StatCard label="On me doit" value={totals.totalOwesMe} tone="credit" Icon={ArrowDownLeft} />
-        <StatCard label="Je dois" value={totals.totalIOwe} tone="debt" Icon={ArrowUpRight} />
+        <StatCard label="On me doit" value={totals.totalOwesMe} tone="credit" Icon={ArrowDownLeft} onClick={() => setAccountsView({ dir: 'leurs', group: 'partner' })} />
+        <StatCard label="Je dois" value={totals.totalIOwe} tone="debt" Icon={ArrowUpRight} onClick={() => setAccountsView({ dir: 'mes', group: 'partner' })} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -207,6 +223,7 @@ export const DashboardScreen: React.FC = () => {
           title="Leurs comptes"
           tone="credit"
           delay={0}
+          onOpen={group => setAccountsView({ dir: 'leurs', group })}
           people={owesMePeople}
           slices={[
             { key: 'partenaires', label: 'Personnes', value: totals.partnersOwesMe, color: 'var(--color-credit)', count: nOwesMe, unit: PEOPLE },
@@ -217,6 +234,7 @@ export const DashboardScreen: React.FC = () => {
           title="Mes comptes"
           tone="debt"
           delay={100}
+          onOpen={group => setAccountsView({ dir: 'mes', group })}
           people={iOwePeople}
           slices={[
             { key: 'partenaires', label: 'Personnes', value: totals.partnersIOwe, color: 'var(--color-debt)', count: nIOwe, unit: PEOPLE },

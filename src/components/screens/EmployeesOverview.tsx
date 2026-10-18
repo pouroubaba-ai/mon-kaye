@@ -27,7 +27,8 @@ const payConfig = {
 
 const short = (v: number) => (v >= 1_000_000 ? `${Math.round(v / 100_000) / 10} M` : v >= 1000 ? `${Math.round(v / 1000)} k` : String(v))
 
-export const EmployeesOverview: React.FC = () => {
+// side = « leurs » : avances à rendre ; « mes » : salaires (graphique + salaires dus).
+export const EmployeesOverview: React.FC<{ side: 'leurs' | 'mes' }> = ({ side }) => {
   const { persons } = useStore()
   const isMobile = useIsMobile()
   const employees = persons.filter(p => p.type === 'employee')
@@ -76,7 +77,7 @@ export const EmployeesOverview: React.FC = () => {
     <div className="flex flex-col gap-4">
       <PersonPicker people={employees} value={who} onChange={setWho} allLabel="Tous les employés" searchPlaceholder="Nom ou numéro" emptyText="Aucun employé trouvé." />
 
-      <Card>
+      {side === 'mes' && <Card>
         <CardHeader>
           <CardTitle className="text-sm font-normal text-muted-foreground">Salaires</CardTitle>
           <CardAction>
@@ -130,9 +131,9 @@ export const EmployeesOverview: React.FC = () => {
             </BarChart>
           </ChartContainer>
         </CardContent>
-      </Card>
+      </Card>}
 
-      <DaysCard
+      {side === 'leurs' && <DaysCard
         title="Avances à rendre"
         totalLabel="Total"
         showCount={who === 'tous'}
@@ -140,8 +141,8 @@ export const EmployeesOverview: React.FC = () => {
         tone="credit"
         amountLabel="Avance à rendre"
         empty="Aucune avance en cours."
-      />
-      <DaysCard
+      />}
+      {side === 'mes' && <DaysCard
         title="Salaires dus"
         totalLabel="Total"
         showCount={who === 'tous'}
@@ -149,7 +150,7 @@ export const EmployeesOverview: React.FC = () => {
         tone="debt"
         amountLabel="Salaire que je dois"
         empty="Aucun salaire en retard."
-      />
+      />}
     </div>
   )
 }

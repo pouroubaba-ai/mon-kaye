@@ -1,8 +1,5 @@
 import React, { useState } from 'react'
 import { useStore } from '@/data/store'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { EmployeesOverview } from '@/components/screens/EmployeesOverview'
-import { PartnersOverview } from '@/components/screens/PartnersOverview'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -13,7 +10,6 @@ import { PersonFormDialog } from '@/components/person-header'
 export const PersonsListScreen: React.FC = () => {
   const { persons, setSelectedPersonId, activeTab } = useStore()
   const [searchQuery, setSearchQuery] = useState('')
-  const [employeeView, setEmployeeView] = useState<'liste' | 'ensemble'>('liste')
   const [adding, setAdding] = useState(false)
 
   // Filter list
@@ -35,28 +31,10 @@ export const PersonsListScreen: React.FC = () => {
     return a.name.localeCompare(b.name, 'fr')
   })
 
-  // Personnes et Employés : deux onglets, « Liste » et « Vue d'ensemble ».
-  const employeeTabs = (
-    <Tabs value={employeeView} onValueChange={v => setEmployeeView(v as 'liste' | 'ensemble')}>
-      <TabsList className="w-full">
-        <TabsTrigger value="liste">Liste</TabsTrigger>
-        <TabsTrigger value="ensemble">Vue d'ensemble</TabsTrigger>
-      </TabsList>
-    </Tabs>
-  )
-
-  if (employeeView === 'ensemble') {
-    return (
-      <div className="space-y-4">
-        {employeeTabs}
-        {activeTab === 'employes' ? <EmployeesOverview /> : <PartnersOverview />}
-      </div>
-    )
-  }
-
+  // Personnes et Employés : un simple carnet d'adresses. Qui doit quoi se voit depuis le
+  // tableau de bord (« Leurs comptes » / « Mes comptes »).
   return (
     <div className="space-y-4">
-      {employeeTabs}
       {/* Barre de Recherche instantanée */}
       <div className="relative">
         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
