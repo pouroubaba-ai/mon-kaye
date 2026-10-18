@@ -132,7 +132,7 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
                 onOpen={openMovementDetail}
                 amountClass={() => (side === 'lui' ? 'text-credit' : 'text-debt')}
                 action={
-                  <Button size="sm" onClick={() => openNewMovement(partner.id)}>
+                  <Button size="sm" onClick={() => openNewMovement(partner.id, undefined, side === 'lui' ? 'credit' : 'debt')}>
                     <Plus /> Enregistrer une opération
                   </Button>
                 }

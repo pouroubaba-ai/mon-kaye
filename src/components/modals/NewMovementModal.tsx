@@ -57,7 +57,7 @@ const LABELS: Record<string, string> = {
 const TITLES: Record<Step, string> = { qui: 'Qui ?', quoi: 'Quelle opération ?', combien: 'Combien ?' }
 
 export const NewMovementModal: React.FC = () => {
-  const { isNewMovementOpen, closeNewMovement, newMovementTargetPersonId, newMovementInitialType, persons, addMovement } =
+  const { isNewMovementOpen, closeNewMovement, newMovementTargetPersonId, newMovementInitialType, newMovementSide, persons, addMovement } =
     useStore()
 
   const [step, setStep] = useState<Step>('qui')
@@ -254,13 +254,14 @@ export const NewMovementModal: React.FC = () => {
           // avec les deux gros boutons qui le font bouger. On regarde où va l'argent, on touche.
           <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
             <p className="truncate py-0.5 text-sm leading-6 text-muted-foreground">{person.name}</p>
-            <div className="grid grid-cols-2 gap-3">
+            {/* Ouvert depuis un côté de l'historique : seulement le compte concerné, ses deux boutons côte à côte. */}
+            <div className={cn('grid gap-3', newMovementSide ? 'grid-cols-1' : 'grid-cols-2')}>
               {([
                 { title: 'Son compte', value: person.owesMe || 0, tone: 'credit' as const, ops: OPS.partner.filter(o => o.tone === 'credit') },
                 { title: 'Mon compte', value: person.iOweHim || 0, tone: 'debt' as const, ops: OPS.partner.filter(o => o.tone === 'debt') },
-              ]).map(col => (
-                <div key={col.title} className="flex flex-col gap-2">
-                  <div className="px-1">
+              ]).filter(col => !newMovementSide || col.tone === newMovementSide).map(col => (
+                <div key={col.title} className={cn('grid gap-2', newMovementSide ? 'grid-cols-2' : 'grid-cols-1')}>
+                  <div className={cn('px-1', newMovementSide && 'col-span-2')}>
                     <p className="text-xs text-muted-foreground">{col.title}</p>
                     <p className={cn('text-base font-semibold tabular-nums', col.tone === 'credit' ? 'text-credit' : 'text-debt')}>
                       {formatFCFA(col.value)}

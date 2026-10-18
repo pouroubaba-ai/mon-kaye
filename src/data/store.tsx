@@ -21,10 +21,12 @@ interface StoreContextType {
   
   // Modals state
   isNewMovementOpen: boolean
-  openNewMovement: (personId?: string, defaultType?: Movement['type']) => void
+  // side : ouvert depuis un côté de l'historique, on ne propose que les opérations de ce compte
+  openNewMovement: (personId?: string, defaultType?: Movement['type'], side?: 'credit' | 'debt') => void
   closeNewMovement: () => void
   newMovementTargetPersonId: string | null
   newMovementInitialType: Movement['type'] | null
+  newMovementSide: 'credit' | 'debt' | null
   
   isDepartureOpen: boolean
   openDeparture: (employeeId: string) => void
@@ -89,6 +91,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isNewMovementOpen, setIsNewMovementOpen] = useState(false)
   const [newMovementTargetPersonId, setNewMovementTargetPersonId] = useState<string | null>(null)
   const [newMovementInitialType, setNewMovementInitialType] = useState<Movement['type'] | null>(null)
+  const [newMovementSide, setNewMovementSide] = useState<'credit' | 'debt' | null>(null)
   
   const [isDepartureOpen, setIsDepartureOpen] = useState(false)
   const [departureTargetEmployeeId, setDepartureTargetEmployeeId] = useState<string | null>(null)
@@ -132,9 +135,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setIsLocked(true)
   }
 
-  const openNewMovement = (personId?: string, defaultType?: Movement['type']) => {
+  const openNewMovement = (personId?: string, defaultType?: Movement['type'], side?: 'credit' | 'debt') => {
     setNewMovementTargetPersonId(personId || null)
     setNewMovementInitialType(defaultType || null)
+    setNewMovementSide(side || null)
     setIsNewMovementOpen(true)
   }
 
@@ -142,6 +146,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setIsNewMovementOpen(false)
     setNewMovementTargetPersonId(null)
     setNewMovementInitialType(null)
+    setNewMovementSide(null)
   }
 
   const openDeparture = (employeeId: string) => {
@@ -482,6 +487,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         closeNewMovement,
         newMovementTargetPersonId,
         newMovementInitialType,
+        newMovementSide,
         isDepartureOpen,
         openDeparture,
         closeDeparture,
