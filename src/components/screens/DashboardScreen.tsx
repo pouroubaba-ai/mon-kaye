@@ -204,7 +204,7 @@ export const DashboardScreen: React.FC = () => {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <DonutCard
-          title="Qui me doit"
+          title="Leurs comptes"
           tone="credit"
           delay={0}
           people={owesMePeople}
@@ -214,7 +214,7 @@ export const DashboardScreen: React.FC = () => {
           ]}
         />
         <DonutCard
-          title="À qui je dois"
+          title="Mes comptes"
           tone="debt"
           delay={100}
           people={iOwePeople}

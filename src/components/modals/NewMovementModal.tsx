@@ -99,8 +99,8 @@ export const NewMovementModal: React.FC = () => {
     if (!person) return null
     if (person.type === 'partner') {
       if (t === 'il_m_a_verse' || t === 'il_a_pris_credit')
-        return { label: 'Il me doit', value: person.owesMe || 0, tone: 'credit', isPayment: t === 'il_m_a_verse' }
-      return { label: 'Je lui dois', value: person.iOweHim || 0, tone: 'debt', isPayment: t === 'je_lui_ai_verse' }
+        return { label: 'Son compte', value: person.owesMe || 0, tone: 'credit', isPayment: t === 'il_m_a_verse' }
+      return { label: 'Mon compte', value: person.iOweHim || 0, tone: 'debt', isPayment: t === 'je_lui_ai_verse' }
     }
     if (t === 'je_lui_ai_verse') return { label: 'Salaire dû', value: person.currentSalaryDue || 0, tone: 'debt', isPayment: true }
     if (t === 'remboursement_direct') return { label: 'Avance à rendre', value: person.advanceBalance || 0, tone: 'credit', isPayment: true }
@@ -166,8 +166,8 @@ export const NewMovementModal: React.FC = () => {
   const sub = (p: (typeof persons)[number]) => {
     if (p.type === 'employee') return p.role || 'Employé'
     const net = (p.owesMe || 0) - (p.iOweHim || 0)
-    if (net > 0) return `Me doit ${formatFCFA(net)}`
-    if (net < 0) return `Je lui dois ${formatFCFA(-net)}`
+    if (net > 0) return `Son compte : ${formatFCFA(net)}`
+    if (net < 0) return `Mon compte : ${formatFCFA(-net)}`
     return 'À jour'
   }
 
@@ -256,8 +256,8 @@ export const NewMovementModal: React.FC = () => {
             <p className="truncate py-0.5 text-sm leading-6 text-muted-foreground">{person.name}</p>
             <div className="grid grid-cols-2 gap-3">
               {([
-                { title: 'Il me doit', value: person.owesMe || 0, tone: 'credit' as const, ops: OPS.partner.filter(o => o.tone === 'credit') },
-                { title: 'Je lui dois', value: person.iOweHim || 0, tone: 'debt' as const, ops: OPS.partner.filter(o => o.tone === 'debt') },
+                { title: 'Son compte', value: person.owesMe || 0, tone: 'credit' as const, ops: OPS.partner.filter(o => o.tone === 'credit') },
+                { title: 'Mon compte', value: person.iOweHim || 0, tone: 'debt' as const, ops: OPS.partner.filter(o => o.tone === 'debt') },
               ]).map(col => (
                 <div key={col.title} className="flex flex-col gap-2">
                   <div className="px-1">

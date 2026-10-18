@@ -7,8 +7,8 @@ export interface Person {
   notes?: string
   avatarUrl?: string
   // For partners:
-  owesMe?: number // Il me doit
-  iOweHim?: number // Je lui dois
+  owesMe?: number // Son compte : ce qu'il a pris chez moi
+  iOweHim?: number // Mon compte : ce que j'ai pris chez lui
   lastPaymentDate?: string // Son dernier versement reçu (jj/mm/aaaa)
   lastPaidByMeDate?: string // Mon dernier versement à cette personne (jj/mm/aaaa)
   lastCreditToHimDate?: string // Dernière fois qu'il a pris à crédit chez moi (jj/mm/aaaa)

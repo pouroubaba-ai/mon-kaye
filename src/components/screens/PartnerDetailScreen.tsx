@@ -12,7 +12,7 @@ import { daysSince } from '@/data/payHistory'
 
 // Fiche d'une personne, inspirée des cartes « Payroll » :
 // - bandeau en haut, seulement si chacun doit quelque chose à l'autre : qui doit à qui, au net ;
-// - deux cartes, « Il me doit » (lui) et « Je lui dois » (moi) : en grand ce qui reste dû,
+// - deux cartes, « Son compte » (ce qu'il a pris chez moi) et « Mon compte » (ce que j'ai pris chez lui) : en grand ce qui reste dû,
 //   une barre déjà versé / reste, puis le total et le déjà versé ;
 // - un seul bouton pour enregistrer une opération (la fenêtre propose les 4 actions).
 
@@ -81,7 +81,7 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <BalanceCard
-            title="Il me doit"
+            title="Son compte"
             Icon={ArrowDownLeft}
             tone="credit"
             remaining={owesMe}
@@ -90,7 +90,7 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
             paidDays={days(lastDateOf('il_m_a_verse', partner.lastPaymentDate))}
           />
           <BalanceCard
-            title="Je lui dois"
+            title="Mon compte"
             Icon={ArrowUpRight}
             tone="debt"
             remaining={iOweHim}
@@ -108,10 +108,10 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
           <Tabs value={side} onValueChange={v => { setSide(v as 'lui' | 'moi'); setKind('credit') }}>
             <TabsList variant="line" className="w-full border-b">
               <TabsTrigger value="lui" className={side === 'lui' ? 'text-credit after:bg-credit' : ''}>
-                <ArrowDownLeft /> Il me doit
+                <ArrowDownLeft /> Son compte
               </TabsTrigger>
               <TabsTrigger value="moi" className={side === 'moi' ? 'text-debt after:bg-debt' : ''}>
-                <ArrowUpRight /> Je lui dois
+                <ArrowUpRight /> Mon compte
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -126,7 +126,7 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
             return (
               <MovementHistory
                 key={`${side}-${kind}`}
-                title={side === 'lui' ? 'Il me doit' : 'Je lui dois'}
+                title={side === 'lui' ? 'Son compte' : 'Mon compte'}
                 movements={shown}
                 hideLabel
                 onOpen={openMovementDetail}
