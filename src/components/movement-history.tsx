@@ -26,6 +26,7 @@ export function MovementHistory({
   title = 'Historique',
   toolbar,
   action,
+  hideLabel,
 }: {
   movements: Movement[]
   filters?: Filter[]
@@ -36,6 +37,8 @@ export function MovementHistory({
   toolbar?: React.ReactNode
   // Bouton affiché en haut à droite à la place du nombre de lignes (ex. « + Opération »)
   action?: React.ReactNode
+  // La liste n'a qu'un type d'opération (ex. « Crédits ») : le libellé répète le filtre, on le cache.
+  hideLabel?: boolean
 }) {
   const [filter, setFilter] = React.useState('all')
   const active = filters?.find(f => f.value === filter)
@@ -81,14 +84,26 @@ export function MovementHistory({
                 )}
               >
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 whitespace-nowrap text-xs text-muted-foreground">
+                  <div
+                    className={cn(
+                      'flex items-center gap-2 whitespace-nowrap text-muted-foreground',
+                      // Sans libellé ni note, la date est la seule ligne : un peu plus grande.
+                      hideLabel && !m.note ? 'text-sm' : 'text-xs'
+                    )}
+                  >
                     <span>{m.date}</span>
                     <span>·</span>
                     <span>{PAYMENT_LABELS[m.paymentMethod || 'especes']}</span>
                     {m.isCancelled && <Badge variant="destructive">Annulé</Badge>}
                   </div>
-                  <p className={cn('truncate text-sm font-medium', m.isCancelled && 'line-through')}>{m.label}</p>
-                  {m.note && <p className="truncate text-xs text-muted-foreground">{m.note}</p>}
+                  {hideLabel ? (
+                    m.note && <p className={cn('truncate text-sm', m.isCancelled && 'line-through')}>{m.note}</p>
+                  ) : (
+                    <>
+                      <p className={cn('truncate text-sm font-medium', m.isCancelled && 'line-through')}>{m.label}</p>
+                      {m.note && <p className="truncate text-xs text-muted-foreground">{m.note}</p>}
+                    </>
+                  )}
                 </div>
                 <span className={cn('shrink-0 font-semibold tabular-nums', amountClass?.(m))}>{formatFCFA(m.amount)}</span>
                 <ChevronRight className="size-4 shrink-0 text-muted-foreground" />

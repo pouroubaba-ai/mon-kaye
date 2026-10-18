@@ -128,6 +128,7 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
                 key={`${side}-${kind}`}
                 title={side === 'lui' ? 'Il me doit' : 'Je lui dois'}
                 movements={shown}
+                hideLabel
                 onOpen={openMovementDetail}
                 amountClass={() => (side === 'lui' ? 'text-credit' : 'text-debt')}
                 action={
