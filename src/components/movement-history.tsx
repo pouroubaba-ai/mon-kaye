@@ -40,8 +40,8 @@ export function MovementHistory({
   action?: React.ReactNode
   // La liste n'a qu'un type d'opération (ex. « Crédits ») : le libellé répète le filtre, on le cache.
   hideLabel?: boolean
-  // Petite ligne en plus sous une opération (ex. « dont 20 000 FCFA retournés » sur un crédit)
-  sub?: (m: Movement) => string | undefined
+  // Petit élément en plus sous une opération (ex. pastille « Retour 20 000 FCFA » sur un crédit)
+  sub?: (m: Movement) => React.ReactNode
 }) {
   const [filter, setFilter] = React.useState('all')
   const active = filters?.find(f => f.value === filter)
@@ -115,7 +115,7 @@ export function MovementHistory({
                       {m.note && <p className="truncate text-xs text-muted-foreground">{m.note}</p>}
                     </>
                   )}
-                  {sub?.(m) && <p className="truncate text-xs text-muted-foreground">{sub(m)}</p>}
+                  {sub?.(m) && <div className="mt-1 flex">{sub(m)}</div>}
                 </div>
                 {/* Opération annulée : montant barré, en rouge, comme une ligne barrée dans le cahier. */}
                 <span className={cn('shrink-0 font-semibold tabular-nums', m.isCancelled ? 'text-destructive line-through' : amountClass?.(m))}>{formatFCFA(m.amount)}</span>

@@ -392,7 +392,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       personId: person.id,
       personName: person.name,
       type: side === 'lui' ? 'il_a_retourne' : 'j_ai_retourne',
-      label: 'Retour de marchandise',
+      label: 'Retour',
       amount,
       date: todayStr(),
       note: `Sur le crédit du ${credit.date} (${credit.amount.toLocaleString('fr-FR')} FCFA)`,

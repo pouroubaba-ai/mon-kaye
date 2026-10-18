@@ -2,6 +2,7 @@ import React from 'react'
 import { ArrowDownLeft, ArrowUpRight, Plus, Scale } from 'lucide-react'
 
 import { useStore, returnedOn } from '@/data/store'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { MovementHistory } from '@/components/movement-history'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -137,7 +138,8 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
                 sub={m => {
                   if (m.type !== creditType) return undefined
                   const r = returnedOn(movements, m.id)
-                  return r > 0 ? `dont ${formatFCFA(r)} retournés` : undefined
+                  // Pastille rouge : ce qui a été retourné sur ce crédit.
+                  return r > 0 ? <Badge variant="destructive">Retour {formatFCFA(r)}</Badge> : undefined
                 }}
                 onOpen={openMovementDetail}
                 amountClass={() => (side === 'lui' ? 'text-credit' : 'text-debt')}

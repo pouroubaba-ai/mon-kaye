@@ -164,7 +164,7 @@ export const MovementDetailModal: React.FC = () => {
           {/* Crédit : les retours de marchandise déjà faits dessus */}
           {returns.length > 0 && (
             <div className="space-y-1.5 rounded-xl border p-3 text-xs">
-              <p className="font-semibold text-foreground">Retours de marchandise</p>
+              <p className="font-semibold text-foreground">Retours</p>
               {returns.map(r => (
                 <div key={r.id} className="flex items-center justify-between gap-2 text-muted-foreground">
                   <span>{r.date}{r.isCancelled ? ' · annulé' : ''}</span>
@@ -253,13 +253,13 @@ export const MovementDetailModal: React.FC = () => {
                 </div>
               ) : panel === 'retour' ? (
                 <form onSubmit={handleConfirmReturn} className="space-y-2 rounded-xl border p-3">
-                  <span className="block text-xs font-bold">Montant de la marchandise rendue</span>
+                  <span className="block text-xs font-bold">Montant retourné</span>
                   <Input
                     autoFocus
                     inputMode="numeric"
                     placeholder={`Jusqu'à ${formatFCFA(returnable)}`}
-                    value={returnStr}
-                    onChange={e => setReturnStr(e.target.value.replace(/\D/g, ''))}
+                    value={returnStr ? Number(returnStr).toLocaleString('fr-FR').replace(/\s/g, ' ') : ''}
+                    onChange={e => setReturnStr(e.target.value.replace(/\D/g, '').slice(0, 12))}
                     className="h-10"
                   />
                   {returnAmount > returnable && (
