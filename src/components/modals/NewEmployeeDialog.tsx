@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch'
 import { cn, formatFCFA } from '@/lib/utils'
 
 // Nouvel employé, un écran court par question :
-//   Qui ?  →  Son salaire  →  Ce mois-ci  →  Ancien compte  →  Son avance  →  Résumé
+//   Qui ?  →  Son salaire  →  Ce mois-ci  →  Ancien compte  →  Anciennes avances  →  Résumé
 // Un salaire ne déborde jamais sur deux mois : s'il arrive en cours de mois, ce mois-ci est
 // calculé à part (selon les jours, ou montant convenu) ; le mois suivant est entier.
 
@@ -22,7 +22,7 @@ const TITLES: Record<Step, string> = {
   salaire: 'Son salaire',
   mois: 'Ce mois-ci',
   ancien: 'Ancien compte',
-  avance: 'Son avance',
+  avance: 'Anciennes avances',
   resume: 'Résumé',
 }
 
@@ -233,27 +233,27 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
 
           {step === 'ancien' && (
             <div className="grid gap-2">
-              <Label htmlFor="ne-old">Lui deviez-vous déjà quelque chose d'avant ?</Label>
+              <Label htmlFor="ne-old">Combien lui deviez-vous déjà ?</Label>
               <MoneyInput id="ne-old" autoFocus value={oldDebt} onChange={setOldDebt} />
-              <p className="text-xs text-muted-foreground">S'ajoute à ce que vous lui payez ce mois-ci. Laissez vide s'il n'y a rien.</p>
+              <p className="text-xs text-muted-foreground">Ajouté à sa paie de ce mois. Rien ? Laissez vide.</p>
             </div>
           )}
 
           {step === 'avance' && (
             <div className="flex flex-col gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="ne-adv">Lui avez-vous déjà donné une avance ?</Label>
+                <Label htmlFor="ne-adv">Combien vous doit-il encore sur ses anciennes avances ?</Label>
                 <MoneyInput id="ne-adv" autoFocus value={advance} onChange={setAdvance} />
-                <p className="text-xs text-muted-foreground">Ce qu'il doit encore rendre. Laissez vide s'il n'y a rien.</p>
+                <p className="text-xs text-muted-foreground">Rien ? Laissez vide.</p>
               </div>
               {adv > 0 && (
                 <div className="flex flex-col gap-2" role="radiogroup" aria-label="Façon de rendre">
-                  <p className="text-sm text-muted-foreground">Comment la rend-il ?</p>
-                  <Choice on={!direct} title="Retenue sur son salaire, chaque mois" onPick={() => setDirect(false)}>
+                  <p className="text-sm text-muted-foreground">Comment il rend ?</p>
+                  <Choice on={!direct} title="Je retire une somme de son salaire chaque mois" onPick={() => setDirect(false)}>
                     <MoneyInput id="ne-per" value={perMonth} onChange={setPerMonth} />
-                    <p className="mt-1 text-xs text-muted-foreground">Retenue dès ce mois-ci. Vous pourrez la changer dans le mois.</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Dès ce mois-ci.</p>
                   </Choice>
-                  <Choice on={direct} title="Il la rend lui-même" onPick={() => setDirect(true)} />
+                  <Choice on={direct} title="Il me rend lui-même" onPick={() => setDirect(true)} />
                 </div>
               )}
             </div>
@@ -261,19 +261,32 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
 
           {step === 'resume' && (
             <div className="flex flex-col gap-3">
-              <div className="flex flex-col divide-y rounded-xl border px-3 py-1">
+              {/* 1. Son salaire */}
+              <section className="rounded-xl border px-3 py-1">
                 <Row label="Salaire par mois" value={formatFCFA(sal)} />
-                <Row label={`Pour ${monthName}`} value={formatFCFA(firstMonth)} />
-                {!fromStart && <p className="pb-1.5 text-xs text-muted-foreground">{firstLabel}</p>}
+              </section>
+
+              {/* 2. Sa paie de ce mois : le calcul, ligne par ligne, puis le total */}
+              <section className="flex flex-col rounded-xl border px-3 pt-2 pb-1">
+                <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Paie {ofMonth(cur)}</p>
+                <Row label={fromStart ? 'Salaire du mois' : 'Salaire du mois (en partie)'} value={formatFCFA(firstMonth)} />
+                {!fromStart && <p className="-mt-1 pb-1 text-xs text-muted-foreground">{firstLabel}</p>}
                 {debt > 0 && <Row label="Ancien compte" value={`+ ${formatFCFA(debt)}`} tone="text-credit" />}
-                {adv > 0 && <Row label="Avance à rendre" value={formatFCFA(adv)} />}
-                {per > 0 && <Row label="Retenue ce mois-ci" value={`− ${formatFCFA(per)}`} tone="text-debt" />}
-                {adv > 0 && direct && <p className="pb-1.5 text-xs text-muted-foreground">Il rend son avance lui-même.</p>}
-              </div>
-              <div className="flex items-baseline justify-between rounded-xl bg-muted/50 p-3 text-sm">
-                <span className="text-muted-foreground">À lui payer pour {monthName}</span>
-                <span className="text-base font-semibold text-debt tabular-nums">{formatFCFA(toPay)}</span>
-              </div>
+                {per > 0 && <Row label="Retenue pour l'avance" value={`− ${formatFCFA(per)}`} tone="text-debt" />}
+                <div className="mt-1 flex items-baseline justify-between gap-3 border-t py-2">
+                  <span className="text-sm font-medium">À lui payer</span>
+                  <span className="text-base font-semibold text-debt tabular-nums">{formatFCFA(toPay)}</span>
+                </div>
+              </section>
+
+              {/* 3. Ses anciennes avances, à part */}
+              {adv > 0 && (
+                <section className="flex flex-col rounded-xl border px-3 pt-2 pb-1">
+                  <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Anciennes avances</p>
+                  <Row label="Il doit encore" value={formatFCFA(adv)} tone="text-credit" />
+                  <Row label="Comment il rend" value={direct ? 'Lui-même' : `${formatFCFA(per)} / mois`} />
+                </section>
+              )}
             </div>
           )}
 

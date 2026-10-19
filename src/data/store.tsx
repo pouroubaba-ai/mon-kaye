@@ -847,7 +847,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (data.oldDebt && data.oldDebt > 0)
       extra.push({ ...base, id: `mov-old-${id}`, type: 'ajout_salaire', label: 'Ajout : ancien compte', amount: data.oldDebt, period: cur, note: "Ce qu'on lui devait déjà avant" })
     if (data.advance && data.advance > 0) {
-      extra.push({ ...base, id: `mov-adv-${id}`, type: 'avance_salaire', label: 'Avance (déjà donnée)', amount: data.advance, note: 'Avance donnée avant son entrée dans le carnet' })
+      extra.push({ ...base, id: `mov-adv-${id}`, type: 'avance_salaire', label: 'Anciennes avances', amount: data.advance, note: 'Ce qu’il devait encore avant son entrée dans le carnet' })
       if (data.perMonth && data.perMonth > 0)
         extra.push({ ...base, id: `mov-ret-${id}-${cur}`, type: 'retenue_salaire', label: "Retenue pour l'avance", amount: Math.min(data.perMonth, data.advance), period: cur, note: 'Retenue automatique' })
     }

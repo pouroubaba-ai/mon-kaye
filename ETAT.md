@@ -240,3 +240,5 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 ## 2026-10-19 — Nouvel employé en 6 écrans courts
 - Qui ? → Son salaire → Ce mois-ci (interrupteur « au début du mois », sinon selon son jour d'arrivée — le jour compte — ou montant convenu) → Ancien compte (ajouté au mois en cours) → Son avance (retenue par mois dès ce mois-ci, ou il la rend lui-même) → Résumé.
 - Chaque nouveau mois commence avec le salaire entier (et la retenue d'avance prévue) : ajouté automatiquement.
+
+## 2026-10-19 — Nouvel employé : phrases plus simples, « Anciennes avances », résumé rangé en 3 blocs (salaire, paie du mois, anciennes avances)
