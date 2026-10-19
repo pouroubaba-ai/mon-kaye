@@ -138,7 +138,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
           </div>
         </header>
 
-        <main className={cn('mx-auto w-full max-w-6xl flex-1 p-4 md:p-6', crumb ? 'pb-8' : 'pb-28')}>{children}</main>
+        <div className={cn('mx-auto w-full max-w-6xl flex-1 p-4 md:p-6', crumb ? 'pb-8' : 'pb-28')}>{children}</div>
       </SidebarInset>
 
       {/* Barre du bas (téléphone) : masquée dans une fiche, le fil d'Ariane sert au retour */}

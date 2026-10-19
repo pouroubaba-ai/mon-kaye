@@ -18,3 +18,34 @@ export function formatDateJJMMYYYY(dateInput: string | Date): string {
   const year = d.getFullYear()
   return `${day}/${month}/${year}`
 }
+
+// ——— Recherche ———
+// Sans accents ni majuscules : « epicerie » trouve « Épicerie ».
+export const plain = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+const digitsOf = (s: string) => s.replace(/\D/g, '')
+// Numéro sans espaces ni indicatif : « 06 444 », « 064445566 » et « +242 06 444 55 66 » se trouvent l'un l'autre.
+const localDigits = (s: string) => {
+  const d = digitsOf(s)
+  return d.startsWith('242') && d.length > 9 ? d.slice(3) : d
+}
+export function matchesPerson(p: { name: string; phone?: string; role?: string }, query: string): boolean {
+  const q = query.trim()
+  if (!q) return true
+  if (plain(p.name).includes(plain(q)) || (p.role && plain(p.role).includes(plain(q)))) return true
+  const qd = localDigits(q)
+  return qd.length >= 2 && localDigits(p.phone || '').includes(qd)
+}
+
+// Numéro écrit comme au Congo : « 064445566 » → « +242 06 444 55 66 ». Sinon, laissé tel quel.
+export function formatPhone(s: string): string {
+  const d = localDigits(s)
+  if (d.length === 9 && d.startsWith('0')) return `+242 ${d.slice(0, 2)} ${d.slice(2, 5)} ${d.slice(5, 7)} ${d.slice(7)}`
+  return s.trim()
+}
+
+// Numéro pour un lien WhatsApp (wa.me) : chiffres avec l'indicatif ; vide si on ne sait pas.
+export function waNumber(s?: string): string {
+  const d = localDigits(s || '')
+  if (d.length === 9 && d.startsWith('0')) return `242${d}`
+  return d.length >= 8 ? digitsOf(s || '') : ''
+}

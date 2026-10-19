@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Search, Phone, Plus, X } from 'lucide-react'
 import { PersonFormDialog } from '@/components/person-header'
+import { matchesPerson } from '@/lib/utils'
 import { NewEmployeeDialog } from '@/components/modals/NewEmployeeDialog'
 
 export const PersonsListScreen: React.FC = () => {
@@ -20,9 +21,8 @@ export const PersonsListScreen: React.FC = () => {
     // La liste Personnes ne contient que les clients, fournisseurs… : les employés ont leur page.
     if (activeTab !== 'employes' && p.type === 'employee') return false
 
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          p.phone.includes(searchQuery) ||
-                          (p.role && p.role.toLowerCase().includes(searchQuery.toLowerCase()))
+    // Sans accents ni espaces : « epicerie » ou « 06 444 » trouvent aussi
+    const matchesSearch = matchesPerson(p, searchQuery)
 
     if (!matchesSearch) return false
 
@@ -40,7 +40,7 @@ export const PersonsListScreen: React.FC = () => {
       <div className="relative">
         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
-          placeholder="Rechercher par nom ou numéro de téléphone..."
+          placeholder="Nom ou numéro"
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
           className="pl-10 pr-11 h-12 text-sm bg-card border shadow-sm rounded-xl"
@@ -98,7 +98,12 @@ export const PersonsListScreen: React.FC = () => {
               <Card
                 key={p.id}
                 onClick={() => setSelectedPersonId(p.id)}
-                className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both cursor-pointer gap-0 p-3 duration-300 transition-colors hover:bg-muted/40 motion-reduce:animate-none"
+                // Clavier : la ligne se choisit avec Tab et s'ouvre avec Entrée
+                role="button"
+                tabIndex={0}
+                aria-label={p.name}
+                onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), setSelectedPersonId(p.id))}
+                className="focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-3 animate-in fade-in slide-in-from-bottom-2 fill-mode-both cursor-pointer gap-0 p-3 duration-300 transition-colors hover:bg-muted/40 motion-reduce:animate-none"
                 style={{ animationDelay: `${Math.min(index, 10) * 40}ms` }}
               >
                 <div className="flex items-center justify-between gap-3">

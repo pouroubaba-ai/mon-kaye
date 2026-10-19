@@ -1,12 +1,12 @@
 import React, { useState } from 'react'
 import { PAYMENT_LABELS } from '@/components/movement-history'
-import { currentPeriod } from '@/data/payroll'
+import { currentPeriod, payrollOf } from '@/data/payroll'
 import { useStore, excessOf, returnedOn, type ExcessChoice } from '@/data/store'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/responsive-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { formatFCFA } from '@/lib/utils'
+import { formatFCFA, waNumber } from '@/lib/utils'
 import { 
   FileText, 
   Share2, 
@@ -63,14 +63,41 @@ export const MovementDetailModal: React.FC = () => {
     setReturnStr('')
     setExcessAsk(null)
   }
-  const remainingDebt = person?.type === 'partner' ? ((person.owesMe || 0) - (person.iOweHim || 0)) : (person?.currentSalaryDue || 0)
-
-  // Message formaté pour WhatsApp / SMS
-  // Détail repris dans le reçu, une ligne par article.
+  // Reçu WhatsApp / SMS : titre, montant et solde selon l'opération (le solde du compte concerné).
   const detailLines = mov.items?.length
     ? '\n' + mov.items.map(l => `- ${l.label}${l.price !== undefined ? ` (${formatFCFA(l.price)} × ${l.qty})` : ''} : ${formatFCFA(l.total)}`).join('\n')
     : ''
-  const receiptMessage = `${shop.name}\nReçu de versement du ${selectedMovement.date}\nClient / Employé : ${selectedMovement.personName}\nMontant versé : ${formatFCFA(selectedMovement.amount)}${detailLines}\nMoyen de paiement : ${PAYMENT_LABELS[selectedMovement.paymentMethod || 'especes']}${selectedMovement.reference ? ` (Réf : ${selectedMovement.reference})` : ''}\nSolde restant dû : ${formatFCFA(Math.max(0, remainingDebt))}\nMerci pour votre confiance !`
+  const pr = person?.type === 'employee' ? payrollOf(person.id, movements, monthStates) : null
+  const salaryOwed = pr ? pr.totalReste + pr.plannedRetenue : 0
+  const salaryLine = pr
+    ? `Reste à vous payer : ${formatFCFA(salaryOwed)}${pr.plannedRetenue > 0 ? ` (dont ${formatFCFA(pr.plannedRetenue)} retenus pour l'avance)` : ''}`
+    : ''
+  const R: Partial<Record<string, { title: string; amount: string; after?: string; pay?: boolean }>> = person?.type === 'employee'
+    ? {
+        je_lui_ai_verse: { title: 'Reçu de salaire', amount: 'Montant versé', after: salaryLine, pay: true },
+        avance_salaire: { title: "Reçu d'avance", amount: 'Avance reçue', after: `Avance à rendre : ${formatFCFA(pr?.advanceReste ?? 0)}`, pay: true },
+        remboursement_direct: { title: "Remboursement d'avance", amount: 'Avance rendue', after: `Reste à rendre : ${formatFCFA(pr?.advanceReste ?? 0)}`, pay: true },
+      }
+    : {
+        il_a_pris_credit: { title: 'Reçu de crédit', amount: 'Pris à crédit', after: `Il reste à payer : ${formatFCFA(person?.owesMe || 0)}` },
+        il_m_a_verse: { title: 'Reçu de paiement', amount: 'Montant payé', after: `Il reste à payer : ${formatFCFA(person?.owesMe || 0)}`, pay: true },
+        il_a_retourne: { title: 'Reçu de retour', amount: 'Marchandise rendue', after: `Il reste à payer : ${formatFCFA(person?.owesMe || 0)}` },
+        j_ai_pris_credit: { title: 'Crédit reçu', amount: 'Pris à crédit chez vous', after: `Il me reste à vous payer : ${formatFCFA(person?.iOweHim || 0)}` },
+        je_lui_ai_verse: { title: 'Paiement', amount: 'Montant payé', after: `Il me reste à vous payer : ${formatFCFA(person?.iOweHim || 0)}`, pay: true },
+        j_ai_retourne: { title: 'Retour de marchandise', amount: 'Marchandise rendue', after: `Il me reste à vous payer : ${formatFCFA(person?.iOweHim || 0)}` },
+      }
+  const r = R[mov.type] ?? { title: mov.label, amount: 'Montant' }
+  const receiptMessage = [
+    shop.name,
+    `${r.title} du ${mov.date}`,
+    mov.personName,
+    `${r.amount} : ${formatFCFA(mov.amount)}${detailLines}`,
+    r.pay && mov.paymentMethod !== 'compensation' ? `Moyen de paiement : ${PAYMENT_LABELS[mov.paymentMethod || 'especes']}${mov.reference ? ` (Réf : ${mov.reference})` : ''}` : '',
+    mov.isCancelled ? 'Opération annulée' : r.after ?? '',
+    person?.type === 'partner' ? 'Merci pour votre confiance !' : '',
+  ]
+    .filter(Boolean)
+    .join('\n')
 
   const handleCopyReceipt = () => {
     navigator.clipboard.writeText(receiptMessage)
@@ -80,7 +107,7 @@ export const MovementDetailModal: React.FC = () => {
 
   const handleWhatsAppShare = () => {
     const encoded = encodeURIComponent(receiptMessage)
-    window.open(`https://wa.me/?text=${encoded}`, '_blank')
+    window.open(`https://wa.me/${waNumber(person?.phone)}?text=${encoded}`, '_blank')
   }
 
   const handleConfirmCancel = (e: React.FormEvent) => {

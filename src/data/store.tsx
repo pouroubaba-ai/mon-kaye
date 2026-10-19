@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { type Person, type Movement, INITIAL_SHOP, INITIAL_PERSONS, INITIAL_MOVEMENTS } from './mockData'
-import { buildPayrollSeed, currentPeriod, missingMonths, monthKey, ofMonth, payrollOf, simulateDeparture, syncEmployee } from './payroll'
+import { buildPayrollSeed, currentPeriod, missingMonths, monthKey, ofMonth, payrollOf, planCancelMonth, planStopMonth, simulateDeparture, syncEmployee } from './payroll'
 
 // Trop versé : « plus tard » = la différence passe dans l'autre compte ; « déjà rendu » = réglé en main propre.
 export type ExcessChoice = 'plus_tard' | 'deja_rendu'
@@ -146,7 +146,16 @@ const loadModules = (): Modules => {
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [shop, setShop] = useState(INITIAL_SHOP)
   const [isLocked, setIsLocked] = useState(false)
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark')
+  // Thème gardé sur l'appareil ; la première fois, celui du téléphone (sombre par défaut)
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    try {
+      const t = localStorage.getItem('kaye.theme')
+      if (t === 'dark' || t === 'light') return t
+      return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+    } catch {
+      return 'dark'
+    }
+  })
   const [activeTab, setActiveTabRaw] = useState<'accueil' | 'personnes' | 'employes' | 'salaires' | 'reglages'>('accueil')
   const [accountsView, setAccountsView] = useState<{ dir: 'leurs' | 'mes'; group: 'partner' | 'employee' } | null>(null)
   // Changer de page referme l'écran « Leurs comptes / Mes comptes ».
@@ -235,7 +244,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [theme])
 
   const toggleTheme = () => {
-    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'))
+    setTheme(prev => {
+      const next = prev === 'dark' ? 'light' : 'dark'
+      try {
+        localStorage.setItem('kaye.theme', next)
+      } catch {
+        /* rien : le choix vaut pour cette fois */
+      }
+      return next
+    })
   }
 
   const setShopName = (name: string) => {
@@ -583,53 +600,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Clôture du mois : la retenue prévue est inscrite pour ce qu'elle vaut vraiment
   // (limitée à l'avance à rendre, baissée si on a versé plus que le salaire moins la retenue).
-  const applyPlannedRetenue = (empId: string, next: Movement[]): Movement[] => {
-    const cur = currentPeriod()
-    const eff = payrollOf(empId, next, monthStates).plannedRetenue
-    return next.map(m => {
-      if (m.personId !== empId || m.type !== 'retenue_salaire' || m.period !== cur || m.isCancelled || m.amount === eff) return m
-      if (eff <= 0) return { ...m, isCancelled: true, cancellationReason: 'Rien à retenir ce mois-ci', cancelledAt: todayStr() }
-      return { ...m, amount: eff, note: `Montant changé (au lieu de ${m.amount.toLocaleString('fr-FR')} FCFA)` }
-    })
-  }
-
   const stopMonth: StoreContextType['stopMonth'] = (empId, period, newBase, basisLabel, surplus) => {
     const emp = persons.find(p => p.id === empId)
     if (!emp || period !== currentPeriod()) return
-    const cancelledAt = todayStr()
-    let next = movements.map(m =>
-      m.personId === empId && m.period === period && m.type === 'salaire_du' && !m.isCancelled
-        ? { ...m, isCancelled: true, cancellationReason: 'Mois arrêté', cancelledAt }
-        : m
-    )
-    next = [
-      {
-        id: `mov-sal-stop-${Date.now()}`,
-        personId: empId,
-        personName: emp.name,
-        type: 'salaire_du',
-        label: `Salaire de base (${basisLabel})`,
-        amount: newBase,
-        date: cancelledAt,
-        period,
-      },
-      ...next,
-    ]
-    next = applyPlannedRetenue(empId, next)
-    const states = { ...monthStates, [monthKey(empId, period)]: 'arrete' as const }
+    const { next, states } = planStopMonth(empId, movements, monthStates, period, newBase, basisLabel, todayStr())
     commitEmployee(empId, settleSurplus(emp, period, next, states, surplus), states)
   }
 
   const cancelMonth: StoreContextType['cancelMonth'] = (empId, period, reason, surplus) => {
     const emp = persons.find(p => p.id === empId)
     if (!emp || period !== currentPeriod()) return
-    const cancelledAt = todayStr()
-    const next = movements.map(m =>
-      m.personId === empId && m.period === period && !m.isCancelled
-        ? { ...m, isCancelled: true, cancellationReason: `Mois annulé : ${reason}`, cancelledAt }
-        : m
-    )
-    const states = { ...monthStates, [monthKey(empId, period)]: 'annule' as const }
+    const { next, states } = planCancelMonth(empId, movements, monthStates, period, reason, todayStr())
     commitEmployee(empId, settleSurplus(emp, period, next, states, surplus), states)
   }
 
@@ -786,7 +767,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const partnersOwesMe = persons.filter(p => p.type === 'partner').reduce((acc, p) => acc + (p.owesMe || 0), 0)
   const partnersIOwe = persons.filter(p => p.type === 'partner').reduce((acc, p) => acc + (p.iOweHim || 0), 0)
   
-  const employeesSalaryDue = persons.filter(p => p.type === 'employee' && p.status === 'actif').reduce((acc, p) => acc + (p.currentSalaryDue || 0), 0)
+  // Salaire encore dû, y compris aux employés partis
+  const employeesSalaryDue = persons.filter(p => p.type === 'employee').reduce((acc, p) => acc + (p.currentSalaryDue || 0), 0)
   const employeesAdvanceOwed = persons.filter(p => p.type === 'employee').reduce((acc, p) => acc + (p.advanceBalance || 0), 0)
 
   // Un module coupé ne compte pas dans les totaux (ses données restent)
@@ -871,6 +853,32 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     link.click()
     document.body.removeChild(link)
   }
+
+  // Bouton « retour » du téléphone : il ferme d'abord la fenêtre ouverte, puis la fiche, puis l'écran
+  // « Leurs/Mes comptes », puis revient à l'accueil. Seulement depuis l'accueil, il quitte l'app.
+  const backRef = React.useRef<() => boolean>(() => false)
+  backRef.current = () => {
+    if (isLocked) return true
+    if (document.querySelector('[role="dialog"]')) {
+      // Fenêtre ouverte : comme la touche Échap (elle demande avant de perdre une saisie)
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+      return true
+    }
+    if (selectedPersonId) { setSelectedPersonId(null); return true }
+    if (accountsView) { setAccountsView(null); return true }
+    if (activeTab !== 'accueil') { setActiveTabRaw('accueil'); setNavKey(k => k + 1); return true }
+    return false
+  }
+  React.useEffect(() => {
+    // Une page « garde » dans l'historique : un retour la consomme, on la remet si l'app a géré le retour.
+    window.history.pushState({ kaye: true }, '')
+    const onPop = () => {
+      if (backRef.current()) window.history.pushState({ kaye: true }, '')
+      else window.history.back()
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
 
   return (
     <StoreContext.Provider

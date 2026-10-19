@@ -108,8 +108,16 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
 
       {view === 'ensemble' && (
         <>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <BalanceCard title="Je lui dois" Icon={Coins} tone="debt" remaining={salaryReste} paid={salaryPaid} onClick={() => setView('salaire')} />
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <BalanceCard
+              title="Je lui dois"
+              Icon={Coins}
+              tone="debt"
+              remaining={salaryReste}
+              paid={salaryPaid}
+              onClick={() => setView('salaire')}
+              note={pr.plannedRetenue > 0 ? `dont ${formatFCFA(pr.plannedRetenue)} retenus pour l'avance` : undefined}
+            />
             <BalanceCard
               title="Avance à rendre"
               Icon={HandCoins}
@@ -117,7 +125,8 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
               remaining={pr.advanceReste}
               paid={advRepaid}
               onClick={() => setView('avance')}
-              note={pr.advanceReste > 0 ? `Façon de rendre : ${plan}` : undefined}
+              paidLabel="rendu"
+              note={pr.advanceReste > 0 && active ? `Façon de rendre : ${plan}` : undefined}
             />
           </div>
           {/* Parti : on peut encore lui verser ce qui reste, ou noter qu'il rend son avance */}

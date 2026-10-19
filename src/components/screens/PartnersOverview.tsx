@@ -2,6 +2,7 @@ import React from 'react'
 
 import { useStore } from '@/data/store'
 import { daysSince } from '@/data/payHistory'
+import { toTime } from '@/data/payroll'
 import { DaysCard, PersonPicker, type DayRow } from '@/components/overview-parts'
 
 // Comptes des personnes, ouverts depuis le tableau de bord : un seul sens à la fois
@@ -14,7 +15,13 @@ import { DaysCard, PersonPicker, type DayRow } from '@/components/overview-parts
 const PEOPLE: [string, string] = ['personne', 'personnes']
 
 export const PartnersOverview: React.FC<{ side: 'leurs' | 'mes' }> = ({ side }) => {
-  const { persons } = useStore()
+  const { persons, movements } = useStore()
+  // Dernier versement encore valable (un versement annulé ne compte pas)
+  const lastPay = (p: (typeof persons)[number], type: 'il_m_a_verse' | 'je_lui_ai_verse', fallback?: string) => {
+    const mine = movements.filter(m => m.personId === p.id && m.type === type)
+    const live = mine.filter(m => !m.isCancelled).sort((a, b) => toTime(b.date) - toTime(a.date))
+    return live[0]?.date ?? (mine.length ? undefined : fallback)
+  }
   const partners = persons.filter(p => p.type === 'partner')
   const [who, setWho] = React.useState('tous')
   const selected = who === 'tous' ? partners : partners.filter(p => p.id === who)
@@ -22,11 +29,11 @@ export const PartnersOverview: React.FC<{ side: 'leurs' | 'mes' }> = ({ side }) 
 
   const owesMeRows: DayRow[] = selected
     .filter(p => (p.owesMe || 0) > 0)
-    .map(p => ({ id: p.id, name: p.name, days: daysSince(p.lastPaymentDate) ?? 0, amount: p.owesMe || 0, role: p.role }))
+    .map(p => ({ id: p.id, name: p.name, days: daysSince(lastPay(p, 'il_m_a_verse', p.lastPaymentDate)) ?? -1, amount: p.owesMe || 0, role: p.role }))
 
   const iOweRows: DayRow[] = selected
     .filter(p => (p.iOweHim || 0) > 0)
-    .map(p => ({ id: p.id, name: p.name, days: daysSince(p.lastPaidByMeDate) ?? 0, amount: p.iOweHim || 0, role: p.role }))
+    .map(p => ({ id: p.id, name: p.name, days: daysSince(lastPay(p, 'je_lui_ai_verse', p.lastPaidByMeDate)) ?? -1, amount: p.iOweHim || 0, role: p.role }))
 
   return (
     <div className="flex flex-col gap-4">

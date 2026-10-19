@@ -7,7 +7,7 @@ import type { Movement } from '@/data/mockData'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/responsive-dialog'
 import { Button } from '@/components/ui/button'
 import { PAYMENT_LABELS } from '@/components/movement-history'
-import { formatFCFA } from '@/lib/utils'
+import { formatFCFA, waNumber } from '@/lib/utils'
 
 // Fiche de paie d'un mois : comme une feuille de papier (fond blanc), à envoyer sur WhatsApp
 // ou à imprimer (ou enregistrer en PDF depuis l'impression).
@@ -58,8 +58,7 @@ export function PayslipDialog({ empId, period, open, onOpenChange }: { empId: st
   ].join('\n')
 
   const sendWhatsApp = () => {
-    const phone = (emp.phone || '').replace(/\D/g, '')
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, '_blank')
+    window.open(`https://wa.me/${waNumber(emp.phone)}?text=${encodeURIComponent(text)}`, '_blank')
   }
 
   const Line = ({ left, right, strong, muted }: { left: React.ReactNode; right: string; strong?: boolean; muted?: boolean }) => (

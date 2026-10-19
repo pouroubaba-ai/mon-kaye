@@ -31,6 +31,13 @@ const NAV: { tab: Tab; title: string; icon: React.ComponentType }[] = [
   { tab: "reglages", title: "Réglages", icon: Settings },
 ]
 
+// Ce que compte la pastille de chaque entrée du menu
+const BADGE_TITLES: Partial<Record<Tab, string>> = {
+  personnes: "sans paiement depuis 30 jours ou plus",
+  employes: "avec un salaire à payer",
+  salaires: "pas encore payés en entier",
+}
+
 export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   const { shop, activeTab, navigate, openNewMovement, theme, toggleTheme, lockApp, totals, modules } =
     useStore()
@@ -55,7 +62,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
               <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                 <Store className="size-4" />
               </div>
-              <div className="flex flex-col gap-0.5 leading-none">
+              <div className="flex min-w-0 flex-col gap-0.5 leading-none">
                 <span className="truncate font-medium">{shop.name}</span>
                 <span className="text-xs text-muted-foreground">Démonstration</span>
               </div>
@@ -93,7 +100,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                       <item.icon />
                       <span>{item.title}</span>
                     </SidebarMenuButton>
-                    {badge !== null && <SidebarMenuBadge className={item.tab === "salaires" ? "rounded-full bg-destructive text-white peer-hover/menu-button:text-white" : undefined}>{badge}</SidebarMenuBadge>}
+                    {badge !== null && <SidebarMenuBadge title={BADGE_TITLES[item.tab]} aria-label={`${badge} ${BADGE_TITLES[item.tab]}`} className={item.tab === "salaires" ? "rounded-full bg-destructive text-white peer-hover/menu-button:text-white" : undefined}>{badge}</SidebarMenuBadge>}
                   </SidebarMenuItem>
                 )
               })}

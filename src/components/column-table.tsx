@@ -89,7 +89,9 @@ export function ColumnTable<T>({
                 <tr
                   key={rowKey(r)}
                   onClick={onRowClick ? () => onRowClick(r) : undefined}
-                  className={cn(onRowClick && 'cursor-pointer hover:bg-muted/40', rowClassName?.(r))}
+                  tabIndex={onRowClick ? 0 : undefined}
+                  onKeyDown={onRowClick ? e => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onRowClick(r)) : undefined}
+                  className={cn(onRowClick && 'cursor-pointer hover:bg-muted/40 focus-visible:bg-muted/60 focus-visible:outline-none', rowClassName?.(r))}
                 >
                   {shown.map(c => (
                     <td key={c.key} className={cn('px-2 py-2.5 whitespace-nowrap tabular-nums first:pl-3 last:pr-3', c.align === 'right' ? 'text-right' : 'text-left')}>

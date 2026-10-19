@@ -246,3 +246,11 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 ## 2026-10-19 — Fiche de paie du mois (bouton dans la fiche du mois) : feuille blanche, envoi WhatsApp, impression / PDF
 
 ## 2026-10-19 — Fiche de paie : sans versement, seulement « À payer » (plus de doublon avec « Reste à payer »)
+
+## 2026-10-19 — Corrections après la séance de tests (3 testeurs)
+- Salaires : une seule règle partout (retenue prévue comprise, avec « dont ») ; employés partis comptés au tableau de bord ; pastille rouge = reste à verser ; page Salaires avec mois d'avant.
+- Arrêter / annuler le mois : le trop reçu annoncé est le vrai (même calcul que l'enregistrement).
+- Reçus WhatsApp selon l'opération, solde du bon compte, numéro de la personne.
+- Liste « Qui ? » : les deux comptes séparés. Détail : quantité 1,5 acceptée, prix sans centimes.
+- Bouton retour du téléphone géré dans l'app. PIN non affiché, clavier d'ordinateur. Recherche sans accents ni espaces, numéros au format +242.
+- Petits points : réglages vérifiés, thème retenu, « % rendu », pas d'avance après départ, textes, tablette, accessibilité.

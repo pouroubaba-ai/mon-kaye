@@ -31,7 +31,8 @@ function matchPerson(value: string, search: string, keywords?: string[]) {
   const q = plain(search.trim())
   if (!q) return 1
   if (plain(value.split('\u200b')[0]).includes(q)) return 1
-  const digits = q.replace(/\D/g, '')
+  let digits = q.replace(/\D/g, '')
+  if (digits.startsWith('242') && digits.length > 9) digits = digits.slice(3) // indicatif tapé : ignoré
   if (digits.length > 0 && digits.length === q.replace(/[\s+]/g, '').length) {
     return (keywords ?? []).some(k => k.replace(/\D/g, '').includes(digits)) ? 1 : 0
   }
@@ -219,11 +220,11 @@ export function DaysCard({
               <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-muted">
                 <div
                   className={cn('h-full rounded-full transition-[width] duration-700', tone === 'credit' ? 'bg-credit' : 'bg-debt')}
-                  style={{ width: `${Math.max(4, (r.days / max) * 100)}%` }}
+                  style={{ width: `${Math.max(4, (Math.max(0, r.days) / max) * 100)}%` }}
                 />
               </div>
               <span className="w-16 shrink-0 text-right text-xs tabular-nums text-muted-foreground" title="Depuis le dernier versement">
-                il y a {r.days} j
+                {r.days < 0 ? 'jamais' : r.days === 0 ? "aujourd'hui" : r.days === 1 ? 'hier' : `il y a ${r.days} j`}
               </span>
             </div>
           </div>

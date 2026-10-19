@@ -30,10 +30,14 @@ export const SettingsScreen: React.FC = () => {
   const [view, setView] = useState<'main' | 'modules'>('main')
   const onNames = [modules.personnes && 'Personnes', modules.employes && 'Employés'].filter(Boolean).join(' · ')
 
+  // On n'enregistre que si tout est bon : un nom, et un code de 4 chiffres
+  const nameOk = shopNameInput.trim().length > 0
+  const pinOk = /^\d{4}$/.test(pinInput)
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault()
-    setShopName(shopNameInput)
-    if (pinInput.length === 4) setShopPin(pinInput)
+    if (!nameOk || !pinOk) return
+    setShopName(shopNameInput.trim())
+    setShopPin(pinInput)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
@@ -87,7 +91,8 @@ export const SettingsScreen: React.FC = () => {
           <CardContent className="flex flex-col gap-4">
             <div className="grid gap-2">
               <Label htmlFor="shop-name">Nom du commerce</Label>
-              <Input id="shop-name" value={shopNameInput} onChange={e => setShopNameInput(e.target.value)} />
+              <Input id="shop-name" value={shopNameInput} onChange={e => { setShopNameInput(e.target.value); setSaved(false) }} aria-invalid={!nameOk} />
+              {!nameOk && <p className="text-xs text-destructive">Le nom ne peut pas être vide.</p>}
             </div>
             <div className="grid gap-2">
               <Label htmlFor="shop-pin">Code PIN (4 chiffres)</Label>
@@ -97,13 +102,15 @@ export const SettingsScreen: React.FC = () => {
                 inputMode="numeric"
                 maxLength={4}
                 value={pinInput}
-                onChange={e => setPinInput(e.target.value.replace(/\D/g, ''))}
+                onChange={e => { setPinInput(e.target.value.replace(/\D/g, '')); setSaved(false) }}
+                aria-invalid={!pinOk}
                 className="max-w-32 tracking-widest"
               />
+              {!pinOk && <p className="text-xs text-destructive">Le code doit avoir 4 chiffres.</p>}
             </div>
           </CardContent>
           <CardFooter className="gap-3">
-            <Button type="submit">Enregistrer</Button>
+            <Button type="submit" disabled={!nameOk || !pinOk}>Enregistrer</Button>
             {saved && (
               <span className="flex items-center gap-1 text-sm text-muted-foreground">
                 <Check className="size-4" /> Enregistré

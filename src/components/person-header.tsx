@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { formatPhone } from '@/lib/utils'
 import { Pencil, Phone } from 'lucide-react'
 
 import { useStore } from '@/data/store'
@@ -98,7 +99,7 @@ export function PersonFormDialog({
     if (!valid) return
     const data = {
       name: name.trim(),
-      phone: phone.trim(),
+      phone: formatPhone(phone),
       role: role.trim() || undefined,
       ...(isEmployee ? { salary: parseInt(salary, 10) } : {}),
     }

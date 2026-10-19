@@ -79,6 +79,7 @@ function DonutCard({
   tone,
   delay = 0,
   onOpen,
+  unit = ['personne', 'personnes'],
 }: {
   title: string
   slices: Slice[]
@@ -86,6 +87,7 @@ function DonutCard({
   tone: 'credit' | 'debt'
   delay?: number
   onOpen: (group: 'partner' | 'employee') => void
+  unit?: [string, string]
 }) {
   const total = slices.reduce((a, s) => a + s.value, 0)
   const shown = slices.filter(s => s.value > 0)
@@ -151,7 +153,7 @@ function DonutCard({
                         {people}
                       </tspan>
                       <tspan x={viewBox.cx} y={(viewBox.cy || 0) + 22} className="fill-muted-foreground text-xs">
-                        {people > 1 ? 'personnes' : 'personne'}
+                        {people > 1 ? unit[1] : unit[0]}
                       </tspan>
                     </text>
                   ) : null
@@ -228,6 +230,7 @@ export const DashboardScreen: React.FC = () => {
           tone="credit"
           delay={0}
           onOpen={group => setAccountsView({ dir: 'leurs', group })}
+          unit={modules.personnes ? PEOPLE : STAFF}
           people={owesMePeople}
           slices={[
             { key: 'partenaires', label: 'Personnes', value: totals.partnersOwesMe, color: 'var(--color-credit)', count: nOwesMe, unit: PEOPLE },
@@ -239,6 +242,7 @@ export const DashboardScreen: React.FC = () => {
           tone="debt"
           delay={100}
           onOpen={group => setAccountsView({ dir: 'mes', group })}
+          unit={modules.personnes ? PEOPLE : STAFF}
           people={iOwePeople}
           slices={[
             { key: 'partenaires', label: 'Personnes', value: totals.partnersIOwe, color: 'var(--color-debt)', count: nIOwe, unit: PEOPLE },

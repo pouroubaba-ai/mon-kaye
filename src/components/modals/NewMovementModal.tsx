@@ -13,6 +13,7 @@ import {
   Table,
   Trash2,
   Undo2,
+  X,
 } from 'lucide-react'
 
 import { useStore } from '@/data/store'
@@ -24,7 +25,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { cn, formatFCFA } from '@/lib/utils'
+import { cn, formatFCFA, matchesPerson } from '@/lib/utils'
 
 // Saisie d'une opération en 3 écrans courts, une seule question par écran :
 //   Qui ?  →  Quoi ?  →  Combien ?
@@ -73,10 +74,18 @@ const TITLES: Record<Step, string> = { qui: 'Qui ?', quoi: 'Quelle opération ?'
 type DraftLine = { label: string; price: string; qty: string; total: string }
 const emptyLine = (): DraftLine => ({ label: '', price: '', qty: '1', total: '' })
 const num = (s: string) => parseInt(s, 10) || 0
+// Quantité : on accepte « 1,5 » ou « 1.5 » (kilos, litres…). Les prix restent entiers (pas de centimes en FCFA).
+const dec = (s: string) => parseFloat(s.replace(',', '.')) || 0
+const decimal = (s: string) => {
+  const m = s.replace('.', ',').replace(/[^\d,]/g, '').match(/^\d{0,4}(,\d{0,2})?/)
+  return m ? m[0] : ''
+}
+// Prix : ce qui suit une virgule est ignoré (pas de centimes), au lieu de coller les chiffres
+const intPart = (s: string) => s.split(/[.,]/)[0]
 // Affichage en milliers pendant la saisie : 20000 → « 20 000 ».
 const thousands = (s: string) => (s ? Number(s).toLocaleString('fr-FR').replace(/\s/g, ' ') : '')
 const digits = (s: string) => s.replace(/\D/g, '').slice(0, 9)
-const lineTotal = (l: DraftLine, calc: boolean) => (calc ? num(l.price) * num(l.qty) : num(l.total))
+const lineTotal = (l: DraftLine, calc: boolean) => (calc ? Math.round(num(l.price) * dec(l.qty)) : num(l.total))
 
 export const NewMovementModal: React.FC = () => {
   const { isNewMovementOpen, closeNewMovement, newMovementTargetPersonId, newMovementInitialType, newMovementSide, persons, addMovement, movements, monthStates, modules } =
@@ -84,7 +93,9 @@ export const NewMovementModal: React.FC = () => {
 
   const [step, setStep] = useState<Step>('qui')
   // Versement qui prend sur la retenue d'avance : on demande de confirmer dans une fenêtre à part
-  const [confirmRetenue, setConfirmRetenue] = useState(false)
+  // Les deux montants sont figés à l'ouverture : la phrase ne change pas pendant que la fenêtre se ferme
+  const [confirmRetenue, setConfirmRetenue] = useState<{ from: number; to: number } | null>(null)
+  const [confirmShown, setConfirmShown] = useState({ from: 0, to: 0 })
   const [personId, setPersonId] = useState('')
   const [type, setType] = useState<MType>('il_m_a_verse')
   const [amountStr, setAmountStr] = useState('0')
@@ -135,7 +146,7 @@ export const NewMovementModal: React.FC = () => {
     if (hasItems) {
       const calc = items!.some(l => l.price !== undefined)
       setDraftCalc(calc)
-      setDraft(items!.map(l => ({ label: l.label, price: String(l.price ?? ''), qty: String(l.qty ?? 1), total: String(l.total) })))
+      setDraft(items!.map(l => ({ label: l.label, price: String(l.price ?? ''), qty: String(l.qty ?? 1).replace('.', ','), total: String(l.total) })))
     } else {
       setDraftCalc(true)
       setDraft([emptyLine()])
@@ -148,7 +159,7 @@ export const NewMovementModal: React.FC = () => {
       .filter(({ t }) => t > 0)
       .map(({ l, t }) =>
         draftCalc
-          ? { label: l.label.trim() || 'Article', price: num(l.price), qty: num(l.qty), total: t }
+          ? { label: l.label.trim() || 'Article', price: num(l.price), qty: dec(l.qty), total: t }
           : { label: l.label.trim() || 'Article', total: t }
       )
     setItems(lines.length ? lines : null)
@@ -221,6 +232,19 @@ export const NewMovementModal: React.FC = () => {
     setAmountStr(s => (s === '0' ? k : (s + k).slice(0, 9)))
   }
 
+  // Clavier d'ordinateur sur l'écran « Combien ? » (sans détail ni saisie dans un champ) : chiffres et effacement
+  React.useEffect(() => {
+    if (!isNewMovementOpen || step !== 'combien' || hasItems) return
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+      if (/^[0-9]$/.test(e.key)) press(e.key)
+      else if (e.key === 'Backspace') press('del')
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
+
   // Touche d'effacement : appui court = efface un chiffre, appui long (0,5 s) = vide tout le montant.
   const holdTimer = React.useRef<number | null>(null)
   const heldLong = React.useRef(false)
@@ -266,14 +290,19 @@ export const NewMovementModal: React.FC = () => {
   const bothGroups = partnersList.length > 0 && employeesList.length > 0
   const activeGroup = bothGroups ? group : partnersList.length > 0 ? 'partner' : 'employee'
   const visible = (activeGroup === 'partner' ? partnersList : employeesList)
-    .filter(p => !search || p.name.toLowerCase().includes(search.toLowerCase()) || (p.phone || '').includes(search))
+    .filter(p => matchesPerson(p, search))
 
   const sub = (p: (typeof persons)[number]) => {
     if (p.type === 'employee') return p.role || 'Employé'
-    const net = (p.owesMe || 0) - (p.iOweHim || 0)
-    if (net > 0) return `Son compte : ${formatFCFA(net)}`
-    if (net < 0) return `Mon compte : ${formatFCFA(-net)}`
-    return 'À jour'
+    // Les deux comptes séparément, comme sur sa fiche (jamais leur différence)
+    // Les deux à la fois : sans « FCFA » pour que la ligne tienne sur un téléphone
+    const both = !!p.owesMe && !!p.iOweHim
+    const amt = (v: number) => (both ? formatFCFA(v).replace(/\s?FCFA$/, '') : formatFCFA(v))
+    const parts = [
+      p.owesMe ? `Son compte : ${amt(p.owesMe)}` : '',
+      p.iOweHim ? `Mon compte : ${amt(p.iOweHim)}` : '',
+    ].filter(Boolean)
+    return parts.length ? parts.join(' · ') : 'À jour'
   }
 
   // Mini icône : flèche verte (on me doit) ou orange (je dois), comme sur le tableau de bord.
@@ -324,7 +353,17 @@ export const NewMovementModal: React.FC = () => {
             )}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder={activeGroup === 'employee' ? 'Chercher un employé' : 'Chercher une personne'} value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+              <Input placeholder={activeGroup === 'employee' ? 'Chercher un employé' : 'Chercher une personne'} value={search} onChange={e => setSearch(e.target.value)} className="pr-10 pl-9" />
+              {search && (
+                <button
+                  type="button"
+                  aria-label="Effacer la recherche"
+                  onClick={() => setSearch('')}
+                  className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  <X className="size-4" />
+                </button>
+              )}
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
             <div className="flex flex-col divide-y rounded-lg border">
@@ -347,7 +386,7 @@ export const NewMovementModal: React.FC = () => {
                   <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
                 </button>
               ))}
-              {visible.length === 0 && <p className="p-3 text-sm text-muted-foreground">Personne trouvée.</p>}
+              {visible.length === 0 && <p className="p-3 text-sm text-muted-foreground">Aucune personne trouvée.</p>}
             </div>
             </div>
           </div>
@@ -404,7 +443,8 @@ export const NewMovementModal: React.FC = () => {
           <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
             <p className="truncate py-0.5 text-sm leading-6 text-muted-foreground">{person.name}</p>
             <div className="flex flex-col divide-y rounded-lg border">
-              {OPS[kind].map(o => (
+              {/* Employé parti : plus d'avance nouvelle, seulement régler ce qui reste */}
+              {OPS[kind].filter(o => !(person.status === 'inactif' && o.type === 'avance_salaire')).map(o => (
                 <button
                   key={o.type}
                   type="button"
@@ -548,7 +588,13 @@ export const NewMovementModal: React.FC = () => {
                 </Button>
               )}
 
-              <Button size="lg" className="h-12 text-base" disabled={amount <= 0 || tooMuch} onClick={() => (eatsRetenue > 0 ? setConfirmRetenue(true) : save())}>
+              <Button size="lg" className="h-12 text-base" disabled={amount <= 0 || tooMuch} onClick={() => {
+                if (eatsRetenue > 0) {
+                  const v = { from: planned?.plannedRetenue ?? 0, to: (planned?.plannedRetenue ?? 0) - eatsRetenue }
+                  setConfirmShown(v)
+                  setConfirmRetenue(v)
+                } else save()
+              }}>
                 Enregistrer
               </Button>
             </div>
@@ -595,7 +641,7 @@ export const NewMovementModal: React.FC = () => {
                           placeholder="Prix"
                           aria-label="Prix"
                           value={thousands(l.price)}
-                          onChange={e => setLine(i, { price: digits(e.target.value) })}
+                          onChange={e => setLine(i, { price: digits(intPart(e.target.value)) })}
                           className="h-8 w-[4.75rem] shrink-0 px-2 text-right text-sm"
                         />
                         <span className="text-xs text-muted-foreground">×</span>
@@ -604,11 +650,11 @@ export const NewMovementModal: React.FC = () => {
                           enterKeyHint="next"
                           onKeyDown={nextOnEnter}
                           onFocus={e => e.currentTarget.select()}
-                          inputMode="numeric"
+                          inputMode="decimal"
                           placeholder="Qté"
                           aria-label="Quantité"
                           value={l.qty}
-                          onChange={e => setLine(i, { qty: digits(e.target.value).slice(0, 5) })}
+                          onChange={e => setLine(i, { qty: decimal(e.target.value) })}
                           className="h-8 w-11 shrink-0 px-1 text-center text-sm"
                         />
                       </>
@@ -622,7 +668,7 @@ export const NewMovementModal: React.FC = () => {
                         placeholder="Total"
                         aria-label="Total de la ligne"
                         value={thousands(l.total)}
-                        onChange={e => setLine(i, { total: digits(e.target.value) })}
+                        onChange={e => setLine(i, { total: digits(intPart(e.target.value)) })}
                         className="h-8 w-24 shrink-0 px-2 text-right text-sm"
                       />
                     )}
@@ -667,19 +713,19 @@ export const NewMovementModal: React.FC = () => {
         )}
       </DialogContent>
 
-      <Dialog open={confirmRetenue} onOpenChange={setConfirmRetenue}>
+      <Dialog open={confirmRetenue !== null} onOpenChange={o => !o && setConfirmRetenue(null)}>
         <DialogContent>
           <div className="flex flex-col gap-4">
             <DialogHeader className="gap-1 p-0">
               <DialogTitle className="text-left">Toucher à la retenue d'avance ?</DialogTitle>
               <DialogDescription className="text-left">
-                Ce mois-ci, il rendra {formatFCFA((planned?.plannedRetenue ?? 0) - eatsRetenue)} au lieu de {formatFCFA(planned?.plannedRetenue ?? 0)}.
+                Ce mois-ci, il rendra {formatFCFA(confirmShown.to)} au lieu de {formatFCFA(confirmShown.from)}.
               </DialogDescription>
             </DialogHeader>
-            <Button size="lg" className="h-12" onClick={() => { setConfirmRetenue(false); save() }}>
+            <Button size="lg" className="h-12" onClick={() => { setConfirmRetenue(null); save() }}>
               Continuer
             </Button>
-            <Button variant="outline" size="lg" className="h-12" onClick={() => setConfirmRetenue(false)}>
+            <Button variant="outline" size="lg" className="h-12" onClick={() => setConfirmRetenue(null)}>
               Revenir
             </Button>
           </div>

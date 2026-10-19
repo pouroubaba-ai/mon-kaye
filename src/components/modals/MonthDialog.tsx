@@ -4,7 +4,7 @@ import { Ban, ChevronRight, CircleMinus, CirclePlus, FileText, Lock, Pause, Penc
 import { useStore } from '@/data/store'
 import { PAYMENT_LABELS } from '@/components/movement-history'
 import type { Movement } from '@/data/mockData'
-import { currentPeriod, daysInPeriod, ofMonth, payrollOf } from '@/data/payroll'
+import { currentPeriod, daysInPeriod, ofMonth, payrollOf, planCancelMonth, planStopMonth } from '@/data/payroll'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/responsive-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -76,21 +76,16 @@ export function MonthDialog({
   const newBase = basis === 'complet' ? salary : basis === 'prorata' ? Math.round((salary * days) / dim) : parseInt(fixedStr, 10) || 0
   const basisLabel = basis === 'complet' ? 'montant complet' : basis === 'prorata' ? `${days} jours sur ${dim}` : 'montant convenu'
 
-  // Surplus : ce qu'il a déjà reçu au-delà de ce qui sera dû après le changement.
-  const totalPaid = pr.months.reduce((a, m) => a + m.verse, 0) + pr.surplus
-  const totalAPayer = pr.months.reduce((a, m) => a + m.aPayer, 0)
-  const surplusIf = (newAPayerOfMonth: number) => Math.max(0, totalPaid - (totalAPayer - row.aPayer + newAPayerOfMonth))
-
-  const runOrAsk = (newAPayerOfMonth: number, apply: (c?: 'avance' | 'rendu') => void) => {
-    const s = surplusIf(newAPayerOfMonth)
+  // Trop reçu : calculé exactement comme à l'enregistrement (même calcul), pour annoncer le vrai montant.
+  const runOrAsk = (plan: { next: Movement[]; states: Record<string, 'arrete' | 'annule'> }, apply: (c?: 'avance' | 'rendu') => void) => {
+    const s = payrollOf(empId, plan.next, plan.states).surplus
     if (s > 0) setAskSurplus({ amount: s, apply })
     else apply()
   }
 
   const doStop = () => {
     if (newBase <= 0 && basis !== 'complet') return
-    const newAPayer = Math.max(0, newBase + row.ajouts - row.retenues)
-    runOrAsk(newAPayer, c => {
+    runOrAsk(planStopMonth(empId, movements, monthStates, period, newBase, basisLabel, ''), c => {
       stopMonth(empId, period, newBase, basisLabel, c)
       setPanel('none')
       setAskSurplus(null)
@@ -98,7 +93,7 @@ export function MonthDialog({
   }
   const doCancel = () => {
     if (!reason.trim()) return
-    runOrAsk(0, c => {
+    runOrAsk(planCancelMonth(empId, movements, monthStates, period, reason.trim(), ''), c => {
       cancelMonth(empId, period, reason.trim(), c)
       setReason('') // fait : rien à « abandonner » en fermant
       setPanel('none')
@@ -215,10 +210,10 @@ export function MonthDialog({
         </div>
 
         {/* Deux lignes repliables, comme une fiche de paie :
-            À payer (salaire + ajouts) − Retenues et versements = Reste à payer */}
+            Salaire et ajouts − Retenues et versements = Reste à payer */}
         <div className="flex flex-col divide-y rounded-xl border text-sm">
           <Group
-            title="À payer"
+            title="Salaire et ajouts"
             total={gross}
             open={openGroups.payer}
             onToggle={() => setOpenGroups(g => ({ ...g, payer: !g.payer }))}
@@ -279,7 +274,7 @@ export function MonthDialog({
 
         {!isOpen && row.state !== 'annule' && (
           <p className="flex items-center gap-2 rounded-lg bg-muted/50 p-2.5 text-xs text-muted-foreground">
-            <Lock className="size-3.5 shrink-0" /> Mois scellé : on peut seulement le payer.
+            <Lock className="size-3.5 shrink-0" /> {row.state === 'arrete' ? 'Mois arrêté' : 'Mois scellé'} : on peut seulement le payer.
           </p>
         )}
 
@@ -457,7 +452,7 @@ export function MonthDialog({
                     className={cn('h-12 text-right text-lg', retAmount > maxRetenue && 'border-destructive')}
                   />
                   {retAmount > maxRetenue && <p className="text-xs text-destructive">Pas plus de {formatFCFA(maxRetenue)} : c'est ce qu'il doit encore.</p>}
-                  <Button type="submit" size="lg" className="h-12" disabled={retAmount <= 0 || retAmount > maxRetenue || retAmount === editing.amount}>
+                  <Button type="submit" size="lg" className="h-12" disabled={retAmount <= 0 || retAmount > maxRetenue || (retAmount === editing.amount && !editing.isCancelled)}>
                     Enregistrer
                   </Button>
                   <Button

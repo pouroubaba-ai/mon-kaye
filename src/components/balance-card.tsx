@@ -20,6 +20,7 @@ export function BalanceCard({
   remaining,
   paid,
   note,
+  paidLabel = 'versé',
   totalDays,
   paidDays,
   onClick,
@@ -30,6 +31,8 @@ export function BalanceCard({
   remaining: number
   paid: number
   note?: React.ReactNode
+  // « versé » (salaire, comptes) ou « rendu » (avance)
+  paidLabel?: 'versé' | 'rendu'
   // Nombre de jours depuis la dernière hausse du total (dernier crédit) et depuis le dernier versement
   totalDays?: number | null
   paidDays?: number | null
@@ -60,7 +63,7 @@ export function BalanceCard({
           {formatFCFA(remaining)}
         </CardTitle>
         <CardAction className="flex items-center gap-1">
-          <Badge variant="outline" className="tabular-nums">{paidPct} % versé</Badge>
+          <Badge variant="outline" className="tabular-nums">{total === 0 ? 'À jour' : `${paidPct} % ${paidLabel}`}</Badge>
           {onClick && <ChevronRight className="-mr-1 size-4 text-muted-foreground" />}
         </CardAction>
       </CardHeader>
@@ -82,7 +85,7 @@ export function BalanceCard({
           <span className="flex flex-col items-end gap-0.5">
             <span className="flex items-center gap-2">
               <span className="size-2 rounded-full" style={{ background: color }} />
-              <span className="text-muted-foreground">Versé</span>
+              <span className="text-muted-foreground">{paidLabel === 'rendu' ? 'Rendu' : 'Versé'}</span>
               <span className="tabular-nums">{formatFCFA(paid)}</span>
             </span>
             {paid > 0 && ago(paidDays) && <span className="text-xs text-muted-foreground/70">{ago(paidDays)}</span>}

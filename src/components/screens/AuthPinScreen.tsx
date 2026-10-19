@@ -45,6 +45,17 @@ export const AuthPinScreen: React.FC = () => {
     }
   }
 
+  // Clavier d'ordinateur : les chiffres et la touche d'effacement marchent aussi
+  React.useEffect(() => {
+    if (authMode !== 'pin') return
+    const onKey = (e: KeyboardEvent) => {
+      if (/^[0-9]$/.test(e.key)) handleDigit(e.key)
+      else if (e.key === 'Backspace') handleDelete()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
+
   return (
     <div className="min-h-screen bg-background flex flex-col justify-center items-center p-4">
       <div className="w-full max-w-sm space-y-6">
@@ -67,7 +78,7 @@ export const AuthPinScreen: React.FC = () => {
                 <span>Déverrouillage Sécurisé</span>
               </div>
               <CardDescription className="text-xs">
-                Saisissez votre code PIN à 4 chiffres (PIN test : {shop.pin})
+                Saisissez votre code PIN à 4 chiffres
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -120,6 +131,7 @@ export const AuthPinScreen: React.FC = () => {
                 <button
                   onClick={handleDelete}
                   type="button"
+                  aria-label="Effacer le dernier chiffre"
                   className="h-14 rounded-xl border bg-muted/40 text-sm font-semibold flex items-center justify-center hover:bg-muted active:scale-95 transition-all text-muted-foreground"
                 >
                   ←

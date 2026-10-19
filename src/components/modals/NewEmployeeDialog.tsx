@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { cn, formatFCFA } from '@/lib/utils'
+import { cn, formatFCFA, formatPhone } from '@/lib/utils'
 
 // Nouvel employé, un écran court par question :
 //   Qui ?  →  Son salaire  →  Ce mois-ci  →  Ancien compte  →  Anciennes avances  →  Résumé
@@ -124,7 +124,7 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
     const id = addPerson({
       type: 'employee',
       name: name.trim(),
-      phone: phone.trim(),
+      phone: formatPhone(phone),
       role: role.trim() || undefined,
       salary: sal,
       start: fromStart ? undefined : { day: how === 'jours' ? day : new Date().getDate(), amount: firstMonth, label: firstLabel },

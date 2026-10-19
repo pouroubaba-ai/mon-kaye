@@ -197,7 +197,12 @@ export function payrollOf(
         }
         const part = Math.min(room, avail)
         fill[k] += part
-        if (pay.isCancelled) rows[k].cancelledParts.push({ mov: pay, amount: part })
+        if (pay.isCancelled) {
+          // Un même versement annulé n'apparaît qu'une fois par mois
+          const prev = rows[k].cancelledParts.find(c => c.mov.id === pay.id)
+          if (prev) prev.amount += part
+          else rows[k].cancelledParts.push({ mov: pay, amount: part })
+        }
         avail -= part
       }
       // Rien à payer pour l'accueillir : on le montre sur le mois de sa date
@@ -248,7 +253,9 @@ export function syncEmployee(p: Person, movements: Movement[], monthStates: Reco
   const pr = payrollOf(p.id, movements, monthStates)
   return {
     ...p,
-    currentSalaryDue: pr.totalReste,
+    // Ce qu'on lui doit : retenue d'avance prévue comprise (elle n'est coupée qu'à la clôture du mois),
+    // la même règle partout (fiche, tableau de bord, page Salaires).
+    currentSalaryDue: pr.totalReste + pr.plannedRetenue,
     advanceBalance: pr.advanceReste,
     lastSalaryPaymentDate: pr.lastPayment ?? p.lastSalaryPaymentDate,
     lastAdvanceRepaymentDate: pr.lastRepayment ?? p.lastAdvanceRepaymentDate,
@@ -456,4 +463,46 @@ export function missingMonths(
     }
   }
   return out
+}
+
+// ——— Arrêter ou annuler le mois en cours (calcul seul, sans rien enregistrer) ———
+// Servent à l'enregistrement ET à la question du trop reçu, pour que le montant annoncé soit le vrai.
+type States = Record<string, 'arrete' | 'annule'>
+
+// Retenue prévue inscrite pour ce qu'elle vaut vraiment (limitée à l'avance, baissée si on a versé plus)
+export function applyPlannedRetenue(empId: string, next: Movement[], monthStates: States, date: string): Movement[] {
+  const cur = currentPeriod()
+  const eff = payrollOf(empId, next, monthStates).plannedRetenue
+  return next.map(m => {
+    if (m.personId !== empId || m.type !== 'retenue_salaire' || m.period !== cur || m.isCancelled || m.amount === eff) return m
+    if (eff <= 0) return { ...m, isCancelled: true, cancellationReason: 'Rien à retenir ce mois-ci', cancelledAt: date }
+    return { ...m, amount: eff, note: `Montant changé (au lieu de ${m.amount.toLocaleString('fr-FR')} FCFA)` }
+  })
+}
+
+export function planStopMonth(
+  empId: string, movements: Movement[], monthStates: States, period: string,
+  newBase: number, basisLabel: string, date: string, stamp = Date.now()
+): { next: Movement[]; states: States } {
+  const name = movements.find(m => m.personId === empId)?.personName ?? ''
+  let next = movements.map(m =>
+    m.personId === empId && m.period === period && m.type === 'salaire_du' && !m.isCancelled
+      ? { ...m, isCancelled: true, cancellationReason: 'Mois arrêté', cancelledAt: date }
+      : m
+  )
+  next = [
+    { id: `mov-sal-stop-${stamp}`, personId: empId, personName: name, type: 'salaire_du', label: `Salaire de base (${basisLabel})`, amount: newBase, date, period },
+    ...next,
+  ]
+  next = applyPlannedRetenue(empId, next, monthStates, date)
+  return { next, states: { ...monthStates, [monthKey(empId, period)]: 'arrete' } }
+}
+
+export function planCancelMonth(empId: string, movements: Movement[], monthStates: States, period: string, reason: string, date: string) {
+  const next = movements.map(m =>
+    m.personId === empId && m.period === period && !m.isCancelled
+      ? { ...m, isCancelled: true, cancellationReason: `Mois annulé : ${reason}`, cancelledAt: date }
+      : m
+  )
+  return { next, states: { ...monthStates, [monthKey(empId, period)]: 'annule' as const } }
 }

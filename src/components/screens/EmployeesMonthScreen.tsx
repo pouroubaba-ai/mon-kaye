@@ -12,7 +12,7 @@ import { cn, formatFCFA } from '@/lib/utils'
 // Le mois en cours de tous les employés : deux cartes (salaires du mois, reste à verser)
 // et le même tableau que sur la fiche, avec une colonne « Employé » en plus.
 
-export type MonthLine = { emp: Person; row: PayMonthRow; planned: number }
+export type MonthLine = { emp: Person; row: PayMonthRow; planned: number; owed: number; before: number }
 
 // Une ligne par employé qui a un salaire ce mois-ci (actif, ou parti en cours de mois)
 export function monthLines(persons: Person[], movements: Parameters<typeof payrollOf>[1], monthStates: Parameters<typeof payrollOf>[2]): MonthLine[] {
@@ -22,13 +22,16 @@ export function monthLines(persons: Person[], movements: Parameters<typeof payro
     .map(emp => {
       const pr = payrollOf(emp.id, movements, monthStates)
       const row = pr.months.find(m => m.period === cur)
-      return row ? { emp, row, planned: pr.plannedRetenue } : null
+      // owed : tout ce qu'on lui doit (comme sur sa fiche) ; before : ce qui reste des mois d'avant
+      const before = pr.months.filter(m => m.period < cur).reduce((a, m) => a + m.reste, 0)
+      return row ? { emp, row, planned: pr.plannedRetenue, owed: pr.totalReste + pr.plannedRetenue, before } : null
     })
     .filter((l): l is MonthLine => l !== null)
     .sort((a, b) => a.emp.name.localeCompare(b.emp.name, 'fr'))
 }
-// Employés pas encore payés en entier ce mois-ci (la pastille rouge)
-export const stillToPay = (l: MonthLine) => l.row.reste + l.planned > 0 && l.row.state !== 'annule'
+// Employés à qui il reste quelque chose à verser (la pastille rouge) : comme la colonne « Reste »
+// (la retenue d'avance prévue n'est pas à verser, elle est gardée)
+export const stillToPay = (l: MonthLine) => l.row.reste + l.before > 0
 
 const ETAT_STYLE: Record<string, string> = {
   Payé: 'text-credit',
@@ -57,19 +60,19 @@ export const EmployeesMonthScreen: React.FC = () => {
 
   // Comme sur la fiche : la retenue d'avance prévue fait partie du salaire tant que le mois n'est pas clos
   const total = lines.reduce((a, l) => a + l.row.aPayer + l.planned, 0)
-  const reste = lines.reduce((a, l) => a + l.row.reste + l.planned, 0)
+  // Reste : tout ce qui est encore dû, comme sur les fiches et le tableau de bord
+  const reste = lines.reduce((a, l) => a + l.owed, 0)
   const planned = lines.reduce((a, l) => a + l.planned, 0)
+  const before = lines.reduce((a, l) => a + l.before, 0)
 
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-3">
         <Card className="gap-1 py-4">
           <CardContent className="flex flex-col gap-1 px-4">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs text-muted-foreground">Salaires du mois</p>
-              <Badge variant="outline" className="tabular-nums">{lines.length} employé{lines.length > 1 ? 's' : ''}</Badge>
-            </div>
+            <p className="text-xs text-muted-foreground">Salaires du mois</p>
             <p className="text-xl font-semibold tabular-nums">{formatFCFA(total)}</p>
+            <Badge variant="outline" className="self-start tabular-nums">{lines.length} employé{lines.length > 1 ? 's' : ''}</Badge>
           </CardContent>
         </Card>
         <Card className="gap-1 py-4">
@@ -77,6 +80,7 @@ export const EmployeesMonthScreen: React.FC = () => {
             <p className="text-xs text-muted-foreground">Reste à verser</p>
             <p className="text-xl font-semibold text-debt tabular-nums">{formatFCFA(reste)}</p>
             {planned > 0 && <p className="text-xs text-muted-foreground tabular-nums">dont {formatFCFA(planned)} retenus pour l'avance</p>}
+            {before > 0 && <p className="text-xs text-muted-foreground tabular-nums">dont {formatFCFA(before)} des mois d'avant</p>}
           </CardContent>
         </Card>
       </div>
