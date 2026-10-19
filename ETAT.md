@@ -173,3 +173,5 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 ## Fiche d'une personne : trois onglets (19/10/2026)
 - « Vue d'ensemble · Son compte · Mon compte » au même niveau ; l'onglet « Historique » et ses sous-onglets disparaissent (mot d'ordinateur, deux choix au lieu d'un).
 - Toucher la carte « Son compte » ou « Mon compte » de la vue d'ensemble ouvre l'onglet correspondant (petite flèche sur la carte).
+- Fenêtre « Quelle opération ? » (personne) : onglets « Son compte / Mon compte », un seul compte affiché à la fois avec ses deux boutons ; ouvert depuis un onglet de la fiche, le bon compte est déjà choisi.
+- Icônes devant « Son compte » (↙ vert) et « Mon compte » (↗ orange) dans les onglets de la fiche et de la fenêtre ; sous 360 px, les icônes de la fiche s'effacent pour que les trois onglets tiennent.

@@ -84,6 +84,8 @@ export const NewMovementModal: React.FC = () => {
   const [search, setSearch] = useState('')
   const [group, setGroup] = useState<'partner' | 'employee'>('partner')
   // Détail en tableau (crédit ou dette seulement) : les lignes confirmées, et le brouillon en cours.
+  // Compte affiché à l'étape « Quelle opération ? » (onglets Son compte / Mon compte).
+  const [opSide, setOpSide] = useState<'credit' | 'debt'>('credit')
   const [items, setItems] = useState<MovementItem[] | null>(null)
   const [draft, setDraft] = useState<DraftLine[]>([])
   const [draftCalc, setDraftCalc] = useState(true)
@@ -102,7 +104,8 @@ export const NewMovementModal: React.FC = () => {
     setSearch('')
     setGroup('partner')
     setItems(null)
-  }, [isNewMovementOpen, newMovementTargetPersonId, newMovementInitialType])
+    setOpSide(newMovementSide ?? 'credit')
+  }, [isNewMovementOpen, newMovementTargetPersonId, newMovementInitialType, newMovementSide])
 
   const person = persons.find(p => p.id === personId)
   const kind = person?.type === 'employee' ? 'employee' : 'partner'
@@ -327,39 +330,44 @@ export const NewMovementModal: React.FC = () => {
           // avec les deux gros boutons qui le font bouger. On regarde où va l'argent, on touche.
           <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
             <p className="truncate py-0.5 text-sm leading-6 text-muted-foreground">{person.name}</p>
-            {/* Ouvert depuis un côté de l'historique : seulement le compte concerné, ses deux boutons côte à côte. */}
-            <div className={cn('grid gap-3', newMovementSide ? 'grid-cols-1' : 'grid-cols-2')}>
-              {([
-                { title: 'Son compte', value: person.owesMe || 0, tone: 'credit' as const, ops: OPS.partner.filter(o => o.tone === 'credit') },
-                { title: 'Mon compte', value: person.iOweHim || 0, tone: 'debt' as const, ops: OPS.partner.filter(o => o.tone === 'debt') },
-              ]).filter(col => !newMovementSide || col.tone === newMovementSide).map(col => (
-                <div key={col.title} className={cn('grid gap-2', newMovementSide ? 'grid-cols-2' : 'grid-cols-1')}>
-                  <div className={cn('px-1', newMovementSide && 'col-span-2')}>
-                    <p className="text-xs text-muted-foreground">{col.title}</p>
-                    <p className={cn('text-base font-semibold tabular-nums', col.tone === 'credit' ? 'text-credit' : 'text-debt')}>
-                      {formatFCFA(col.value)}
-                    </p>
-                  </div>
-                  {col.ops.map(o => (
-                    <button
-                      key={o.type}
-                      type="button"
-                      disabled={blocked(o.type)}
-                      onClick={() => {
-                        setType(o.type)
-                        setStep('combien')
-                      }}
-                      className="flex min-h-24 flex-col items-start justify-between gap-3 rounded-xl border p-3 text-left transition-colors hover:bg-muted/50 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40"
-                    >
-                      <div className={cn('flex size-9 items-center justify-center rounded-lg bg-muted', o.tone === 'credit' ? 'text-credit' : 'text-debt')}>
-                        <o.Icon className="size-5" />
-                      </div>
-                      <span className="text-sm font-medium leading-tight">{o.label}</span>
-                    </button>
-                  ))}
+            {/* Un seul compte à la fois : onglets « Son compte / Mon compte » (comme la fiche),
+                puis son montant et ses deux boutons côte à côte. */}
+            <Tabs value={opSide} onValueChange={v => setOpSide(v as 'credit' | 'debt')}>
+              <TabsList className="w-full">
+                <TabsTrigger value="credit"><ArrowDownLeft className="text-credit" /> Son compte</TabsTrigger>
+                <TabsTrigger value="debt"><ArrowUpRight className="text-debt" /> Mon compte</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            {([
+              { title: 'Son compte', value: person.owesMe || 0, tone: 'credit' as const, ops: OPS.partner.filter(o => o.tone === 'credit') },
+              { title: 'Mon compte', value: person.iOweHim || 0, tone: 'debt' as const, ops: OPS.partner.filter(o => o.tone === 'debt') },
+            ]).filter(col => col.tone === opSide).map(col => (
+              <div key={col.title} className="grid grid-cols-2 gap-2">
+                <div className="col-span-2 px-1">
+                  <p className="text-xs text-muted-foreground">{col.title}</p>
+                  <p className={cn('text-base font-semibold tabular-nums', col.tone === 'credit' ? 'text-credit' : 'text-debt')}>
+                    {formatFCFA(col.value)}
+                  </p>
                 </div>
-              ))}
-            </div>
+                {col.ops.map(o => (
+                  <button
+                    key={o.type}
+                    type="button"
+                    disabled={blocked(o.type)}
+                    onClick={() => {
+                      setType(o.type)
+                      setStep('combien')
+                    }}
+                    className="flex min-h-24 flex-col items-start justify-between gap-3 rounded-xl border p-3 text-left transition-colors hover:bg-muted/50 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40"
+                  >
+                    <div className={cn('flex size-9 items-center justify-center rounded-lg bg-muted', o.tone === 'credit' ? 'text-credit' : 'text-debt')}>
+                      <o.Icon className="size-5" />
+                    </div>
+                    <span className="text-sm font-medium leading-tight">{o.label}</span>
+                  </button>
+                ))}
+              </div>
+            ))}
           </div>
         )}
 

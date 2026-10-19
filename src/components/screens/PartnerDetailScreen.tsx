@@ -17,6 +17,9 @@ import { daysSince } from '@/data/payHistory'
 //   une barre déjà versé / reste, puis le total et le déjà versé ;
 // - un seul bouton pour enregistrer une opération (la fenêtre propose les 4 actions).
 
+// Onglets de la fiche : un peu plus serrés pour que les trois tiennent sur un téléphone.
+const TAB = 'gap-1 px-1.5 text-[13px] min-[400px]:text-sm'
+
 export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId }) => {
   const { persons, movements, openNewMovement, openCompensation, openMovementDetail } = useStore()
 
@@ -57,9 +60,10 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
       {/* Un seul niveau d'onglets, avec les mots du comptoir : pas d'« Historique » à traverser. */}
       <Tabs value={view} onValueChange={v => setView(v as 'ensemble' | 'lui' | 'moi')}>
         <TabsList className="w-full">
-          <TabsTrigger value="ensemble">Vue d'ensemble</TabsTrigger>
-          <TabsTrigger value="lui">Son compte</TabsTrigger>
-          <TabsTrigger value="moi">Mon compte</TabsTrigger>
+          {/* Même icône que les cartes, devant le libellé ; sur un très petit écran (< 360 px), les icônes s'effacent pour que tout tienne. */}
+          <TabsTrigger value="ensemble" className={TAB}>Vue d'ensemble</TabsTrigger>
+          <TabsTrigger value="lui" className={TAB}><ArrowDownLeft className="text-credit max-[359px]:hidden" /> Son compte</TabsTrigger>
+          <TabsTrigger value="moi" className={TAB}><ArrowUpRight className="text-debt max-[359px]:hidden" /> Mon compte</TabsTrigger>
         </TabsList>
       </Tabs>
 
