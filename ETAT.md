@@ -188,3 +188,4 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 - Retenue d'avance du mois : son montant se change pour ce mois seulement (plus ou moins, sans dépasser l'avance restante) ; la ligne affiche « au lieu de … ».
 - Façon de rendre : ligne courte « Façon de rendre · 15 000 FCFA / mois » (ou « Direct »), modifiable avec le crayon (0 = direct) ; la retenue du mois en cours suit.
 - Fiche d'un mois : sous le « Reste à payer » (sans texte « Versé … sur … »), deux lignes repliables comme une fiche de paie : « À payer » (salaire de base + ajouts) et « Retenues et versements » (retenue d'avance, retenues, versements). Un versement partagé entre deux mois n'affiche que la part du mois (« en partie »).
+- Fiche d'un mois : crayon visible sur chaque ajout ou retenue du mois en cours pour la modifier ou l'annuler (plus de « touchez la ligne »).
