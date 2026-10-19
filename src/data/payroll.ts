@@ -24,6 +24,8 @@ export type PayMonthRow = {
   paymentParts: { mov: Movement; amount: number }[]
   // Versements annulés qui étaient tombés sur ce mois : affichés barrés, sans compter
   cancelledParts: { mov: Movement; amount: number }[]
+  // Mois arrêté ou annulé après des versements : la part sortie du mois, et ce qu'elle est devenue
+  movedParts: { mov: Movement; amount: number; to: 'avance' | 'rendu' }[]
   reste: number
   etat: 'Payé' | 'En partie' | 'Pas payé' | 'Annulé'
   state: MonthState
@@ -113,6 +115,7 @@ export function payrollOf(
       verse: 0,
       paymentParts: [],
       cancelledParts: [],
+      movedParts: [],
       reste: 0,
       etat: 'Pas payé',
       state,
@@ -167,6 +170,15 @@ export function payrollOf(
         const r = rows.find(x => x.period === periodOf(new Date(toTime(pay.date)))) ?? rows[rows.length - 1]
         r?.cancelledParts.push({ mov: pay, amount: avail })
       }
+    }
+  }
+
+  for (const sp of mine.filter(m => m.type === 'surplus_salaire' && !m.isCancelled && m.period)) {
+    const r = rows.find(x => x.period === sp.period)
+    if (!r) continue
+    for (const part of sp.parts ?? []) {
+      const mov = mine.find(m => m.id === part.id)
+      if (mov) r.movedParts.push({ mov, amount: part.amount, to: sp.label.endsWith('rendu') ? 'rendu' : 'avance' })
     }
   }
 

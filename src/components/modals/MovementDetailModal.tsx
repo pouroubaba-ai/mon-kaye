@@ -143,10 +143,13 @@ export const MovementDetailModal: React.FC = () => {
               <div className="flex items-center gap-1.5">
                 <Calendar className="w-3.5 h-3.5" /> {selectedMovement.date}
               </div>
-              <div className="flex items-center gap-1.5">
-                <Smartphone className="w-3.5 h-3.5" />
-                {PAYMENT_LABELS[selectedMovement.paymentMethod || 'especes']}
-              </div>
+              {/* Moyen de paiement : seulement pour un vrai paiement (pas pour un trop reçu, un retour…) */}
+              {selectedMovement.paymentMethod && (
+                <div className="flex items-center gap-1.5">
+                  <Smartphone className="w-3.5 h-3.5" />
+                  {PAYMENT_LABELS[selectedMovement.paymentMethod]}
+                </div>
+              )}
             </div>
 
             {selectedMovement.reference && (

@@ -100,7 +100,8 @@ export function MovementHistory({
                     {m.isCancelled ? (
                       <Badge variant="destructive">Annulé</Badge>
                     ) : (
-                      m.type !== 'il_a_retourne' && m.type !== 'j_ai_retourne' && (
+                      // pas de moyen de paiement pour un retour ou un trop reçu (ce n'est pas un paiement)
+                      m.type !== 'il_a_retourne' && m.type !== 'j_ai_retourne' && m.type !== 'surplus_salaire' && (
                         <>
                           <span>·</span>
                           <span>{PAYMENT_LABELS[m.paymentMethod || 'especes']}</span>

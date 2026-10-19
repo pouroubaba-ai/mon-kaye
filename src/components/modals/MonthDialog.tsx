@@ -2,6 +2,7 @@ import * as React from 'react'
 import { Ban, ChevronRight, CircleMinus, CirclePlus, Lock, Pause, Pencil } from 'lucide-react'
 
 import { useStore } from '@/data/store'
+import { PAYMENT_LABELS } from '@/components/movement-history'
 import type { Movement } from '@/data/mockData'
 import { currentPeriod, daysInPeriod, ofMonth, payrollOf } from '@/data/payroll'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/responsive-dialog'
@@ -221,10 +222,22 @@ export function MonthDialog({
             {row.paymentParts.map(({ mov, amount }) => (
               <div key={mov.id} className="flex items-baseline gap-3 border-b border-dashed py-2 last:border-0">
                 <span className="min-w-0 flex-1 truncate">
-                  Versement du {mov.date.slice(0, 5)}
+                  Versement du {mov.date.slice(0, 5)} · {PAYMENT_LABELS[mov.paymentMethod || 'especes']}
                   {amount < mov.amount && <span className="text-xs text-muted-foreground"> (en partie)</span>}
                 </span>
                 <span className="shrink-0 tabular-nums text-debt">− {formatFCFA(amount)}</span>
+              </div>
+            ))}
+            {row.movedParts.map(({ mov, amount, to }) => (
+              // Mois arrêté ou annulé : le versement reste visible ici, barré, avec ce qu'il est devenu
+              <div key={`m-${mov.id}`} className="flex flex-col border-b border-dashed py-2 last:border-0">
+                <div className="flex items-baseline gap-3 text-muted-foreground">
+                  <span className="min-w-0 flex-1 truncate line-through">
+                    Versement du {mov.date.slice(0, 5)} · {PAYMENT_LABELS[mov.paymentMethod || 'especes']}
+                  </span>
+                  <span className="shrink-0 tabular-nums line-through">− {formatFCFA(amount)}</span>
+                </div>
+                <p className="mt-0.5 text-xs text-muted-foreground">{to === 'avance' ? 'Passé en avance à rendre' : 'Rendu par l’employé'}</p>
               </div>
             ))}
             {row.cancelledParts.map(({ mov, amount }) => (
@@ -237,7 +250,7 @@ export function MonthDialog({
                 {mov.cancellationReason && <p className="mt-0.5 text-xs text-muted-foreground">Annulé : {mov.cancellationReason}</p>}
               </div>
             ))}
-            {lines.every(m => m.type !== 'retenue_salaire' && m.type !== 'retenue_manuelle') && row.paymentParts.length === 0 && row.cancelledParts.length === 0 && (
+            {lines.every(m => m.type !== 'retenue_salaire' && m.type !== 'retenue_manuelle') && row.paymentParts.length === 0 && row.cancelledParts.length === 0 && row.movedParts.length === 0 && (
               <p className="py-2 text-xs text-muted-foreground">Rien pour l'instant.</p>
             )}
           </Group>

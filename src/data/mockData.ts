@@ -55,6 +55,8 @@ export interface Movement {
   items?: MovementItem[]
   // Paie : mois auquel l'opération se rattache (« 2026-10 ») : salaire de base, ajout, retenue
   period?: string
+  // Trop reçu d'un mois arrêté ou annulé : la part de chaque versement qui en sort
+  parts?: { id: string; amount: number }[]
 }
 
 export const INITIAL_SHOP = {
