@@ -1,5 +1,6 @@
 import * as React from "react"
-import { Briefcase, LayoutDashboard, Lock, Moon, Plus, Settings, Store, Sun, Users } from "lucide-react"
+import { Briefcase, Coins, LayoutDashboard, Lock, Moon, Plus, Settings, Store, Sun, Users } from "lucide-react"
+import { useToPayCount } from "@/components/screens/EmployeesMonthScreen"
 
 import {
   Sidebar,
@@ -20,12 +21,13 @@ import { useStore } from "@/data/store"
 // (Sidebar, SidebarHeader, SidebarContent, SidebarGroup, SidebarMenu, SidebarRail),
 // repliable en icônes. Affichée sur ordinateur et tablette ; sur téléphone, la barre du bas la remplace.
 
-type Tab = "accueil" | "personnes" | "employes" | "reglages"
+type Tab = "accueil" | "personnes" | "employes" | "salaires" | "reglages"
 
 const NAV: { tab: Tab; title: string; icon: React.ComponentType }[] = [
   { tab: "accueil", title: "Accueil", icon: LayoutDashboard },
   { tab: "personnes", title: "Personnes", icon: Users },
   { tab: "employes", title: "Employés", icon: Briefcase },
+  { tab: "salaires", title: "Salaires", icon: Coins },
   { tab: "reglages", title: "Réglages", icon: Settings },
 ]
 
@@ -36,7 +38,9 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   // Bouton du menu : toujours en haut de la page (même si on y est déjà).
   const go = (tab: Tab) => navigate(tab)
 
+  const toPay = useToPayCount()
   const badgeFor = (tab: Tab) => {
+    if (tab === "salaires") return toPay > 0 ? toPay : null
     if (tab === "personnes" && totals.latePartnersCount > 0) return totals.latePartnersCount
     if (tab === "employes" && totals.soonSalariesDueCount > 0) return totals.soonSalariesDueCount
     return null
@@ -89,7 +93,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                       <item.icon />
                       <span>{item.title}</span>
                     </SidebarMenuButton>
-                    {badge !== null && <SidebarMenuBadge>{badge}</SidebarMenuBadge>}
+                    {badge !== null && <SidebarMenuBadge className={item.tab === "salaires" ? "rounded-full bg-destructive text-white peer-hover/menu-button:text-white" : undefined}>{badge}</SidebarMenuBadge>}
                   </SidebarMenuItem>
                 )
               })}

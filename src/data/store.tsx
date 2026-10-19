@@ -30,10 +30,10 @@ interface StoreContextType {
   toggleTheme: () => void
   
   // Navigation
-  activeTab: 'accueil' | 'personnes' | 'employes' | 'reglages'
-  setActiveTab: (tab: 'accueil' | 'personnes' | 'employes' | 'reglages') => void
+  activeTab: 'accueil' | 'personnes' | 'employes' | 'salaires' | 'reglages'
+  setActiveTab: (tab: 'accueil' | 'personnes' | 'employes' | 'salaires' | 'reglages') => void
   // Bouton du menu : ferme la fiche ouverte, va à la page et remonte en haut (navKey change à chaque appui).
-  navigate: (tab: 'accueil' | 'personnes' | 'employes' | 'reglages') => void
+  navigate: (tab: 'accueil' | 'personnes' | 'employes' | 'salaires' | 'reglages') => void
   navKey: number
   selectedPersonId: string | null
   // Écran ouvert depuis le tableau de bord : « Leurs comptes » ou « Mes comptes », et le côté choisi.
@@ -114,15 +114,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [shop, setShop] = useState(INITIAL_SHOP)
   const [isLocked, setIsLocked] = useState(false)
   const [theme, setTheme] = useState<'dark' | 'light'>('dark')
-  const [activeTab, setActiveTabRaw] = useState<'accueil' | 'personnes' | 'employes' | 'reglages'>('accueil')
+  const [activeTab, setActiveTabRaw] = useState<'accueil' | 'personnes' | 'employes' | 'salaires' | 'reglages'>('accueil')
   const [accountsView, setAccountsView] = useState<{ dir: 'leurs' | 'mes'; group: 'partner' | 'employee' } | null>(null)
   // Changer de page referme l'écran « Leurs comptes / Mes comptes ».
-  const setActiveTab = (tab: 'accueil' | 'personnes' | 'employes' | 'reglages') => {
+  const setActiveTab = (tab: 'accueil' | 'personnes' | 'employes' | 'salaires' | 'reglages') => {
     setAccountsView(null)
     setActiveTabRaw(tab)
   }
   const [navKey, setNavKey] = useState(0)
-  const navigate = (tab: 'accueil' | 'personnes' | 'employes' | 'reglages') => {
+  const navigate = (tab: 'accueil' | 'personnes' | 'employes' | 'salaires' | 'reglages') => {
     setSelectedPersonId(null)
     setAccountsView(null)
     setActiveTabRaw(tab)

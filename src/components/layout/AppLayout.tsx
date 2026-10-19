@@ -1,6 +1,7 @@
 import React from 'react'
 import { useStore } from '@/data/store'
-import { LayoutDashboard, Users, Briefcase, Settings, Plus, Moon, Sun, Lock } from 'lucide-react'
+import { LayoutDashboard, Users, Briefcase, Settings, Plus, Moon, Sun, Lock, Coins } from 'lucide-react'
+import { useToPayCount } from '@/components/screens/EmployeesMonthScreen'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
@@ -16,12 +17,13 @@ import {
 } from '@/components/ui/breadcrumb'
 import { cn } from '@/lib/utils'
 
-type Tab = 'accueil' | 'personnes' | 'employes' | 'reglages'
+type Tab = 'accueil' | 'personnes' | 'employes' | 'salaires' | 'reglages'
 
 const TITLES: Record<Tab, string> = {
   accueil: 'Tableau de bord',
   personnes: 'Personnes',
   employes: 'Employés',
+  salaires: 'Salaires',
   reglages: 'Réglages',
 }
 
@@ -73,8 +75,9 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
     { tab: 'accueil', label: 'Accueil', icon: LayoutDashboard },
     { tab: 'personnes', label: 'Personnes', icon: Users },
     { tab: 'employes', label: 'Employés', icon: Briefcase },
-    { tab: 'reglages', label: 'Réglages', icon: Settings },
+    { tab: 'salaires', label: 'Salaires', icon: Coins },
   ]
+  const toPay = useToPayCount()
 
   return (
     <TooltipProvider>
@@ -119,6 +122,10 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
             <Button variant="ghost" size="icon" onClick={lockApp} aria-label="Verrouiller">
               <Lock />
             </Button>
+            {/* Réglages : ici sur téléphone, la barre du bas laisse sa place à « Salaires » */}
+            <Button variant="ghost" size="icon" onClick={() => go('reglages')} aria-label="Réglages" className={cn(activeTab === 'reglages' && 'bg-muted')}>
+              <Settings />
+            </Button>
           </div>
         </header>
 
@@ -143,7 +150,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
             </Button>
           </div>
           {tabs.slice(2).map(t => (
-            <TabButton key={t.tab} active={activeTab === t.tab} label={t.label} Icon={t.icon} onClick={() => go(t.tab)} />
+            <TabButton key={t.tab} active={activeTab === t.tab} label={t.label} Icon={t.icon} badge={t.tab === 'salaires' ? toPay : 0} onClick={() => go(t.tab)} />
           ))}
         </div>
       </nav>
@@ -157,11 +164,13 @@ function TabButton({
   active,
   label,
   Icon,
+  badge = 0,
   onClick,
 }: {
   active: boolean
   label: string
   Icon: React.ComponentType<{ className?: string }>
+  badge?: number
   onClick: () => void
 }) {
   return (
@@ -173,7 +182,14 @@ function TabButton({
         active ? 'font-semibold text-foreground' : 'text-muted-foreground'
       )}
     >
-      <Icon className="size-5" />
+      <span className="relative">
+        <Icon className="size-5" />
+        {badge > 0 && (
+          <span className="absolute -top-1.5 -right-2.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] leading-none font-semibold text-white tabular-nums">
+            {badge}
+          </span>
+        )}
+      </span>
       {label}
     </button>
   )

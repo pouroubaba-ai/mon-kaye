@@ -13,7 +13,7 @@ import { DepartureModal } from '@/components/modals/DepartureModal'
 import { CompensationModal } from '@/components/modals/CompensationModal'
 import { MovementDetailModal } from '@/components/modals/MovementDetailModal'
 import { SplashScreen } from '@/components/splash-screen'
-import { EmployeesScreen } from '@/components/screens/EmployeesMonthScreen'
+import { EmployeesMonthScreen } from '@/components/screens/EmployeesMonthScreen'
 
 const AppContent: React.FC = () => {
   const { isLocked, activeTab, selectedPersonId, persons, accountsView } = useStore()
@@ -32,7 +32,8 @@ const AppContent: React.FC = () => {
       <div hidden={!!person}>
         {activeTab === 'accueil' && (accountsView ? <AccountsScreen /> : <DashboardScreen />)}
         {activeTab === 'personnes' && <PersonsListScreen />}
-        {activeTab === 'employes' && <EmployeesScreen list={<PersonsListScreen />} />}
+        {activeTab === 'employes' && <PersonsListScreen />}
+        {activeTab === 'salaires' && <EmployeesMonthScreen />}
         {activeTab === 'reglages' && <SettingsScreen />}
       </div>
       {person?.type === 'employee' && <EmployeeDetailScreen key={person.id} employeeId={person.id} />}

@@ -5,7 +5,6 @@ import { currentPeriod, ofMonth, payrollOf, type PayMonthRow } from '@/data/payr
 import type { Person } from '@/data/mockData'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ColumnTable, type Column } from '@/components/column-table'
 import { MonthDialog } from '@/components/modals/MonthDialog'
 import { cn, formatFCFA } from '@/lib/utils'
@@ -96,29 +95,9 @@ export const EmployeesMonthScreen: React.FC = () => {
   )
 }
 
-// Page Employés : deux onglets, la liste et le mois en cours (pastille rouge : employés pas encore payés en entier)
-export const EmployeesScreen: React.FC<{ list: React.ReactNode }> = ({ list }) => {
+
+// Nombre d'employés pas encore payés en entier ce mois-ci : la pastille rouge du menu
+export function useToPayCount() {
   const { persons, movements, monthStates } = useStore()
-  const [view, setView] = React.useState<'liste' | 'mois'>('liste')
-  const toPay = monthLines(persons, movements, monthStates).filter(stillToPay).length
-  return (
-    <div className="flex flex-col gap-4">
-      <Tabs value={view} onValueChange={v => setView(v as typeof view)}>
-        <TabsList className="w-full">
-          <TabsTrigger value="liste">Employés</TabsTrigger>
-          <TabsTrigger value="mois" className="gap-1.5">
-            Ce mois
-            {toPay > 0 && (
-              <span aria-label={`${toPay} pas encore payés`} className="flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[11px] font-semibold text-white tabular-nums">
-                {toPay}
-              </span>
-            )}
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
-      {/* La liste reste montée : sa recherche est gardée quand on passe d'un onglet à l'autre */}
-      <div hidden={view !== 'liste'}>{list}</div>
-      {view === 'mois' && <EmployeesMonthScreen />}
-    </div>
-  )
+  return monthLines(persons, movements, monthStates).filter(stillToPay).length
 }

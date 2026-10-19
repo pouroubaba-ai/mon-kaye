@@ -224,3 +224,7 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 - Pastille rouge : employés pas encore payés en entier ce mois-ci.
 - Cartes « Salaires du mois » (avec le nombre d'employés) et « Reste à verser » (dont la retenue d'avance prévue).
 - Tableau du mois pour tous les employés (colonne Employé en plus, bouton Colonnes) ; toucher une ligne ouvre son mois.
+
+## 2026-10-19 — « Salaires » devient un onglet du menu
+- Barre du bas : Accueil, Personnes, +, Employés, Salaires (pastille rouge). Réglages passe en icône en haut à droite (téléphone) ; la barre latérale garde Réglages.
+- La page Employés redevient la liste seule.
