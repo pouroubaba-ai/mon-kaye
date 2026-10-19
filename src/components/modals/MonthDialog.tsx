@@ -120,12 +120,7 @@ export function MonthDialog({
     return (
               <div key={m.id} className="flex flex-col border-b border-dashed py-2 last:border-0">
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={!(m.note || m.items || m.receiptPhoto)}
-                    onClick={() => openMovementDetail(m)}
-                    className="flex min-w-0 flex-1 items-baseline gap-3 text-left disabled:cursor-default"
-                  >
+                  <div className="flex min-w-0 flex-1 items-baseline gap-3">
                     <span className={cn('min-w-0 flex-1 truncate', m.isCancelled && 'text-muted-foreground line-through')}>
                       {m.label}
                       {m.items?.length ? <span className="text-xs text-muted-foreground"> · {m.items.length} lignes</span> : null}
@@ -139,7 +134,7 @@ export function MonthDialog({
                       {m.type === 'salaire_du' ? '' : m.type === 'ajout_salaire' ? '+ ' : '− '}
                       {formatFCFA(m.amount)}
                     </span>
-                  </button>
+                  </div>
                   {/* Bouton visible pour modifier la ligne (mois en cours) */}
                   {tappable && (
                     <Button
@@ -148,8 +143,8 @@ export function MonthDialog({
                       className={cn('-my-1 -mr-2 size-7 shrink-0 text-muted-foreground', cancelling === m.id && 'bg-muted text-foreground')}
                       aria-label={`Modifier : ${m.label}`}
                       onClick={() => {
-                        setCancelling(cancelling === m.id ? null : m.id)
-                        setLineReason(m.type === 'retenue_salaire' ? 'Pas de retenue ce mois-ci' : '')
+                        setCancelling(m.id)
+                        setLineReason('')
                         setRetStr(String(m.amount))
                       }}
                     >
@@ -161,57 +156,6 @@ export function MonthDialog({
                   <p className="mt-0.5 text-xs text-muted-foreground">{m.note.replace('Montant changé ', '').replace(/[()]/g, '')}</p>
                 )}
                 {m.isCancelled && m.cancellationReason && <p className="mt-0.5 text-xs text-muted-foreground">Annulé : {m.cancellationReason}</p>}
-                {cancelling === m.id && (
-                  <div className="mt-2 flex flex-col gap-2 rounded-lg bg-muted/50 p-2.5">
-                    {m.type === 'retenue_salaire' && (
-                      // Retenue d'avance : changer son montant pour ce mois (plus ou moins), ou l'annuler.
-                      <form
-                        className="flex items-center gap-2"
-                        onSubmit={e => {
-                          e.preventDefault()
-                          setMonthRetenue(empId, parseInt(retStr, 10) || 0)
-                          setCancelling(null)
-                        }}
-                      >
-                        <span className="shrink-0 text-xs text-muted-foreground">Ce mois-ci</span>
-                        <Input
-                          autoFocus
-                          inputMode="numeric"
-                          aria-label="Montant de la retenue ce mois-ci"
-                          value={thousands(retStr)}
-                          onFocus={e => e.currentTarget.select()}
-                          onChange={e => setRetStr(digits(e.target.value))}
-                          className="h-8 flex-1 text-right text-xs"
-                        />
-                        <Button type="submit" size="sm" disabled={(parseInt(retStr, 10) || 0) === m.amount}>
-                          Changer
-                        </Button>
-                      </form>
-                    )}
-                    {m.type === 'retenue_salaire' && (
-                      <p className="text-xs text-muted-foreground">Ou l'annuler : l'avance reste due, elle sera retenue un autre mois.</p>
-                    )}
-                    <Input placeholder="Motif" value={lineReason} onChange={e => setLineReason(e.target.value)} className="h-8 text-xs" />
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="ghost" className="flex-1" onClick={() => setCancelling(null)}>
-                        Garder
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="flex-1"
-                        disabled={!lineReason.trim()}
-                        onClick={() => {
-                          cancelMovement(m.id, lineReason.trim())
-                          setCancelling(null)
-                          setLineReason('')
-                        }}
-                      >
-                        Annuler la ligne
-                      </Button>
-                    </div>
-                  </div>
-                )}
               </div>
     )
   }
@@ -223,13 +167,17 @@ export function MonthDialog({
     annule: <Badge variant="destructive">Annulé</Badge>,
   }[row.state]
 
-  const goAdd = (type: 'ajout_salaire' | 'retenue_manuelle') => {
-    onOpenChange(false)
-    window.setTimeout(() => openNewMovement(empId, type), 150)
-  }
+  // La fenêtre d'ajout s'ouvre par-dessus ; en se fermant, on retrouve la fiche du mois.
+  const goAdd = (type: 'ajout_salaire' | 'retenue_manuelle') => openNewMovement(empId, type)
+
+  // Ligne en cours de modification (petite fenêtre à part)
+  const editing = cancelling ? row.items.find(m => m.id === cancelling) : undefined
+  // Retenue d'avance : jamais plus que ce qu'il doit encore sur ses avances
+  const maxRetenue = editing?.type === 'retenue_salaire' ? pr.advanceReste + editing.amount : 0
+  const retAmount = parseInt(retStr, 10) || 0
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} dirty={reason.trim() !== '' || (cancelling !== null && lineReason.trim() !== '' && lineReason !== 'Pas de retenue ce mois-ci')} dirtyKind="modification">
+    <Dialog open={open} onOpenChange={onOpenChange} dirty={reason.trim() !== ''} dirtyKind="modification">
       <DialogContent className="max-h-[90dvh] overflow-y-auto">
         {/* Mise en page : en-tête, résumé (le reste en grand), détail façon reçu, puis les actions. */}
         <div className="flex flex-col gap-5">
@@ -272,18 +220,13 @@ export function MonthDialog({
           >
             {lines.filter(m => m.type === 'retenue_salaire' || m.type === 'retenue_manuelle').map(renderLine)}
             {row.paymentParts.map(({ mov, amount }) => (
-              <button
-                key={mov.id}
-                type="button"
-                onClick={() => openMovementDetail(mov)}
-                className="flex items-baseline gap-3 border-b border-dashed py-2 text-left last:border-0"
-              >
+              <div key={mov.id} className="flex items-baseline gap-3 border-b border-dashed py-2 last:border-0">
                 <span className="min-w-0 flex-1 truncate">
                   Versement du {mov.date.slice(0, 5)}
                   {amount < mov.amount && <span className="text-xs text-muted-foreground"> (en partie)</span>}
                 </span>
                 <span className="shrink-0 tabular-nums text-debt">− {formatFCFA(amount)}</span>
-              </button>
+              </div>
             ))}
             {lines.every(m => m.type !== 'retenue_salaire' && m.type !== 'retenue_manuelle') && row.paymentParts.length === 0 && (
               <p className="py-2 text-xs text-muted-foreground">Rien pour l'instant.</p>
@@ -385,6 +328,76 @@ export function MonthDialog({
         )}
         </div>
       </DialogContent>
+
+      {/* Modifier une ligne : une petite fenêtre isolée, par-dessus la fiche du mois */}
+      <Dialog open={!!editing} onOpenChange={o => !o && setCancelling(null)}>
+        <DialogContent>
+          {editing && (
+            <div className="flex flex-col gap-4">
+              <DialogHeader className="gap-1 p-0">
+                <DialogTitle className="text-left">{editing.type === 'retenue_salaire' ? "Retenue pour l'avance" : editing.label}</DialogTitle>
+                <DialogDescription className="text-left">
+                  {editing.type === 'retenue_salaire' ? `Ce mois-ci · il doit encore ${formatFCFA(maxRetenue)}` : `${formatFCFA(editing.amount)} · ${ofMonth(period)}`}
+                </DialogDescription>
+              </DialogHeader>
+
+              {editing.type === 'retenue_salaire' ? (
+                <form
+                  className="flex flex-col gap-3"
+                  onSubmit={e => {
+                    e.preventDefault()
+                    if (retAmount <= 0 || retAmount > maxRetenue) return
+                    setMonthRetenue(empId, retAmount)
+                    setCancelling(null)
+                  }}
+                >
+                  <Input
+                    autoFocus
+                    inputMode="numeric"
+                    aria-label="Montant de la retenue ce mois-ci"
+                    value={thousands(retStr)}
+                    onFocus={e => e.currentTarget.select()}
+                    onChange={e => setRetStr(digits(e.target.value))}
+                    className={cn('h-12 text-right text-lg', retAmount > maxRetenue && 'border-destructive')}
+                  />
+                  {retAmount > maxRetenue && <p className="text-xs text-destructive">Pas plus de {formatFCFA(maxRetenue)} : c'est ce qu'il doit encore.</p>}
+                  <Button type="submit" size="lg" className="h-12" disabled={retAmount <= 0 || retAmount > maxRetenue || retAmount === editing.amount}>
+                    Enregistrer
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="text-destructive"
+                    onClick={() => {
+                      cancelMovement(editing.id, 'Pas de retenue ce mois-ci')
+                      setCancelling(null)
+                    }}
+                  >
+                    Pas de retenue ce mois-ci
+                  </Button>
+                </form>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  <Input autoFocus placeholder="Motif de l'annulation" value={lineReason} onChange={e => setLineReason(e.target.value)} className="h-11" />
+                  <Button
+                    variant="destructive"
+                    size="lg"
+                    className="h-12"
+                    disabled={!lineReason.trim()}
+                    onClick={() => {
+                      cancelMovement(editing.id, lineReason.trim())
+                      setCancelling(null)
+                      setLineReason('')
+                    }}
+                  >
+                    Annuler cette ligne
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Dialog>
   )
 }
