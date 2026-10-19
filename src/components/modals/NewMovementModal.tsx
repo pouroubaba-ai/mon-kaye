@@ -189,7 +189,11 @@ export const NewMovementModal: React.FC = () => {
         return { label: 'Son compte', value: person.owesMe || 0, tone: 'credit', isPayment: t === 'il_m_a_verse' }
       return { label: 'Mon compte', value: person.iOweHim || 0, tone: 'debt', isPayment: t === 'je_lui_ai_verse' }
     }
-    if (t === 'je_lui_ai_verse') return { label: 'Salaire dû', value: person.currentSalaryDue || 0, tone: 'debt', isPayment: true }
+    if (t === 'je_lui_ai_verse') {
+      // Salaire dû, retenue d'avance prévue comprise : on peut verser jusqu'au salaire entier.
+      const pr = payrollOf(person.id, movements, monthStates)
+      return { label: 'Salaire dû', value: pr.totalReste + pr.plannedRetenue, tone: 'debt', isPayment: true }
+    }
     if (PAY_ADJUST.has(t)) {
       // Ajout ou retenue du mois en cours : on montre ce qu'il reste à payer ce mois-ci ; une retenue ne peut pas le dépasser.
       const cur = payrollOf(person.id, movements, monthStates).months.find(m => m.period === currentPeriod())
@@ -200,6 +204,9 @@ export const NewMovementModal: React.FC = () => {
   }
   const balance = balanceFor(type)
   const tooMuch = !!balance?.isPayment && amount > balance.value
+  // Versement de salaire qui dépasse « salaire moins retenue » : il prend sur la retenue d'avance du mois.
+  const planned = person?.type === 'employee' && type === 'je_lui_ai_verse' ? payrollOf(person.id, movements, monthStates) : null
+  const eatsRetenue = planned && planned.plannedRetenue > 0 && !tooMuch ? Math.min(planned.plannedRetenue, Math.max(0, amount - planned.totalReste)) : 0
   // Versement impossible quand rien n'est dû : le bouton est grisé à l'étape « Quelle opération ? ».
   const blocked = (t: MType) => {
     const b = balanceFor(t)
@@ -429,6 +436,9 @@ export const NewMovementModal: React.FC = () => {
                   <span className={cn('font-medium tabular-nums', balance.tone === 'credit' ? 'text-credit' : 'text-debt')}>
                     {formatFCFA(balance.value)}
                   </span>
+                  {planned && planned.plannedRetenue > 0 && (
+                    <span className="block text-xs text-muted-foreground tabular-nums">dont {formatFCFA(planned.plannedRetenue)} retenus pour l'avance</span>
+                  )}
                 </p>
               )}
             </div>
@@ -440,6 +450,14 @@ export const NewMovementModal: React.FC = () => {
               <span className="ml-2 text-base text-muted-foreground">FCFA</span>
               {tooMuch && balance && (
                 <p className="mt-1 text-xs text-destructive">Pas plus de {formatFCFA(balance.value)}</p>
+              )}
+              {eatsRetenue > 0 && planned && (
+                <p className="mx-auto mt-1 max-w-72 text-xs text-amber-600 dark:text-amber-400">
+                  {planned.totalReste > 0
+                    ? `Attention : au-delà de ${formatFCFA(planned.totalReste)}, ce versement prend sur la part retenue pour l'avance.`
+                    : "Attention : le reste du salaire est déjà payé, ce versement prend sur la part retenue pour l'avance."}{' '}
+                  Ce mois-ci, il rendra {formatFCFA(planned.plannedRetenue - eatsRetenue)} au lieu de {formatFCFA(planned.plannedRetenue)}.
+                </p>
               )}
             </div>
 

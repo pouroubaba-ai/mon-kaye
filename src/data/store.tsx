@@ -519,6 +519,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return [...extra, ...next]
   }
 
+  // Clôture du mois : la retenue prévue est inscrite pour ce qu'elle vaut vraiment
+  // (limitée à l'avance à rendre, baissée si on a versé plus que le salaire moins la retenue).
+  const applyPlannedRetenue = (empId: string, next: Movement[]): Movement[] => {
+    const cur = currentPeriod()
+    const eff = payrollOf(empId, next, monthStates).plannedRetenue
+    return next.map(m => {
+      if (m.personId !== empId || m.type !== 'retenue_salaire' || m.period !== cur || m.isCancelled || m.amount === eff) return m
+      if (eff <= 0) return { ...m, isCancelled: true, cancellationReason: 'Rien à retenir ce mois-ci', cancelledAt: todayStr() }
+      return { ...m, amount: eff, note: `Montant changé (au lieu de ${m.amount.toLocaleString('fr-FR')} FCFA)` }
+    })
+  }
+
   const stopMonth: StoreContextType['stopMonth'] = (empId, period, newBase, basisLabel, surplus) => {
     const emp = persons.find(p => p.id === empId)
     if (!emp || period !== currentPeriod()) return
@@ -541,6 +553,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       },
       ...next,
     ]
+    next = applyPlannedRetenue(empId, next)
     const states = { ...monthStates, [monthKey(empId, period)]: 'arrete' as const }
     commitEmployee(empId, settleSurplus(emp, period, next, states, surplus), states)
   }

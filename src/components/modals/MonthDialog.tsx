@@ -118,6 +118,14 @@ export function MonthDialog({
   // Une ligne du mois (salaire, ajout, retenue) ; touchable dans le mois en cours pour la changer ou l'annuler.
   const renderLine = (m: Movement) => {
     const tappable = canCancelLine(m)
+    // Retenue prévue : on montre ce qu'elle vaut vraiment (limitée à l'avance, baissée par un versement en plus)
+    const plannedLive = m.type === 'retenue_salaire' && isOpen && !m.isCancelled
+    const shown = plannedLive ? pr.plannedRetenue : m.amount
+    const why = !plannedLive || shown === m.amount
+      ? null
+      : pr.plannedCap < m.amount && shown === pr.plannedCap
+        ? pr.plannedCap === 0 ? "Plus d'avance à rendre" : `Il ne doit plus que ${formatFCFA(pr.plannedCap)}`
+        : `Baissée par un versement en plus (au lieu de ${formatFCFA(m.amount)})`
     return (
               <div key={m.id} className="flex flex-col border-b border-dashed py-2 last:border-0">
                 <div className="flex items-center gap-2">
@@ -134,7 +142,7 @@ export function MonthDialog({
                       )}
                     >
                       {m.type === 'salaire_du' ? '' : m.type === 'ajout_salaire' ? '+ ' : '− '}
-                      {formatFCFA(m.amount)}
+                      {formatFCFA(shown)}
                     </span>
                   </div>
                   {/* Bouton visible pour modifier la ligne (mois en cours) */}
@@ -154,7 +162,8 @@ export function MonthDialog({
                     </Button>
                   )}
                 </div>
-                {!m.isCancelled && m.note?.startsWith('Montant changé') && (
+                {why && <p className="mt-0.5 text-xs text-muted-foreground">{why}</p>}
+                {!why && !m.isCancelled && m.note?.startsWith('Montant changé') && (
                   <p className="mt-0.5 text-xs text-muted-foreground">{m.note.replace('Montant changé ', '').replace(/[()]/g, '')}</p>
                 )}
                 {m.isCancelled && m.cancellationReason && <p className="mt-0.5 text-xs text-muted-foreground">Annulé : {m.cancellationReason}</p>}

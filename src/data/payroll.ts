@@ -49,8 +49,11 @@ export type Payroll = {
   advanceReste: number
   lastRepayment?: string
   surplus: number // reçu en trop, non encore traité (normalement 0)
-  // Retenue d'avance prévue sur le mois en cours (appliquée à la clôture du mois)
+  // Retenue d'avance prévue sur le mois en cours (appliquée à la clôture du mois), telle qu'elle compte
+  // vraiment : jamais plus que l'avance à rendre, et baissée si on a versé plus que le salaire moins la retenue.
   plannedRetenue: number
+  plannedSet: number // montant inscrit sur la retenue prévue
+  plannedCap: number // le même, limité à ce qui reste à rendre sur les avances
 }
 
 const SHORT = ['Janv.', 'Févr.', 'Mars', 'Avr.', 'Mai', 'Juin', 'Juil.', 'Août', 'Sept.', 'Oct.', 'Nov.', 'Déc.']
@@ -96,6 +99,26 @@ export function payrollOf(
   const mine = movements.filter(m => m.personId === empId)
   const cur = periodOf(today)
 
+  // Avances, remboursées de la plus ancienne à la plus récente.
+  // Retenue du mois en cours (pas encore clos) : seulement prévue. Elle n'entre dans les remboursements
+  // et ne baisse l'avance qu'à la clôture du mois ; ses changements ne laissent pas de trace ici.
+  const advMovs = mine.filter(m => m.type === 'avance_salaire').sort(byDateAsc)
+  const curOpen = !monthStates[monthKey(empId, cur)]
+  const isPlanned = (m: Movement) => m.type === 'retenue_salaire' && m.period === cur && curOpen
+  const plannedSet = mine.filter(m => isPlanned(m) && isLive(m)).reduce((a, m) => a + m.amount, 0)
+  const repayments = mine.filter(m => (m.type === 'remboursement_direct' || m.type === 'retenue_salaire') && !isPlanned(m))
+  let repaid = repayments.filter(isLive).reduce((a, m) => a + m.amount, 0)
+  const advRows: AdvanceRow[] = advMovs.map(mov => {
+    if (mov.isCancelled) return { mov, rendu: 0, reste: 0, etat: 'Annulée' }
+    const rendu = Math.min(mov.amount, repaid)
+    repaid -= rendu
+    const reste = mov.amount - rendu
+    return { mov, rendu, reste, etat: reste === 0 ? 'Soldée' : 'En cours' }
+  })
+  const advanceReste = advRows.reduce((a, r) => a + r.reste, 0)
+  // On ne retient jamais plus que ce qu'il doit encore (avance annulée ou soldée : rien à retenir).
+  const plannedCap = Math.min(plannedSet, advanceReste)
+
   // 1. Les mois
   const periods = [...new Set(mine.filter(m => m.period && PERIOD_TYPES.has(m.type)).map(m => m.period!))].sort()
   const rows: PayMonthRow[] = periods.map(period => {
@@ -104,7 +127,8 @@ export function payrollOf(
     const sum = (t: string) => live.filter(m => m.type === t).reduce((a, m) => a + m.amount, 0)
     const base = sum('salaire_du')
     const ajouts = sum('ajout_salaire')
-    const retenues = sum('retenue_salaire') + sum('retenue_manuelle')
+    // La retenue prévue du mois en cours est ajoutée après la répartition des versements (voir plus bas).
+    const retenues = (period === cur && curOpen ? 0 : sum('retenue_salaire')) + sum('retenue_manuelle')
     const special = monthStates[monthKey(empId, period)]
     const state: MonthState = special ?? (period === cur ? 'en_cours' : 'passe')
     return {
@@ -133,6 +157,9 @@ export function payrollOf(
   // Chaque versement, du plus ancien au plus récent, remplit les mois du plus ancien au plus récent.
   let budget = Math.max(0, paid)
   let mi = 0
+  // Mois en cours : les versements peuvent aller jusqu'au salaire entier ; ce qui dépasse
+  // « salaire moins retenue » prend sur la retenue prévue (il rendra moins ce mois-ci).
+  const curRow = curOpen ? rows.find(r => r.period === cur) : undefined
   for (const pay of salaryPayments.filter(m => isLive(m) && m.type === 'je_lui_ai_verse').sort(byDateAsc)) {
     let avail = Math.min(pay.amount, budget)
     budget -= avail
@@ -148,6 +175,12 @@ export function payrollOf(
       r.paymentParts.push({ mov: pay, amount: part })
       avail -= part
     }
+  }
+  let plannedRetenue = 0
+  if (curRow) {
+    plannedRetenue = Math.min(plannedCap, Math.max(0, curRow.aPayer - curRow.verse))
+    curRow.aPayer -= plannedRetenue
+    curRow.retenues += plannedRetenue
   }
   // Versements annulés : on refait la répartition comme s'ils comptaient encore, pour savoir
   // sur quel mois chacun était tombé ; ils y restent visibles, barrés.
@@ -191,22 +224,6 @@ export function payrollOf(
     r.etat = r.state === 'annule' ? 'Annulé' : r.reste === 0 ? 'Payé' : r.verse > 0 ? 'En partie' : 'Pas payé'
   }
 
-  // 3. Avances, remboursées de la plus ancienne à la plus récente
-  const advMovs = mine.filter(m => m.type === 'avance_salaire').sort(byDateAsc)
-  // Retenue du mois en cours (pas encore clos) : seulement prévue. Elle n'entre dans les remboursements
-  // et ne baisse l'avance qu'à la clôture du mois ; ses changements ne laissent pas de trace ici.
-  const isPlanned = (m: Movement) => m.type === 'retenue_salaire' && m.period === cur && !monthStates[monthKey(empId, cur)]
-  const plannedRetenue = mine.filter(m => isPlanned(m) && isLive(m)).reduce((a, m) => a + m.amount, 0)
-  const repayments = mine.filter(m => (m.type === 'remboursement_direct' || m.type === 'retenue_salaire') && !isPlanned(m))
-  let repaid = repayments.filter(isLive).reduce((a, m) => a + m.amount, 0)
-  const advRows: AdvanceRow[] = advMovs.map(mov => {
-    if (mov.isCancelled) return { mov, rendu: 0, reste: 0, etat: 'Annulée' }
-    const rendu = Math.min(mov.amount, repaid)
-    repaid -= rendu
-    const reste = mov.amount - rendu
-    return { mov, rendu, reste, etat: reste === 0 ? 'Soldée' : 'En cours' }
-  })
-
   const lastOf = (list: Movement[]) => list.filter(isLive).sort(byDateDesc)[0]?.date
 
   return {
@@ -216,10 +233,12 @@ export function payrollOf(
     lastPayment: lastOf(salaryPayments.filter(m => m.type === 'je_lui_ai_verse')),
     advances: advRows.reverse(),
     repayments: [...repayments].sort(byDateDesc),
-    advanceReste: advRows.reduce((a, r) => a + r.reste, 0),
+    advanceReste,
     lastRepayment: lastOf(repayments),
     surplus,
     plannedRetenue,
+    plannedSet,
+    plannedCap,
   }
 }
 

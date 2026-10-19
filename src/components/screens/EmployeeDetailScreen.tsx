@@ -78,7 +78,9 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
   const salaryPaid = openMonths.reduce((a, m) => a + m.verse, 0)
   const openAdv = pr.advances.filter(a => a.etat === 'En cours')
   const advRepaid = openAdv.reduce((a, r) => a + r.rendu, 0)
-  const net = pr.totalReste - pr.advanceReste
+  // Salaire encore dû, retenue prévue comprise (elle n'est coupée qu'à la clôture du mois)
+  const salaryReste = pr.totalReste + pr.plannedRetenue
+  const net = salaryReste - pr.advanceReste
   // Façon de rendre : court, la valeur seule (« 15 000 FCFA / mois » ou « Direct »)
   const plan = emp.advanceDeductionPerPeriod && emp.advanceDeductionPerPeriod > 0
     ? `${formatFCFA(emp.advanceDeductionPerPeriod)} / mois`
@@ -107,7 +109,7 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
 
       {view === 'ensemble' && (
         <>
-          {pr.totalReste > 0 && pr.advanceReste > 0 && (
+          {salaryReste > 0 && pr.advanceReste > 0 && (
             <div
               className="flex items-center gap-3 rounded-xl border p-3"
               style={{
@@ -124,7 +126,7 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
             </div>
           )}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <BalanceCard title="Je lui dois" Icon={Coins} tone="debt" remaining={pr.totalReste} paid={salaryPaid} onClick={() => setView('salaire')} />
+            <BalanceCard title="Je lui dois" Icon={Coins} tone="debt" remaining={salaryReste} paid={salaryPaid} onClick={() => setView('salaire')} />
             <BalanceCard
               title="Avance à rendre"
               Icon={HandCoins}
@@ -155,7 +157,10 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
             <CardContent className="flex items-end justify-between gap-3 px-4">
               <div>
                 <p className="text-xs text-muted-foreground">Reste à payer</p>
-                <p className="text-2xl font-semibold text-debt tabular-nums">{formatFCFA(pr.totalReste)}</p>
+                <p className="text-2xl font-semibold text-debt tabular-nums">{formatFCFA(salaryReste)}</p>
+                {pr.plannedRetenue > 0 && (
+                  <p className="text-xs text-muted-foreground tabular-nums">dont {formatFCFA(pr.plannedRetenue)} retenus pour l'avance</p>
+                )}
               </div>
               <div className="text-right">
                 <p className="text-xs text-muted-foreground">Dernier versement</p>

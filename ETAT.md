@@ -198,3 +198,10 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 - La retenue d'avance du mois en cours reste « prévue » jusqu'à la clôture du mois : elle se modifie sur place, sans lignes annulées puis recréées.
 - Onglet Avance : reste à rendre total, plus « dont X retenus ce mois-ci ».
 - Salaire › Versements : un versement passé en avance ou rendu (mois arrêté ou annulé) est barré avec une pastille ; la ligne « Trop reçu » n'apparaît plus.
+
+## 2026-10-19 — Retenue prévue : limitée à l'avance, visible dans le salaire
+- La retenue prévue ne dépasse jamais l'avance à rendre (avance annulée ou soldée : plus de retenue, « dont » caché).
+- Salaire : « Reste à payer » compte la retenue prévue, avec « dont X retenus pour l'avance ».
+- Verser plus que salaire moins retenue est permis jusqu'au salaire entier : un avertissement dit de combien la retenue du mois baisse.
+- À la clôture (mois arrêté), la retenue est inscrite pour ce qu'elle vaut vraiment.
+- Reste à faire : au passage naturel au mois suivant, la retenue est comptée à son montant inscrit.
