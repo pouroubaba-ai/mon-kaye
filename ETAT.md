@@ -234,3 +234,5 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 - Un module coupé est caché partout (menu, tableau de bord, totaux, comptes, saisie) ; ses données restent.
 
 ## 2026-10-19 — Bouton « + » toujours au centre ; Réglages › ligne « Modules » qui ouvre la liste des modules
+
+## 2026-10-19 — Tableau de bord : anneaux en couleur pleine quand seul le module Employés est allumé

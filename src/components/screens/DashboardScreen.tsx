@@ -209,6 +209,7 @@ export const DashboardScreen: React.FC = () => {
   const nIOwe = modules.personnes ? partners.filter(p => (p.iOweHim || 0) > 0).length : 0
   const nSalaries = modules.employes ? employees.filter(p => (p.currentSalaryDue || 0) > 0).length : 0
   const firstGroup = modules.personnes ? 'partner' : 'employee'
+  // Seul, le côté Employés prend la couleur pleine (sa couleur pâle ne sert qu'à le distinguer de Personnes)
   const on = (k: string) => (k === 'partenaires' ? modules.personnes : modules.employes)
   const owesMePeople = nOwesMe + nAdvances
   const iOwePeople = nIOwe + nSalaries
@@ -230,7 +231,7 @@ export const DashboardScreen: React.FC = () => {
           people={owesMePeople}
           slices={[
             { key: 'partenaires', label: 'Personnes', value: totals.partnersOwesMe, color: 'var(--color-credit)', count: nOwesMe, unit: PEOPLE },
-            { key: 'avances', label: 'Avances', value: totals.employeesAdvanceOwed, color: 'color-mix(in oklch, var(--color-credit) 45%, transparent)', count: nAdvances, unit: STAFF },
+            { key: 'avances', label: 'Avances', value: totals.employeesAdvanceOwed, color: modules.personnes ? 'color-mix(in oklch, var(--color-credit) 45%, transparent)' : 'var(--color-credit)', count: nAdvances, unit: STAFF },
           ].filter(s => on(s.key))}
         />
         <DonutCard
@@ -241,7 +242,7 @@ export const DashboardScreen: React.FC = () => {
           people={iOwePeople}
           slices={[
             { key: 'partenaires', label: 'Personnes', value: totals.partnersIOwe, color: 'var(--color-debt)', count: nIOwe, unit: PEOPLE },
-            { key: 'salaires', label: 'Salaires', value: totals.employeesSalaryDue, color: 'color-mix(in oklch, var(--color-debt) 45%, transparent)', count: nSalaries, unit: STAFF },
+            { key: 'salaires', label: 'Salaires', value: totals.employeesSalaryDue, color: modules.personnes ? 'color-mix(in oklch, var(--color-debt) 45%, transparent)' : 'var(--color-debt)', count: nSalaries, unit: STAFF },
           ].filter(s => on(s.key))}
         />
       </div>
