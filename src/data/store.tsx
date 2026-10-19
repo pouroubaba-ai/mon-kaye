@@ -131,6 +131,60 @@ interface StoreContextType {
 const StoreContext = createContext<StoreContextType | undefined>(undefined)
 
 export type Modules = { personnes: boolean; employes: boolean }
+
+// ——— Adresses des écrans ———
+// Chaque écran a son adresse : actualiser garde l'écran, le bouton retour suit les adresses.
+//   /                      tableau de bord        /comptes/leurs[/employes]  « Leurs comptes »
+//   /personnes[/id]        liste ou fiche          /comptes/mes[/employes]    « Mes comptes »
+//   /employes[/id]         liste ou fiche          /salaires                   page Salaires
+//   /reglages[/modules]    réglages ou Modules
+// Les fenêtres (verser, fiche de paie…) n'ont pas d'adresse.
+type Tab = 'accueil' | 'personnes' | 'employes' | 'salaires' | 'reglages'
+type Screen = {
+  tab: Tab
+  person: string | null
+  accounts: { dir: 'leurs' | 'mes'; group: 'partner' | 'employee' } | null
+  settings: 'main' | 'modules'
+}
+export function parsePath(path: string, modules: Modules, persons: Person[]): Screen {
+  const home: Screen = { tab: 'accueil', person: null, accounts: null, settings: 'main' }
+  const [a, b, c] = path.split('/').filter(Boolean).map(decodeURIComponent)
+  const person = (type: Person['type']) => (b && persons.some(p => p.id === b && p.type === type) ? b : null)
+  switch (a) {
+    case 'comptes': {
+      if (b !== 'leurs' && b !== 'mes') return home
+      const group = (c === 'employes' && modules.employes) || !modules.personnes ? 'employee' : 'partner'
+      return { ...home, accounts: { dir: b, group } }
+    }
+    case 'personnes':
+      return modules.personnes ? { ...home, tab: 'personnes', person: person('partner') } : home
+    case 'employes':
+      return modules.employes ? { ...home, tab: 'employes', person: person('employee') } : home
+    case 'salaires':
+      return modules.employes ? { ...home, tab: 'salaires' } : home
+    case 'reglages':
+      return { ...home, tab: 'reglages', settings: b === 'modules' ? 'modules' : 'main' }
+    default:
+      return home
+  }
+}
+export function buildPath(s: Screen, persons: Person[]): string {
+  if (s.person) {
+    const p = persons.find(x => x.id === s.person)
+    if (p) return `/${p.type === 'employee' ? 'employes' : 'personnes'}/${encodeURIComponent(p.id)}`
+  }
+  if (s.tab === 'accueil') return s.accounts ? `/comptes/${s.accounts.dir}${s.accounts.group === 'employee' ? '/employes' : ''}` : '/'
+  if (s.tab === 'reglages') return s.settings === 'modules' ? '/reglages/modules' : '/reglages'
+  return `/${s.tab}`
+}
+// Écran au démarrage : celui de l'adresse (actualiser garde l'écran)
+const startScreen = (() => {
+  let cache: Screen | null = null
+  return () => {
+    if (!cache) cache = parsePath(window.location.pathname, loadModules(), INITIAL_PERSONS)
+    return cache
+  }
+})()
 // Par défaut : Personnes seulement. Le choix est gardé sur l'appareil.
 const DEFAULT_MODULES: Modules = { personnes: true, employes: false }
 const MODULES_KEY = 'kaye.modules'
@@ -159,9 +213,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return 'dark'
     }
   })
-  const [activeTab, setActiveTabRaw] = useState<'accueil' | 'personnes' | 'employes' | 'salaires' | 'reglages'>('accueil')
-  const [accountsView, setAccountsView] = useState<{ dir: 'leurs' | 'mes'; group: 'partner' | 'employee' } | null>(null)
-  const [settingsView, setSettingsView] = useState<'main' | 'modules'>('main')
+  const [activeTab, setActiveTabRaw] = useState<'accueil' | 'personnes' | 'employes' | 'salaires' | 'reglages'>(() => startScreen().tab)
+  const [accountsView, setAccountsView] = useState<{ dir: 'leurs' | 'mes'; group: 'partner' | 'employee' } | null>(() => startScreen().accounts)
+  const [settingsView, setSettingsView] = useState<'main' | 'modules'>(() => startScreen().settings)
   // Changer de page referme l'écran « Leurs comptes / Mes comptes ».
   const setActiveTab = (tab: 'accueil' | 'personnes' | 'employes' | 'salaires' | 'reglages') => {
     setAccountsView(null)
@@ -176,7 +230,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setActiveTabRaw(tab)
     setNavKey(k => k + 1)
   }
-  const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null)
+  const [selectedPersonId, setSelectedPersonId] = useState<string | null>(() => startScreen().person)
 
   const [modules, setModules] = useState<Modules>(loadModules)
   const setModule: StoreContextType['setModule'] = (key, on) => {
@@ -860,28 +914,52 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     document.body.removeChild(link)
   }
 
-  // Bouton « retour » du téléphone : il ferme d'abord la fenêtre ouverte, puis la fiche, puis l'écran
-  // « Leurs/Mes comptes », puis revient à l'accueil. Seulement depuis l'accueil, il quitte l'app.
-  const backRef = React.useRef<() => boolean>(() => false)
-  backRef.current = () => {
-    if (isLocked) return true
-    if (document.querySelector('[role="dialog"]')) {
-      // Fenêtre ouverte : comme la touche Échap (elle demande avant de perdre une saisie)
-      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-      return true
-    }
-    if (selectedPersonId) { setSelectedPersonId(null); return true }
-    if (accountsView) { setAccountsView(null); return true }
-    if (activeTab === 'reglages' && settingsView === 'modules') { setSettingsView('main'); return true }
-    if (activeTab !== 'accueil') { setActiveTabRaw('accueil'); setNavKey(k => k + 1); return true }
-    return false
-  }
+  // Adresse ⇄ écran. Changer d'écran ajoute une adresse à l'historique ; le bouton retour
+  // (téléphone ou navigateur) revient à l'adresse d'avant, et l'écran suit.
+  const screen: Screen = { tab: activeTab, person: selectedPersonId, accounts: accountsView, settings: settingsView }
+  const path = buildPath(screen, persons)
+  const fromHistory = React.useRef(false)
   React.useEffect(() => {
-    // Une page « garde » dans l'historique : un retour la consomme, on la remet si l'app a géré le retour.
-    window.history.pushState({ kaye: true }, '')
+    if (fromHistory.current) {
+      fromHistory.current = false
+      if (window.location.pathname !== path) window.history.replaceState(null, '', path)
+      return
+    }
+    const here = window.location.pathname
+    if (here === path) return
+    // Onglet Personnes / Employés de « Leurs/Mes comptes » : même écran, l'adresse change sans ajouter de retour
+    const sameScreen = (x: string) => x.match(/^\/comptes\/(leurs|mes)/)?.[1]
+    if (sameScreen(here) && sameScreen(here) === sameScreen(path)) window.history.replaceState(null, '', path)
+    else window.history.pushState(null, '', path)
+  }, [path])
+  const pathRef = React.useRef(path)
+  pathRef.current = path
+  const lockedRef = React.useRef(isLocked)
+  lockedRef.current = isLocked
+  const modulesRef = React.useRef(modules)
+  modulesRef.current = modules
+  const personsRef = React.useRef(persons)
+  personsRef.current = persons
+  React.useEffect(() => {
     const onPop = () => {
-      if (backRef.current()) window.history.pushState({ kaye: true }, '')
-      else window.history.back()
+      // Fenêtre ouverte ou app verrouillée : le retour ferme la fenêtre (comme Échap), l'écran ne bouge pas
+      if (lockedRef.current || document.querySelector('[role="dialog"]')) {
+        if (!lockedRef.current) document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+        window.history.pushState(null, '', pathRef.current)
+        return
+      }
+      const next = parsePath(window.location.pathname, modulesRef.current, personsRef.current)
+      const nextPath = buildPath(next, personsRef.current)
+      if (nextPath === pathRef.current) {
+        // Adresse inconnue ou même écran : on corrige seulement l'adresse
+        if (window.location.pathname !== nextPath) window.history.replaceState(null, '', nextPath)
+        return
+      }
+      fromHistory.current = true
+      setActiveTabRaw(next.tab)
+      setSelectedPersonId(next.person)
+      setAccountsView(next.accounts)
+      setSettingsView(next.settings)
     }
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
