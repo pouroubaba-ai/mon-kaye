@@ -38,6 +38,8 @@ export function PayslipDialog({ empId, period, open, onOpenChange }: { empId: st
   const month = cap(periodLong(period))
   const today = new Date().toLocaleDateString('fr-FR')
   const payDate = (m: Movement) => m.date.slice(0, 5)
+  // Sans versement, « À payer » suffit ; avec des versements : À payer, les versements, puis le reste
+  const paid = row.paymentParts.length > 0
 
   const text = [
     `*Fiche de paie · ${month}*`,
@@ -45,9 +47,13 @@ export function PayslipDialog({ empId, period, open, onOpenChange }: { empId: st
     `${emp.name}${emp.role ? ` (${emp.role})` : ''}`,
     '',
     ...lines.map(l => `${l.sign ? `${l.sign} ` : ''}${label(l.m)} : ${formatFCFA(l.amount)}`),
-    `*À payer : ${formatFCFA(row.aPayer)}*`,
-    ...row.paymentParts.map(p => `Versé le ${payDate(p.mov)} : ${formatFCFA(p.amount)}`),
-    `*Reste à payer : ${formatFCFA(row.reste)}*`,
+    ...(paid
+      ? [
+          `À payer : ${formatFCFA(row.aPayer)}`,
+          ...row.paymentParts.map(p => `Versé le ${payDate(p.mov)} : ${formatFCFA(p.amount)}`),
+          `*Reste à payer : ${formatFCFA(row.reste)}*`,
+        ]
+      : [`*À payer : ${formatFCFA(row.aPayer)}*`]),
     ...(pr.advanceReste > 0 ? ['', `Avance encore à rendre : ${formatFCFA(pr.advanceReste)}`] : []),
   ].join('\n')
 
@@ -98,9 +104,11 @@ export function PayslipDialog({ empId, period, open, onOpenChange }: { empId: st
               {lines.map(l => (
                 <Line key={l.m.id} left={label(l.m)} right={`${l.sign ? `${l.sign} ` : ''}${formatFCFA(l.amount)}`} />
               ))}
-              <div className="mt-1 border-t border-neutral-300 pt-1">
-                <Line left="À payer" right={formatFCFA(row.aPayer)} strong />
-              </div>
+              {paid && (
+                <div className="mt-1 border-t border-neutral-300 pt-1">
+                  <Line left="À payer" right={formatFCFA(row.aPayer)} strong />
+                </div>
+              )}
             </div>
 
             {row.paymentParts.length > 0 && (
@@ -117,8 +125,8 @@ export function PayslipDialog({ empId, period, open, onOpenChange }: { empId: st
             )}
 
             <div className="flex items-baseline justify-between gap-3 rounded-lg bg-neutral-100 px-3 py-2">
-              <span className="font-medium">Reste à payer</span>
-              <span className="text-base font-semibold tabular-nums">{formatFCFA(row.reste)}</span>
+              <span className="font-medium">{paid ? 'Reste à payer' : 'À payer'}</span>
+              <span className="text-base font-semibold tabular-nums">{formatFCFA(paid ? row.reste : row.aPayer)}</span>
             </div>
 
             {pr.advanceReste > 0 && <p className="text-xs text-neutral-500">Avance encore à rendre : {formatFCFA(pr.advanceReste)}</p>}
