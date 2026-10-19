@@ -1,5 +1,8 @@
 import * as React from 'react'
 import { Eye, EyeOff } from 'lucide-react'
+// Icônes officielles de Google et d'Apple (paquet react-icons), comme le demandent leurs règles pour ces boutons
+import { FcGoogle } from 'react-icons/fc'
+import { FaApple } from 'react-icons/fa'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -7,7 +10,6 @@ import { Label } from '@/components/ui/label'
 
 // Connexion et inscription (aperçu de l'écran ; le branchement à Firebase vient ensuite).
 // Toujours en sombre, aux couleurs du logo. Trois façons d'entrer : Google, Apple, ou e-mail + mot de passe.
-// Les logos officiels de Google et d'Apple seront ajoutés depuis leurs kits au moment du branchement.
 
 export type AuthMode = 'connexion' | 'inscription'
 
@@ -53,10 +55,10 @@ export function AuthScreen({ mode, onSwitch }: { mode: AuthMode; onSwitch: (m: A
         {/* Le plus simple d'abord : un seul toucher */}
         <div className="flex flex-col gap-3">
           <Button type="button" size="lg" className="h-12 bg-white text-base text-neutral-900 hover:bg-neutral-100">
-            Continuer avec Google
+            <FcGoogle className="size-5" aria-hidden="true" /> Continuer avec Google
           </Button>
           <Button type="button" size="lg" variant="outline" className="h-12 text-base">
-            Continuer avec Apple
+            <FaApple className="size-5" aria-hidden="true" /> Continuer avec Apple
           </Button>
         </div>
 

@@ -264,3 +264,5 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 ## 2026-10-19 — Écran « kayé » seulement à l'ouverture de l'app (session), plus à chaque actualisation
 
 ## 2026-10-19 — Aperçu des écrans Connexion (/connexion) et Inscription (/inscription) : Google, Apple, e-mail + mot de passe. Pas encore branchés à Firebase. Dépôt GitHub : Pouroubaba-ai/mon-kaye
+
+## 2026-10-19 — Icônes Google et Apple dans les boutons de connexion (paquet react-icons ; sur cet ordinateur, lancer npm install avant de démarrer)
