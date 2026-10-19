@@ -209,3 +209,5 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 ## 2026-10-19 — Fiche employé : bandeau « Avance déduite » retiré de la vue d'ensemble
 
 ## 2026-10-19 — Versement qui touche la retenue : alerte courte + fenêtre de confirmation (Continuer / Revenir)
+
+## 2026-10-19 — Écran « kayé » au démarrage (moins d'une seconde, seulement à l'ouverture de l'app)

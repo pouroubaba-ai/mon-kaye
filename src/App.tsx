@@ -12,6 +12,7 @@ import { NewMovementModal } from '@/components/modals/NewMovementModal'
 import { DepartureModal } from '@/components/modals/DepartureModal'
 import { CompensationModal } from '@/components/modals/CompensationModal'
 import { MovementDetailModal } from '@/components/modals/MovementDetailModal'
+import { SplashScreen } from '@/components/splash-screen'
 
 const AppContent: React.FC = () => {
   const { isLocked, activeTab, selectedPersonId, persons, accountsView } = useStore()
@@ -49,6 +50,7 @@ export function App() {
   return (
     <StoreProvider>
       <AppContent />
+      <SplashScreen />
     </StoreProvider>
   )
 }
