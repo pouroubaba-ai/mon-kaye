@@ -40,7 +40,7 @@ export interface Movement {
   id: string
   personId: string
   personName: string
-  type: 'il_a_pris_credit' | 'j_ai_pris_credit' | 'il_m_a_verse' | 'je_lui_ai_verse' | 'salaire_du' | 'avance_salaire' | 'retenue_salaire' | 'remboursement_direct' | 'compensation' | 'il_a_retourne' | 'j_ai_retourne'
+  type: 'il_a_pris_credit' | 'j_ai_pris_credit' | 'il_m_a_verse' | 'je_lui_ai_verse' | 'salaire_du' | 'avance_salaire' | 'retenue_salaire' | 'remboursement_direct' | 'compensation' | 'il_a_retourne' | 'j_ai_retourne' | 'ajout_salaire' | 'retenue_manuelle' | 'surplus_salaire'
   label: string
   amount: number
   date: string
@@ -53,6 +53,8 @@ export interface Movement {
   cancelledAt?: string
   linkedMovementId?: string
   items?: MovementItem[]
+  // Paie : mois auquel l'opération se rattache (« 2026-10 ») : salaire de base, ajout, retenue
+  period?: string
 }
 
 export const INITIAL_SHOP = {

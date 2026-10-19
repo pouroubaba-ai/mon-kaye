@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { type Person, type Movement, INITIAL_SHOP, INITIAL_PERSONS, INITIAL_MOVEMENTS } from './mockData'
+import { buildPayrollSeed, currentPeriod, monthKey, payrollOf, syncEmployee } from './payroll'
 
 // Trop versé : « plus tard » = la différence passe dans l'autre compte ; « déjà rendu » = réglé en main propre.
 export type ExcessChoice = 'plus_tard' | 'deja_rendu'
@@ -71,6 +72,11 @@ interface StoreContextType {
   cancelMovement: (id: string, reason: string, excess?: ExcessChoice) => void
   // Retour de marchandise sur un crédit (le sien ou le mien), sans argent.
   addReturn: (creditId: string, amount: number, excess?: ExcessChoice) => void
+  // Paie : état particulier d'un mois (arrêté, annulé) ; clé « employé|2026-10 »
+  monthStates: Record<string, 'arrete' | 'annule'>
+  // Mois en cours seulement. surplus : ce que devient le trop reçu (« avance » ou « rendu »)
+  stopMonth: (empId: string, period: string, newBase: number, basisLabel: string, surplus?: 'avance' | 'rendu') => void
+  cancelMonth: (empId: string, period: string, reason: string, surplus?: 'avance' | 'rendu') => void
   applyCompensation: (partnerId: string) => void
   processDeparture: (
     employeeId: string,
@@ -121,8 +127,23 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null)
   
-  const [persons, setPersons] = useState<Person[]>(INITIAL_PERSONS)
-  const [movements, setMovements] = useState<Movement[]>(INITIAL_MOVEMENTS)
+  // Démonstration : la paie des employés est reconstituée en opérations (mois, versements, avances),
+  // puis les compteurs de chaque employé sont recalculés à partir d'elles.
+  const [movements, setMovements] = useState<Movement[]>(() => [
+    ...INITIAL_MOVEMENTS,
+    ...buildPayrollSeed(INITIAL_PERSONS, INITIAL_MOVEMENTS),
+  ])
+  const [monthStates, setMonthStates] = useState<Record<string, 'arrete' | 'annule'>>({})
+  const [persons, setPersons] = useState<Person[]>(() => {
+    const all = [...INITIAL_MOVEMENTS, ...buildPayrollSeed(INITIAL_PERSONS, INITIAL_MOVEMENTS)]
+    return INITIAL_PERSONS.map(p => syncEmployee(p, all, {}))
+  })
+  // Employé : on enregistre les opérations, puis on recalcule ses compteurs depuis elles.
+  const commitEmployee = (empId: string, next: Movement[], states = monthStates) => {
+    setMovements(next)
+    setMonthStates(states)
+    setPersons(prev => prev.map(p => (p.id === empId ? syncEmployee(p, next, states) : p)))
+  }
   
   // Modals
   const [isNewMovementOpen, setIsNewMovementOpen] = useState(false)
@@ -224,6 +245,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       ...movementData,
       id: newId,
       date: dateStr,
+    }
+
+    // Employé : ajout ou retenue rattachés au mois en cours ; compteurs recalculés.
+    if (persons.find(p => p.id === newMov.personId)?.type === 'employee') {
+      if ((newMov.type === 'ajout_salaire' || newMov.type === 'retenue_manuelle') && !newMov.period) newMov.period = currentPeriod()
+      commitEmployee(newMov.personId, [newMov, ...movements])
+      return
     }
 
     setMovements(prev => [newMov, ...prev])
@@ -341,6 +369,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const person = persons.find(p => p.id === targetMov.personId)
     if (!person) return
 
+    // Employé : la ligne est barrée, puis tout est recalculé depuis les opérations.
+    if (person.type === 'employee') {
+      const next = movements.map(m => (m.id === id ? { ...m, isCancelled: true, cancellationReason: reason, cancelledAt } : m))
+      commitEmployee(person.id, next)
+      if (selectedMovement && selectedMovement.id === id) {
+        setSelectedMovement(prev => (prev ? { ...prev, isCancelled: true, cancellationReason: reason, cancelledAt } : null))
+      }
+      return
+    }
+
     const isCredit = targetMov.type === 'il_a_pris_credit' || targetMov.type === 'j_ai_pris_credit'
     // Un crédit annulé emporte ses retours : on ne retire que ce qui restait de ce crédit.
     const net = isCredit ? targetMov.amount - returnedOn(movements, id) : targetMov.amount
@@ -419,6 +457,79 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const extra = r.excess > 0 ? excessMovements(person, side, r.excess, choice ?? 'plus_tard', ret.id, `le retour du ${ret.date}`) : []
     setMovements(prev => [...extra, ret, ...prev])
     setPersons(prev => prev.map(p => (p.id === person.id ? r.updated : p)))
+  }
+
+  // PAIE : arrêter ou annuler le mois en cours. Si l'employé avait déjà reçu plus que le nouveau
+  // « à payer », le surplus sort du salaire (ligne « Trop reçu ») et devient une avance, ou il est noté rendu.
+  const settleSurplus = (emp: Person, next: Movement[], states: Record<string, 'arrete' | 'annule'>, choice?: 'avance' | 'rendu') => {
+    const surplus = payrollOf(emp.id, next, states).surplus
+    if (surplus <= 0) return next
+    const date = todayStr()
+    const stamp = Date.now()
+    const extra: Movement[] = [
+      {
+        id: `mov-surplus-${stamp}`,
+        personId: emp.id,
+        personName: emp.name,
+        type: 'surplus_salaire',
+        label: choice === 'rendu' ? 'Trop reçu : rendu' : 'Trop reçu : passé en avance',
+        amount: surplus,
+        date,
+        note: `Reçu en trop sur le salaire : ${surplus.toLocaleString('fr-FR')} FCFA`,
+      },
+    ]
+    if (choice !== 'rendu') {
+      extra.push({
+        id: `mov-surplus-adv-${stamp}`,
+        personId: emp.id,
+        personName: emp.name,
+        type: 'avance_salaire',
+        label: 'Trop reçu sur salaire',
+        amount: surplus,
+        date,
+        note: 'Surplus du mois arrêté ou annulé, à rendre comme une avance',
+      })
+    }
+    return [...extra, ...next]
+  }
+
+  const stopMonth: StoreContextType['stopMonth'] = (empId, period, newBase, basisLabel, surplus) => {
+    const emp = persons.find(p => p.id === empId)
+    if (!emp || period !== currentPeriod()) return
+    const cancelledAt = todayStr()
+    let next = movements.map(m =>
+      m.personId === empId && m.period === period && m.type === 'salaire_du' && !m.isCancelled
+        ? { ...m, isCancelled: true, cancellationReason: 'Mois arrêté', cancelledAt }
+        : m
+    )
+    next = [
+      {
+        id: `mov-sal-stop-${Date.now()}`,
+        personId: empId,
+        personName: emp.name,
+        type: 'salaire_du',
+        label: `Salaire de base (${basisLabel})`,
+        amount: newBase,
+        date: cancelledAt,
+        period,
+      },
+      ...next,
+    ]
+    const states = { ...monthStates, [monthKey(empId, period)]: 'arrete' as const }
+    commitEmployee(empId, settleSurplus(emp, next, states, surplus), states)
+  }
+
+  const cancelMonth: StoreContextType['cancelMonth'] = (empId, period, reason, surplus) => {
+    const emp = persons.find(p => p.id === empId)
+    if (!emp || period !== currentPeriod()) return
+    const cancelledAt = todayStr()
+    const next = movements.map(m =>
+      m.personId === empId && m.period === period && !m.isCancelled
+        ? { ...m, isCancelled: true, cancellationReason: `Mois annulé : ${reason}`, cancelledAt }
+        : m
+    )
+    const states = { ...monthStates, [monthKey(empId, period)]: 'annule' as const }
+    commitEmployee(empId, settleSurplus(emp, next, states, surplus), states)
   }
 
   // COMPENSATION : chacun « verse » à l'autre le plus petit des deux montants.
@@ -619,6 +730,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         addMovement,
         cancelMovement,
         addReturn,
+        monthStates,
+        stopMonth,
+        cancelMonth,
         applyCompensation,
         processDeparture,
         totals: {

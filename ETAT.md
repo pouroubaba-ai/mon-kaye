@@ -175,3 +175,12 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 - Toucher la carte « Son compte » ou « Mon compte » de la vue d'ensemble ouvre l'onglet correspondant (petite flèche sur la carte).
 - Fenêtre « Quelle opération ? » (personne) : onglets « Son compte / Mon compte », un seul compte affiché à la fois avec ses deux boutons ; ouvert depuis un onglet de la fiche, le bon compte est déjà choisi.
 - Icônes devant « Son compte » (↙ vert) et « Mon compte » (↗ orange) dans les onglets de la fiche et de la fenêtre ; sous 360 px, les icônes de la fiche s'effacent pour que les trois onglets tiennent.
+
+## Fiche employé : Salaire et Avance (19/10/2026)
+- Trois onglets : Vue d'ensemble · Salaire · Avance. Toucher une carte de la vue d'ensemble ouvre son onglet.
+- Salaire : en haut, reste à payer et dernier versement ; pastilles « Mois » (tableau, une ligne par mois : Mois, Salaire de base, Ajouts, Retenues, À payer, Versé, Reste, État ; bouton « Colonnes ») et « Versements » (liste de tous les versements).
+- Avance : en haut, reste à rendre, dernier remboursement, façon de rendre ; pastilles « Avances » (tableau : Date, Montant, Rendu, Reste, État, Note) et « Remboursements ».
+- Versements et remboursements répartis du plus ancien au plus récent (data/payroll.ts : tout est calculé à partir des opérations).
+- Fiche d'un mois : détail des lignes ; mois en cours seulement : ajouter au salaire, ajouter une retenue (motif, note, photo, détail en tableau), annuler une ligne (dont la retenue d'avance automatique), arrêter le mois (mois complet, prorata des jours, montant fixe), annuler le mois (motif). Si l'employé a déjà reçu trop : « Ça devient une avance à rendre » ou « Il l'a déjà rendu ». Mois passés, arrêtés ou annulés : scellés, on peut seulement les payer.
+- Démonstration : la paie de chaque employé est reconstituée en opérations au démarrage (salaire de base mensuel, versements, avances et retenues).
+- Reste à faire : « L'employé quitte la boutique » utilise encore l'ancienne fenêtre de départ (à rebrancher sur « Arrêter le mois ») ; la façon de rendre une avance (retenue par mois) n'est pas encore modifiable.

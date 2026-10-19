@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 
 import { useStore } from '@/data/store'
+import { currentPeriod, payrollOf } from '@/data/payroll'
 import type { Movement, MovementItem } from '@/data/mockData'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/responsive-dialog'
 import { Button } from '@/components/ui/button'
@@ -55,6 +56,15 @@ const LABELS: Record<string, string> = {
   j_ai_pris_credit: "J'ai pris à crédit",
   avance_salaire: 'Avance sur salaire',
   remboursement_direct: "Remboursement d'avance",
+  ajout_salaire: 'Ajout au salaire',
+  retenue_manuelle: 'Retenue',
+}
+
+// Ajout et retenue du mois en cours (ouverts depuis la fiche d'un mois) : un motif, pas de moyen de paiement.
+const PAY_ADJUST = new Set<string>(['ajout_salaire', 'retenue_manuelle'])
+const MOTIF_HINT: Record<string, string> = {
+  ajout_salaire: 'Motif (ex. prime, heures en plus)',
+  retenue_manuelle: 'Motif (ex. casse, manquant de caisse)',
 }
 
 const TITLES: Record<Step, string> = { qui: 'Qui ?', quoi: 'Quelle opération ?', combien: 'Combien ?', detail: 'Détail' }
@@ -69,7 +79,7 @@ const digits = (s: string) => s.replace(/\D/g, '').slice(0, 9)
 const lineTotal = (l: DraftLine, calc: boolean) => (calc ? num(l.price) * num(l.qty) : num(l.total))
 
 export const NewMovementModal: React.FC = () => {
-  const { isNewMovementOpen, closeNewMovement, newMovementTargetPersonId, newMovementInitialType, newMovementSide, persons, addMovement } =
+  const { isNewMovementOpen, closeNewMovement, newMovementTargetPersonId, newMovementInitialType, newMovementSide, persons, addMovement, movements, monthStates } =
     useStore()
 
   const [step, setStep] = useState<Step>('qui')
@@ -86,6 +96,7 @@ export const NewMovementModal: React.FC = () => {
   // Détail en tableau (crédit ou dette seulement) : les lignes confirmées, et le brouillon en cours.
   // Compte affiché à l'étape « Quelle opération ? » (onglets Son compte / Mon compte).
   const [opSide, setOpSide] = useState<'credit' | 'debt'>('credit')
+  const [motif, setMotif] = useState('')
   const [items, setItems] = useState<MovementItem[] | null>(null)
   const [draft, setDraft] = useState<DraftLine[]>([])
   const [draftCalc, setDraftCalc] = useState(true)
@@ -105,13 +116,15 @@ export const NewMovementModal: React.FC = () => {
     setGroup('partner')
     setItems(null)
     setOpSide(newMovementSide ?? 'credit')
+    setMotif('')
   }, [isNewMovementOpen, newMovementTargetPersonId, newMovementInitialType, newMovementSide])
 
   const person = persons.find(p => p.id === personId)
   const kind = person?.type === 'employee' ? 'employee' : 'partner'
   const op = OPS[kind].find(o => o.type === type)
   // Le tableau n'existe que pour un crédit ou une dette ; avec un tableau, le montant vient de ses lignes.
-  const isAddition = type === 'il_a_pris_credit' || type === 'j_ai_pris_credit'
+  const isAdjust = PAY_ADJUST.has(type)
+  const isAddition = type === 'il_a_pris_credit' || type === 'j_ai_pris_credit' || isAdjust
   const hasItems = isAddition && !!items && items.length > 0
   const amount = hasItems ? items!.reduce((a, l) => a + l.total, 0) : parseInt(amountStr, 10) || 0
   const draftSum = draft.reduce((a, l) => a + lineTotal(l, draftCalc), 0)
@@ -177,6 +190,11 @@ export const NewMovementModal: React.FC = () => {
       return { label: 'Mon compte', value: person.iOweHim || 0, tone: 'debt', isPayment: t === 'je_lui_ai_verse' }
     }
     if (t === 'je_lui_ai_verse') return { label: 'Salaire dû', value: person.currentSalaryDue || 0, tone: 'debt', isPayment: true }
+    if (PAY_ADJUST.has(t)) {
+      // Ajout ou retenue du mois en cours : on montre ce qu'il reste à payer ce mois-ci ; une retenue ne peut pas le dépasser.
+      const cur = payrollOf(person.id, movements, monthStates).months.find(m => m.period === currentPeriod())
+      return { label: 'À payer ce mois', value: cur?.aPayer ?? 0, tone: 'debt', isPayment: t === 'retenue_manuelle' }
+    }
     if (t === 'remboursement_direct') return { label: 'Avance à rendre', value: person.advanceBalance || 0, tone: 'credit', isPayment: true }
     return { label: 'Avance en cours', value: person.advanceBalance || 0, tone: 'credit', isPayment: false }
   }
@@ -221,9 +239,10 @@ export const NewMovementModal: React.FC = () => {
       personId: person.id,
       personName: person.name,
       type,
-      label: LABELS[type] ?? 'Opération',
+      label: isAdjust ? `${LABELS[type]}${motif.trim() ? ` : ${motif.trim()}` : ''}` : (LABELS[type] ?? 'Opération'),
       amount,
-      paymentMethod: payment,
+      paymentMethod: isAdjust ? undefined : payment,
+      period: isAdjust ? currentPeriod() : undefined,
       reference: reference.trim() || undefined,
       note: note.trim() || undefined,
       receiptPhoto: photo ? 'simulation_photo_recu.jpg' : undefined,
@@ -265,14 +284,14 @@ export const NewMovementModal: React.FC = () => {
     <Dialog
       open={isNewMovementOpen}
       onOpenChange={o => !o && closeNewMovement()}
-      dirty={amount > 0 || note.trim() !== '' || reference.trim() !== '' || photo || hasItems || (step === 'detail' && draftSum > 0)}
+      dirty={amount > 0 || note.trim() !== '' || reference.trim() !== '' || photo || hasItems || motif.trim() !== '' || (step === 'detail' && draftSum > 0)}
       dirtyKind="ajout"
     >
       <DialogContent fixedHeight>
         <DialogHeader className="shrink-0">
           <div className="flex items-center gap-1">
             {/* Ouverte depuis une fiche : la personne est fixée, pas de retour vers la liste des personnes */}
-            {step !== 'qui' && !(step === 'quoi' && newMovementTargetPersonId) && (
+            {step !== 'qui' && !(step === 'quoi' && newMovementTargetPersonId) && !(step === 'combien' && PAY_ADJUST.has(newMovementInitialType ?? '')) && (
               <Button variant="ghost" size="icon" className="-ml-2" onClick={back} aria-label="Retour">
                 <ArrowLeft />
               </Button>
@@ -402,7 +421,7 @@ export const NewMovementModal: React.FC = () => {
           <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
             <div className="flex shrink-0 flex-col gap-1">
               <button type="button" onClick={() => setStep('quoi')} className="truncate py-0.5 text-left text-sm leading-6 text-muted-foreground">
-                {person.name} · <span className={op?.tone === 'credit' ? 'text-credit' : 'text-debt'}>{op?.label}</span>
+                {person.name} · <span className={op?.tone === 'credit' || type === 'ajout_salaire' ? 'text-credit' : 'text-debt'}>{op?.label ?? LABELS[type]}</span>
               </button>
               {balance && (
                 <p className="text-sm">
@@ -478,6 +497,10 @@ export const NewMovementModal: React.FC = () => {
             )}
 
             <div className="flex shrink-0 flex-col gap-3">
+              {isAdjust && (
+                <Input placeholder={MOTIF_HINT[type]} value={motif} onChange={e => setMotif(e.target.value)} />
+              )}
+              {!isAdjust && (
               <Tabs value={payment} onValueChange={v => setPayment(v as typeof payment)}>
                 <TabsList className="w-full">
                   <TabsTrigger value="especes">Espèces</TabsTrigger>
@@ -485,6 +508,7 @@ export const NewMovementModal: React.FC = () => {
                   <TabsTrigger value="mobile_money">Mobile Money</TabsTrigger>
                 </TabsList>
               </Tabs>
+              )}
 
               {showMore ? (
                 <div className="flex flex-col gap-2">

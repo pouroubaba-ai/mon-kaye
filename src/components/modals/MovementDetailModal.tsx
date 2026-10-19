@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { PAYMENT_LABELS } from '@/components/movement-history'
+import { currentPeriod } from '@/data/payroll'
 import { useStore, excessOf, returnedOn, type ExcessChoice } from '@/data/store'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/responsive-dialog'
 import { Button } from '@/components/ui/button'
@@ -20,7 +21,7 @@ import {
 } from 'lucide-react'
 
 export const MovementDetailModal: React.FC = () => {
-  const { selectedMovement, closeMovementDetail, cancelMovement, addReturn, shop, persons, movements } = useStore()
+  const { selectedMovement, closeMovementDetail, cancelMovement, addReturn, shop, persons, movements, monthStates } = useStore()
   // Panneau ouvert en bas : rien, l'annulation (motif) ou le retour (montant).
   const [panel, setPanel] = useState<'none' | 'annuler' | 'retour'>('none')
   const [cancelReason, setCancelReason] = useState('')
@@ -39,6 +40,8 @@ export const MovementDetailModal: React.FC = () => {
 
   if (!selectedMovement) return null
   const mov = movements.find(m => m.id === selectedMovement.id) ?? selectedMovement
+  // Paie : une ligne d'un mois scellé (passé, arrêté, annulé) ne peut plus être annulée.
+  const sealed = !!mov.period && (mov.period !== currentPeriod() || !!monthStates[`${mov.personId}|${mov.period}`])
   const isCredit = mov.type === 'il_a_pris_credit' || mov.type === 'j_ai_pris_credit'
   const side: 'lui' | 'moi' = mov.type === 'il_a_pris_credit' || mov.type === 'il_a_retourne' ? 'lui' : 'moi'
   const returns = isCredit ? movements.filter(m => m.linkedMovementId === mov.id && (m.type === 'il_a_retourne' || m.type === 'j_ai_retourne')) : []
@@ -246,7 +249,10 @@ export const MovementDetailModal: React.FC = () => {
           )}
 
           {/* ACTIONS : « Retour » (crédits) à côté de « Annuler ». Jamais de suppression. */}
-          {!mov.isCancelled && (
+          {!mov.isCancelled && sealed && (
+            <p className="border-t pt-2 text-xs text-muted-foreground">Mois scellé : cette ligne ne peut plus être annulée.</p>
+          )}
+          {!mov.isCancelled && !sealed && (
             <div className="pt-2 border-t">
               {excessAsk ? (
                 // Trop versé : la différence change de côté, sauf si elle a déjà été rendue.

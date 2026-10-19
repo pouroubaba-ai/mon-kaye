@@ -2,7 +2,8 @@ import React from 'react'
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 
 import { useStore } from '@/data/store'
-import { buildPayHistory, daysSince } from '@/data/payHistory'
+import { daysSince } from '@/data/payHistory'
+import { payHistoryFromMovements } from '@/data/payroll'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -29,7 +30,9 @@ const short = (v: number) => (v >= 1_000_000 ? `${Math.round(v / 100_000) / 10} 
 
 // side = « leurs » : avances à rendre ; « mes » : salaires (graphique + salaires dus).
 export const EmployeesOverview: React.FC<{ side: 'leurs' | 'mes' }> = ({ side }) => {
-  const { persons } = useStore()
+  const { persons, movements, monthStates } = useStore()
+  // Historique calculé à partir des opérations (les mêmes chiffres que la fiche de chaque employé)
+  const buildPayHistory = (list: typeof persons) => payHistoryFromMovements(list, movements, monthStates)
   const isMobile = useIsMobile()
   const employees = persons.filter(p => p.type === 'employee')
   const [who, setWho] = React.useState('tous')
