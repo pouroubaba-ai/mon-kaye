@@ -27,6 +27,15 @@ export interface Person {
   lastSalaryPaymentDate?: string // Dernier salaire versé (jj/mm/aaaa)
 }
 
+// Une ligne du détail d'un crédit ou d'une dette (tableau facultatif).
+// Avec calcul : prix × quantité ; sans calcul : seulement le total de la ligne.
+export interface MovementItem {
+  label: string
+  price?: number
+  qty?: number
+  total: number
+}
+
 export interface Movement {
   id: string
   personId: string
@@ -43,6 +52,7 @@ export interface Movement {
   cancellationReason?: string
   cancelledAt?: string
   linkedMovementId?: string
+  items?: MovementItem[]
 }
 
 export const INITIAL_SHOP = {

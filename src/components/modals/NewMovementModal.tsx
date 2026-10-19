@@ -10,15 +10,18 @@ import {
   HandCoins,
   Plus,
   Search,
+  Table,
+  Trash2,
   Undo2,
 } from 'lucide-react'
 
 import { useStore } from '@/data/store'
-import type { Movement } from '@/data/mockData'
+import type { Movement, MovementItem } from '@/data/mockData'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/responsive-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn, formatFCFA } from '@/lib/utils'
 
@@ -27,7 +30,7 @@ import { cn, formatFCFA } from '@/lib/utils'
 // Ouverte depuis une fiche, la personne et l'opération sont déjà connues : on arrive
 // directement sur « Combien ? ». Les options (note, photo, référence) restent repliées.
 
-type Step = 'qui' | 'quoi' | 'combien'
+type Step = 'qui' | 'quoi' | 'combien' | 'detail'
 type MType = Movement['type']
 
 const OPS: Record<'partner' | 'employee', { type: MType; label: string; Icon: React.ComponentType<{ className?: string }>; tone: 'credit' | 'debt' }[]> = {
@@ -54,7 +57,16 @@ const LABELS: Record<string, string> = {
   remboursement_direct: "Remboursement d'avance",
 }
 
-const TITLES: Record<Step, string> = { qui: 'Qui ?', quoi: 'Quelle opération ?', combien: 'Combien ?' }
+const TITLES: Record<Step, string> = { qui: 'Qui ?', quoi: 'Quelle opération ?', combien: 'Combien ?', detail: 'Détail' }
+
+// Ligne du tableau en cours de saisie (chiffres gardés en texte, sans espaces).
+type DraftLine = { label: string; price: string; qty: string; total: string }
+const emptyLine = (): DraftLine => ({ label: '', price: '', qty: '1', total: '' })
+const num = (s: string) => parseInt(s, 10) || 0
+// Affichage en milliers pendant la saisie : 20000 → « 20 000 ».
+const thousands = (s: string) => (s ? Number(s).toLocaleString('fr-FR').replace(/\s/g, ' ') : '')
+const digits = (s: string) => s.replace(/\D/g, '').slice(0, 9)
+const lineTotal = (l: DraftLine, calc: boolean) => (calc ? num(l.price) * num(l.qty) : num(l.total))
 
 export const NewMovementModal: React.FC = () => {
   const { isNewMovementOpen, closeNewMovement, newMovementTargetPersonId, newMovementInitialType, newMovementSide, persons, addMovement } =
@@ -71,6 +83,10 @@ export const NewMovementModal: React.FC = () => {
   const [showMore, setShowMore] = useState(false)
   const [search, setSearch] = useState('')
   const [group, setGroup] = useState<'partner' | 'employee'>('partner')
+  // Détail en tableau (crédit ou dette seulement) : les lignes confirmées, et le brouillon en cours.
+  const [items, setItems] = useState<MovementItem[] | null>(null)
+  const [draft, setDraft] = useState<DraftLine[]>([])
+  const [draftCalc, setDraftCalc] = useState(true)
 
   useEffect(() => {
     if (!isNewMovementOpen) return
@@ -85,12 +101,47 @@ export const NewMovementModal: React.FC = () => {
     setShowMore(false)
     setSearch('')
     setGroup('partner')
+    setItems(null)
   }, [isNewMovementOpen, newMovementTargetPersonId, newMovementInitialType])
 
   const person = persons.find(p => p.id === personId)
   const kind = person?.type === 'employee' ? 'employee' : 'partner'
   const op = OPS[kind].find(o => o.type === type)
-  const amount = parseInt(amountStr, 10) || 0
+  // Le tableau n'existe que pour un crédit ou une dette ; avec un tableau, le montant vient de ses lignes.
+  const isAddition = type === 'il_a_pris_credit' || type === 'j_ai_pris_credit'
+  const hasItems = isAddition && !!items && items.length > 0
+  const amount = hasItems ? items!.reduce((a, l) => a + l.total, 0) : parseInt(amountStr, 10) || 0
+  const draftSum = draft.reduce((a, l) => a + lineTotal(l, draftCalc), 0)
+
+  const openDetail = () => {
+    if (hasItems) {
+      const calc = items!.some(l => l.price !== undefined)
+      setDraftCalc(calc)
+      setDraft(items!.map(l => ({ label: l.label, price: String(l.price ?? ''), qty: String(l.qty ?? 1), total: String(l.total) })))
+    } else {
+      setDraftCalc(true)
+      setDraft([emptyLine()])
+    }
+    setStep('detail')
+  }
+  const confirmDetail = () => {
+    const lines: MovementItem[] = draft
+      .map(l => ({ l, t: lineTotal(l, draftCalc) }))
+      .filter(({ t }) => t > 0)
+      .map(({ l, t }) =>
+        draftCalc
+          ? { label: l.label.trim() || 'Article', price: num(l.price), qty: num(l.qty), total: t }
+          : { label: l.label.trim() || 'Article', total: t }
+      )
+    setItems(lines.length ? lines : null)
+    setStep('combien')
+  }
+  const removeDetail = () => {
+    setItems(null)
+    setAmountStr('0')
+    setStep('combien')
+  }
+  const setLine = (i: number, patch: Partial<DraftLine>) => setDraft(d => d.map((l, j) => (j === i ? { ...l, ...patch } : l)))
 
   // Le compte que l'opération fait bouger, et son montant actuel.
   // Un versement (ou un remboursement) ne peut jamais dépasser ce qui est dû.
@@ -136,7 +187,8 @@ export const NewMovementModal: React.FC = () => {
   }
 
   const back = () => {
-    if (step === 'combien') setStep('quoi')
+    if (step === 'detail') setStep('combien')
+    else if (step === 'combien') setStep('quoi')
     else if (step === 'quoi' && !newMovementTargetPersonId) setStep('qui')
   }
 
@@ -152,6 +204,7 @@ export const NewMovementModal: React.FC = () => {
       reference: reference.trim() || undefined,
       note: note.trim() || undefined,
       receiptPhoto: photo ? 'simulation_photo_recu.jpg' : undefined,
+      items: hasItems ? items! : undefined,
     })
     closeNewMovement()
   }
@@ -189,7 +242,7 @@ export const NewMovementModal: React.FC = () => {
     <Dialog
       open={isNewMovementOpen}
       onOpenChange={o => !o && closeNewMovement()}
-      dirty={amount > 0 || note.trim() !== '' || reference.trim() !== '' || photo}
+      dirty={amount > 0 || note.trim() !== '' || reference.trim() !== '' || photo || hasItems || (step === 'detail' && draftSum > 0)}
       dirtyKind="ajout"
     >
       <DialogContent fixedHeight>
@@ -343,7 +396,33 @@ export const NewMovementModal: React.FC = () => {
               )}
             </div>
 
-            {/* Pavé : les 4 rangées se partagent la hauteur disponible */}
+            {/* Avec un détail : le montant vient du tableau, le pavé laisse la place aux lignes */}
+            {hasItems ? (
+              <div className="flex min-h-44 flex-1 flex-col gap-2 overflow-hidden rounded-xl border p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    Détail · {items!.length} {items!.length > 1 ? 'lignes' : 'ligne'}
+                  </span>
+                  <Button type="button" variant="outline" size="sm" onClick={openDetail}>
+                    <Table /> Modifier
+                  </Button>
+                </div>
+                <div className="min-h-0 flex-1 divide-y overflow-y-auto text-sm">
+                  {items!.map((l, i) => (
+                    <div key={i} className="flex items-baseline justify-between gap-3 py-1.5">
+                      <span className="min-w-0 truncate">
+                        {l.label}
+                        {l.price !== undefined && (
+                          <span className="text-xs text-muted-foreground"> · {formatFCFA(l.price)} × {l.qty}</span>
+                        )}
+                      </span>
+                      <span className="shrink-0 tabular-nums">{formatFCFA(l.total)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+            /* Pavé : les 4 rangées se partagent la hauteur disponible */
             <div className="grid min-h-44 flex-1 grid-cols-3 grid-rows-4 gap-1">
               {['1', '2', '3', '4', '5', '6', '7', '8', '9', '000', '0', 'del'].map(k => (
                 <Button
@@ -368,6 +447,7 @@ export const NewMovementModal: React.FC = () => {
                 </Button>
               ))}
             </div>
+            )}
 
             <div className="flex shrink-0 flex-col gap-3">
               <Tabs value={payment} onValueChange={v => setPayment(v as typeof payment)}>
@@ -387,16 +467,115 @@ export const NewMovementModal: React.FC = () => {
                   <Button type="button" variant={photo ? 'secondary' : 'outline'} onClick={() => setPhoto(!photo)}>
                     <Camera /> {photo ? 'Photo ajoutée' : 'Ajouter une photo'}
                   </Button>
+                  {/* Détail ligne par ligne : seulement pour un crédit ou une dette */}
+                  {isAddition && !hasItems && (
+                    <Button type="button" variant="outline" onClick={openDetail}>
+                      <Table /> Ajouter un détail
+                    </Button>
+                  )}
                 </div>
               ) : (
                 <Button type="button" variant="link" className="h-auto self-center text-muted-foreground" onClick={() => setShowMore(true)}>
-                  Ajouter une note ou une photo
+                  {isAddition ? 'Ajouter une note, une photo ou un détail' : 'Ajouter une note ou une photo'}
                 </Button>
               )}
 
               <Button size="lg" className="h-12 text-base" disabled={amount <= 0 || tooMuch} onClick={save}>
                 Enregistrer
               </Button>
+            </div>
+          </div>
+        )}
+
+        {/* 4. Détail en tableau : une carte par ligne, le total en bas */}
+        {step === 'detail' && person && (
+          <div className="flex min-h-0 flex-1 flex-col gap-3">
+            <label className="flex shrink-0 items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-sm">
+              <span>
+                Calculer avec prix et quantité
+                <span className="block text-xs text-muted-foreground">
+                  {draftCalc ? 'Libellé, prix, quantité' : 'Libellé et total de la ligne'}
+                </span>
+              </span>
+              <Switch checked={draftCalc} onCheckedChange={setDraftCalc} />
+            </label>
+
+            <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
+              {draft.map((l, i) => (
+                <div key={i} className="flex flex-col gap-2 rounded-lg border p-2.5">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder={`Article ${i + 1}`}
+                      value={l.label}
+                      onChange={e => setLine(i, { label: e.target.value })}
+                      className="h-9"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-9 shrink-0 text-muted-foreground"
+                      aria-label="Supprimer la ligne"
+                      onClick={() => setDraft(d => (d.length > 1 ? d.filter((_, j) => j !== i) : [emptyLine()]))}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
+                  {draftCalc ? (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Input
+                        inputMode="numeric"
+                        placeholder="Prix"
+                        aria-label="Prix"
+                        value={thousands(l.price)}
+                        onChange={e => setLine(i, { price: digits(e.target.value) })}
+                        className="h-9 min-w-0 flex-[3]"
+                      />
+                      <span className="text-muted-foreground">×</span>
+                      <Input
+                        inputMode="numeric"
+                        placeholder="Qté"
+                        aria-label="Quantité"
+                        value={l.qty}
+                        onChange={e => setLine(i, { qty: digits(e.target.value).slice(0, 5) })}
+                        className="h-9 min-w-0 flex-[2]"
+                      />
+                      <span className="w-24 shrink-0 text-right font-medium tabular-nums">
+                        {formatFCFA(lineTotal(l, true))}
+                      </span>
+                    </div>
+                  ) : (
+                    <Input
+                      inputMode="numeric"
+                      placeholder="Total de la ligne"
+                      aria-label="Total de la ligne"
+                      value={thousands(l.total)}
+                      onChange={e => setLine(i, { total: digits(e.target.value) })}
+                      className="h-9"
+                    />
+                  )}
+                </div>
+              ))}
+              <Button type="button" variant="ghost" className="self-start" onClick={() => setDraft(d => [...d, emptyLine()])}>
+                <Plus /> Ajouter une ligne
+              </Button>
+            </div>
+
+            <div className="flex shrink-0 flex-col gap-2 border-t pt-3">
+              <div className="flex items-baseline justify-between">
+                <span className="text-sm text-muted-foreground">Total</span>
+                <span className="text-2xl font-semibold tabular-nums">{formatFCFA(draftSum)}</span>
+              </div>
+              <div className={cn('grid gap-2', hasItems ? 'grid-cols-2' : 'grid-cols-1')}>
+                {hasItems && (
+                  <Button type="button" variant="ghost" className="h-12 text-destructive" onClick={removeDetail}>
+                    Supprimer le détail
+                  </Button>
+                )}
+                <Button size="lg" className="h-12 text-base" disabled={draftSum <= 0} onClick={confirmDetail}>
+                  Confirmer
+                </Button>
+              </div>
             </div>
           </div>
         )}

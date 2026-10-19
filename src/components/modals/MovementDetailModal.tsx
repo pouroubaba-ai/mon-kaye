@@ -63,7 +63,11 @@ export const MovementDetailModal: React.FC = () => {
   const remainingDebt = person?.type === 'partner' ? ((person.owesMe || 0) - (person.iOweHim || 0)) : (person?.currentSalaryDue || 0)
 
   // Message formaté pour WhatsApp / SMS
-  const receiptMessage = `${shop.name}\nReçu de versement du ${selectedMovement.date}\nClient / Employé : ${selectedMovement.personName}\nMontant versé : ${formatFCFA(selectedMovement.amount)}\nMoyen de paiement : ${PAYMENT_LABELS[selectedMovement.paymentMethod || 'especes']}${selectedMovement.reference ? ` (Réf : ${selectedMovement.reference})` : ''}\nSolde restant dû : ${formatFCFA(Math.max(0, remainingDebt))}\nMerci pour votre confiance !`
+  // Détail repris dans le reçu, une ligne par article.
+  const detailLines = mov.items?.length
+    ? '\n' + mov.items.map(l => `- ${l.label}${l.price !== undefined ? ` (${formatFCFA(l.price)} × ${l.qty})` : ''} : ${formatFCFA(l.total)}`).join('\n')
+    : ''
+  const receiptMessage = `${shop.name}\nReçu de versement du ${selectedMovement.date}\nClient / Employé : ${selectedMovement.personName}\nMontant versé : ${formatFCFA(selectedMovement.amount)}${detailLines}\nMoyen de paiement : ${PAYMENT_LABELS[selectedMovement.paymentMethod || 'especes']}${selectedMovement.reference ? ` (Réf : ${selectedMovement.reference})` : ''}\nSolde restant dû : ${formatFCFA(Math.max(0, remainingDebt))}\nMerci pour votre confiance !`
 
   const handleCopyReceipt = () => {
     navigator.clipboard.writeText(receiptMessage)
@@ -152,6 +156,23 @@ export const MovementDetailModal: React.FC = () => {
               <p className="text-xs bg-muted/30 p-2 rounded-lg italic">
                 "{selectedMovement.note}"
               </p>
+            )}
+
+            {/* Détail ligne par ligne (tableau facultatif d'un crédit ou d'une dette) */}
+            {mov.items && mov.items.length > 0 && (
+              <div className="divide-y rounded-lg border text-xs">
+                {mov.items.map((l, i) => (
+                  <div key={i} className="flex items-baseline justify-between gap-3 px-2.5 py-1.5">
+                    <span className="min-w-0 truncate">
+                      {l.label}
+                      {l.price !== undefined && (
+                        <span className="text-muted-foreground"> · {formatFCFA(l.price)} × {l.qty}</span>
+                      )}
+                    </span>
+                    <span className="shrink-0 tabular-nums">{formatFCFA(l.total)}</span>
+                  </div>
+                ))}
+              </div>
             )}
 
             {selectedMovement.receiptPhoto && (

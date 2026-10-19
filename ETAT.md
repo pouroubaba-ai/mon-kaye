@@ -162,3 +162,9 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 - Ouvrir une fiche puis revenir (fil d'Ariane) ramène exactement à la même position, avec la recherche, le tri et « Tout voir » conservés (la page reste montée sous la fiche).
 - Bouton du menu (barre du bas ou latérale), même celui de la page actuelle : retour en haut.
 - Recherche des listes : petite croix pour effacer. Vues « Leurs comptes / Mes comptes » : croix pour revenir à « Toutes les personnes », œil sur chaque ligne pour ouvrir la fiche.
+
+## Détail en tableau d'un crédit ou d'une dette (19/10/2026)
+- Option à côté de la note et de la photo : « Ajouter un détail ». Une carte par ligne, total en bas, puis « Confirmer ».
+- Interrupteur « Calculer avec prix et quantité » : libellé, prix, quantité (total calculé) ; sinon libellé et total de la ligne.
+- Avec un détail, le montant vient des lignes : le pavé laisse la place à la liste, avec « Modifier » ; « Supprimer le détail » rend le pavé.
+- Le détail apparaît dans la fiche de l'opération et dans le reçu WhatsApp.
