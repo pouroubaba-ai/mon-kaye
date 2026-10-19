@@ -20,9 +20,14 @@ import { daysSince } from '@/data/payHistory'
 export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId }) => {
   const { persons, movements, openNewMovement, openCompensation, openMovementDetail } = useStore()
 
-  const [view, setView] = React.useState<'ensemble' | 'historique'>('ensemble')
-  const [side, setSide] = React.useState<'lui' | 'moi'>('lui')
+  // Trois onglets au même niveau : la situation, puis chaque compte (ses opérations).
+  const [view, setViewRaw] = React.useState<'ensemble' | 'lui' | 'moi'>('ensemble')
+  const side: 'lui' | 'moi' = view === 'moi' ? 'moi' : 'lui'
   const [kind, setKind] = React.useState<'credit' | 'versement' | 'retour'>('credit')
+  const setView = (v: 'ensemble' | 'lui' | 'moi') => {
+    setViewRaw(v)
+    setKind('credit')
+  }
   const partner = persons.find(p => p.id === partnerId)
   if (!partner) return null
 
@@ -49,11 +54,12 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
     <div className="flex flex-col gap-4">
       <PersonHeader person={partner} />
 
-      {/* Deux vues : la situation (Vue d'ensemble) et le détail des opérations (Historique) */}
-      <Tabs value={view} onValueChange={v => setView(v as 'ensemble' | 'historique')}>
+      {/* Un seul niveau d'onglets, avec les mots du comptoir : pas d'« Historique » à traverser. */}
+      <Tabs value={view} onValueChange={v => setView(v as 'ensemble' | 'lui' | 'moi')}>
         <TabsList className="w-full">
           <TabsTrigger value="ensemble">Vue d'ensemble</TabsTrigger>
-          <TabsTrigger value="historique">Historique</TabsTrigger>
+          <TabsTrigger value="lui">Son compte</TabsTrigger>
+          <TabsTrigger value="moi">Mon compte</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -85,6 +91,7 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
             title="Son compte"
             Icon={ArrowDownLeft}
             tone="credit"
+            onClick={() => setView('lui')}
             remaining={owesMe}
             paid={paidToMe}
             totalDays={days(lastDateOf('il_a_pris_credit', partner.lastCreditToHimDate))}
@@ -94,6 +101,7 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
             title="Mon compte"
             Icon={ArrowUpRight}
             tone="debt"
+            onClick={() => setView('moi')}
             remaining={iOweHim}
             paid={paidByMe}
             totalDays={days(lastDateOf('j_ai_pris_credit', partner.lastCreditFromHimDate))}
@@ -103,19 +111,8 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
         </>
       )}
 
-      {view === 'historique' && (
+      {view !== 'ensemble' && (
         <>
-          {/* Le côté, comme les cartes : onglets soulignés, à la couleur du côté */}
-          <Tabs value={side} onValueChange={v => { setSide(v as 'lui' | 'moi'); setKind('credit') }}>
-            <TabsList variant="line" className="w-full border-b">
-              <TabsTrigger value="lui" className={side === 'lui' ? 'text-credit after:bg-credit' : ''}>
-                <ArrowDownLeft /> Son compte
-              </TabsTrigger>
-              <TabsTrigger value="moi" className={side === 'moi' ? 'text-debt after:bg-debt' : ''}>
-                <ArrowUpRight /> Mon compte
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
           {(() => {
             const creditType = side === 'lui' ? 'il_a_pris_credit' : 'j_ai_pris_credit'
             const payType = side === 'lui' ? 'il_m_a_verse' : 'je_lui_ai_verse'

@@ -169,3 +169,7 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 - Avec un détail, le montant vient des lignes : le pavé laisse la place à la liste, avec « Modifier » ; « Supprimer le détail » rend le pavé.
 - Le détail apparaît dans la fiche de l'opération et dans le reçu WhatsApp.
 - Lignes du détail compactes (une rangée : libellé, prix × quantité ou total, poubelle ; total de ligne en petit dessous). Entrée passe au champ suivant ; sur le dernier champ, une nouvelle ligne s'ouvre. Les champs chiffrés se sélectionnent à l'entrée (taper 2 remplace le 1).
+
+## Fiche d'une personne : trois onglets (19/10/2026)
+- « Vue d'ensemble · Son compte · Mon compte » au même niveau ; l'onglet « Historique » et ses sous-onglets disparaissent (mot d'ordinateur, deux choix au lieu d'un).
+- Toucher la carte « Son compte » ou « Mon compte » de la vue d'ensemble ouvre l'onglet correspondant (petite flèche sur la carte).

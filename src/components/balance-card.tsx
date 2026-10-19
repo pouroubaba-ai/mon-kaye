@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { ChevronRight } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -21,6 +22,7 @@ export function BalanceCard({
   note,
   totalDays,
   paidDays,
+  onClick,
 }: {
   title: string
   Icon: React.ComponentType<{ className?: string }>
@@ -31,6 +33,8 @@ export function BalanceCard({
   // Nombre de jours depuis la dernière hausse du total (dernier crédit) et depuis le dernier versement
   totalDays?: number | null
   paidDays?: number | null
+  // Carte touchable (fiche d'une personne : ouvre l'onglet du compte)
+  onClick?: () => void
 }) {
   // En grand : ce qui reste. Dessous : la barre, puis le total et le déjà versé.
   const total = remaining + paid
@@ -38,7 +42,13 @@ export function BalanceCard({
   const color = tone === 'credit' ? 'var(--color-credit)' : 'var(--color-debt)'
   const light = `color-mix(in srgb, ${color} 30%, transparent)`
   return (
-    <Card className="gap-4">
+    <Card
+      className={onClick ? 'cursor-pointer gap-4 transition-transform active:scale-[0.99]' : 'gap-4'}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={onClick ? e => (e.key === 'Enter' || e.key === ' ') && onClick() : undefined}
+    >
       <CardHeader>
         <CardDescription className="flex items-center gap-2">
           <span className="flex size-7 items-center justify-center rounded-lg text-white" style={{ background: color }}>
@@ -49,8 +59,9 @@ export function BalanceCard({
         <CardTitle className="text-3xl font-bold tabular-nums" style={{ color }}>
           {formatFCFA(remaining)}
         </CardTitle>
-        <CardAction>
+        <CardAction className="flex items-center gap-1">
           <Badge variant="outline" className="tabular-nums">{paidPct} % versé</Badge>
+          {onClick && <ChevronRight className="-mr-1 size-4 text-muted-foreground" />}
         </CardAction>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
