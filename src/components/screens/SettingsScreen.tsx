@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Briefcase, Check, Download, Moon, Sun, Users } from 'lucide-react'
+import { ArrowLeft, Blocks, Briefcase, Check, ChevronRight, Download, Moon, Sun, Users } from 'lucide-react'
 
 import { useStore } from '@/data/store'
 import { Badge } from '@/components/ui/badge'
@@ -27,12 +27,53 @@ export const SettingsScreen: React.FC = () => {
   const [pinInput, setPinInput] = useState(shop.pin)
   const [saved, setSaved] = useState(false)
 
+  const [view, setView] = useState<'main' | 'modules'>('main')
+  const onNames = [modules.personnes && 'Personnes', modules.employes && 'Employés'].filter(Boolean).join(' · ')
+
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault()
     setShopName(shopNameInput)
     if (pinInput.length === 4) setShopPin(pinInput)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+  }
+
+  // Liste des modules : on allume ou coupe chacun. Couper ne supprime rien.
+  if (view === 'modules') {
+    const MODS = [
+      { key: 'personnes', title: 'Personnes', hint: 'Clients, fournisseurs : leurs comptes et les miens', Icon: Users },
+      { key: 'employes', title: 'Employés', hint: 'Salaires, avances et la page Salaires', Icon: Briefcase },
+    ] as const
+    return (
+      <div className="flex max-w-2xl flex-col gap-4">
+        <button type="button" onClick={() => setView('main')} className="flex items-center gap-2 self-start text-sm text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="size-4" /> Réglages
+        </button>
+        <div className="flex flex-col gap-1">
+          <h2 className="text-lg font-semibold">Modules</h2>
+          <p className="text-sm text-muted-foreground">Gardez seulement ce que vous utilisez. Couper un module ne supprime rien : tout revient quand vous le rallumez.</p>
+        </div>
+        <Card className="py-0">
+          <div className="flex flex-col divide-y">
+            {MODS.map(m => {
+              const on = modules[m.key]
+              // Le dernier module allumé ne peut pas être coupé
+              const last = on && !(m.key === 'personnes' ? modules.employes : modules.personnes)
+              return (
+                <label key={m.key} htmlFor={`module-${m.key}`} className="flex items-center gap-3 p-4">
+                  <m.Icon className="size-5 shrink-0 text-muted-foreground" />
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="text-sm font-medium">{m.title}</span>
+                    <span className="text-xs text-muted-foreground">{last ? 'Au moins un module doit rester allumé' : m.hint}</span>
+                  </span>
+                  <Switch id={`module-${m.key}`} checked={on} disabled={last} onCheckedChange={v => setModule(m.key, v)} />
+                </label>
+              )
+            })}
+          </div>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -72,31 +113,16 @@ export const SettingsScreen: React.FC = () => {
         </form>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Modules</CardTitle>
-          <CardDescription>Gardez seulement ce que vous utilisez. Couper un module ne supprime rien : tout revient quand vous le rallumez.</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col divide-y">
-          {([
-            { key: 'personnes', title: 'Personnes', hint: 'Clients, fournisseurs : leurs comptes et les miens', Icon: Users },
-            { key: 'employes', title: 'Employés', hint: 'Salaires, avances et la page Salaires', Icon: Briefcase },
-          ] as const).map(m => {
-            const on = modules[m.key]
-            // Le dernier module allumé ne peut pas être coupé
-            const last = on && !(m.key === 'personnes' ? modules.employes : modules.personnes)
-            return (
-              <label key={m.key} htmlFor={`module-${m.key}`} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                <m.Icon className="size-5 shrink-0 text-muted-foreground" />
-                <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="text-sm font-medium">{m.title}</span>
-                  <span className="text-xs text-muted-foreground">{last ? 'Au moins un module doit rester allumé' : m.hint}</span>
-                </span>
-                <Switch id={`module-${m.key}`} checked={on} disabled={last} onCheckedChange={v => setModule(m.key, v)} />
-              </label>
-            )
-          })}
-        </CardContent>
+      {/* Modules : une ligne qui ouvre la liste des modules */}
+      <Card className="py-0">
+        <button type="button" onClick={() => setView('modules')} className="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-muted/40 rounded-xl">
+          <Blocks className="size-5 shrink-0 text-muted-foreground" />
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="text-sm font-medium">Modules</span>
+            <span className="truncate text-xs text-muted-foreground">{onNames || 'Aucun'}</span>
+          </span>
+          <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+        </button>
       </Card>
 
       <Card>

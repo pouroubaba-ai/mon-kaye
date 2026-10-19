@@ -78,9 +78,12 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
     { tab: 'employes', label: 'Employés', icon: Briefcase },
     { tab: 'salaires', label: 'Salaires', icon: Coins },
   ]
-  const tabs = allTabs.filter(t => (t.tab === 'personnes' ? modules.personnes : t.tab === 'employes' || t.tab === 'salaires' ? modules.employes : true))
-  // Le « + » au milieu : autant d'onglets de chaque côté (un de plus à gauche si impair)
-  const half = Math.ceil(tabs.length / 2)
+  const shown = allTabs.filter(t => (t.tab === 'personnes' ? modules.personnes : t.tab === 'employes' || t.tab === 'salaires' ? modules.employes : true))
+  // Le « + » toujours au milieu : autant d'onglets de chaque côté. S'il en manque un, Réglages
+  // prend la place libre (sinon Réglages est l'icône en haut à droite).
+  const settingsInBar = shown.length % 2 === 1
+  const tabs = settingsInBar ? [...shown, { tab: 'reglages' as Tab, label: 'Réglages', icon: Settings }] : shown
+  const half = tabs.length / 2
   const toPay = useToPayCount()
 
   return (
@@ -127,9 +130,11 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
               <Lock />
             </Button>
             {/* Réglages : ici sur téléphone, la barre du bas laisse sa place à « Salaires » */}
-            <Button variant="ghost" size="icon" onClick={() => go('reglages')} aria-label="Réglages" className={cn(activeTab === 'reglages' && 'bg-muted')}>
-              <Settings />
-            </Button>
+            {!settingsInBar && (
+              <Button variant="ghost" size="icon" onClick={() => go('reglages')} aria-label="Réglages" className={cn(activeTab === 'reglages' && 'bg-muted')}>
+                <Settings />
+              </Button>
+            )}
           </div>
         </header>
 
