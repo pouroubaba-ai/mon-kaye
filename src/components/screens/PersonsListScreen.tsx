@@ -124,6 +124,12 @@ export const PersonsListScreen: React.FC = () => {
                       </p>
                     </div>
                   </div>
+                  {/* Employés : actif ou parti, comme sur sa fiche */}
+                  {isEmployee && activeTab === 'employes' && (
+                    <Badge variant={p.status === 'inactif' ? 'secondary' : 'outline'} className="shrink-0">
+                      {p.status === 'inactif' ? 'Parti' : 'Actif'}
+                    </Badge>
+                  )}
                 </div>
               </Card>
             )
