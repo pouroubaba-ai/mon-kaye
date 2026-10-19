@@ -240,94 +240,115 @@ export function MonthDialog({
           </p>
         )}
 
-        {/* Trop reçu : on prévient avant d'arrêter ou d'annuler */}
-        {askSurplus ? (
-          <div className="flex flex-col gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-3">
-            <div>
-              <p className="text-sm font-semibold">Il a déjà reçu {formatFCFA(askSurplus.amount)} de trop</p>
-              <p className="text-xs text-muted-foreground">Après ce changement, ses versements dépassent ce qui lui est dû.</p>
+        {/* Actions du mois en cours : chacune ouvre sa propre fenêtre */}
+        {isOpen && (
+          <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="outline" className="h-11" onClick={() => goAdd('ajout_salaire')}>
+                <CirclePlus className="text-credit" /> Ajout
+              </Button>
+              <Button variant="outline" className="h-11" onClick={() => goAdd('retenue_manuelle')}>
+                <CircleMinus className="text-debt" /> Retenue
+              </Button>
             </div>
-            <div className="grid gap-2">
-              <Button onClick={() => askSurplus.apply('avance')}>Ça devient une avance à rendre</Button>
-              <Button variant="outline" onClick={() => askSurplus.apply('rendu')}>Il l'a déjà rendu</Button>
-              <Button variant="ghost" onClick={() => setAskSurplus(null)}>
-                {panel === 'annuler' ? 'Ne pas annuler' : 'Ne pas arrêter'}
+            {/* Actions plus rares, plus discrètes */}
+            <div className="flex items-center justify-center gap-1 text-xs">
+              <Button variant="link" size="sm" className="h-auto px-2 text-muted-foreground" onClick={() => setPanel('arreter')}>
+                <Pause className="size-3.5" /> Arrêter le mois
+              </Button>
+              <span className="text-muted-foreground/50">·</span>
+              <Button variant="link" size="sm" className="h-auto px-2 text-destructive" onClick={() => setPanel('annuler')}>
+                <Ban className="size-3.5" /> Annuler le mois
               </Button>
             </div>
           </div>
-        ) : panel === 'arreter' ? (
-          <div className="flex flex-col gap-3 rounded-xl border p-3">
-            <p className="text-sm font-semibold">Arrêter le mois</p>
-            <Tabs value={basis} onValueChange={v => setBasis(v as Basis)}>
-              <TabsList className="w-full">
-                <TabsTrigger value="complet">Mois complet</TabsTrigger>
-                <TabsTrigger value="prorata">Prorata</TabsTrigger>
-                <TabsTrigger value="fixe">Montant fixe</TabsTrigger>
-              </TabsList>
-            </Tabs>
-            {basis === 'prorata' && (
-              <label className="flex items-center gap-2 text-sm">
-                Jours travaillés
-                <Input inputMode="numeric" value={daysStr} onChange={e => setDaysStr(digits(e.target.value).slice(0, 2))} className="h-8 w-16 text-center" />
-                <span className="text-muted-foreground">sur {dim}</span>
-              </label>
-            )}
-            {basis === 'fixe' && (
-              <Input inputMode="numeric" placeholder="Montant convenu" value={thousands(fixedStr)} onChange={e => setFixedStr(digits(e.target.value))} className="h-9" />
-            )}
-            <p className="text-sm">
-              Salaire de base du mois : <span className="font-semibold tabular-nums">{formatFCFA(newBase)}</span>
-              <span className="text-muted-foreground"> (au lieu de {formatFCFA(row.base)})</span>
-            </p>
-            <div className="flex gap-2">
-              <Button variant="ghost" className="flex-1" onClick={() => setPanel('none')}>
-                Fermer
-              </Button>
-              <Button className="flex-1" disabled={basis !== 'complet' && newBase <= 0} onClick={doStop}>
-                Arrêter le mois
-              </Button>
-            </div>
-          </div>
-        ) : panel === 'annuler' ? (
-          <div className="flex flex-col gap-2 rounded-xl border border-destructive/30 bg-destructive/5 p-3">
-            <p className="text-sm font-semibold text-destructive">Annuler le mois</p>
-            <p className="text-xs text-muted-foreground">Base, ajouts et retenues du mois sont annulés et restent barrés ; l'avance reste due.</p>
-            <Input placeholder="Motif obligatoire" value={reason} onChange={e => setReason(e.target.value)} className="h-9" />
-            <div className="flex gap-2">
-              <Button variant="ghost" className="flex-1" onClick={() => setPanel('none')}>
-                Garder
-              </Button>
-              <Button variant="destructive" className="flex-1" disabled={!reason.trim()} onClick={doCancel}>
-                Annuler le mois
-              </Button>
-            </div>
-          </div>
-        ) : (
-          isOpen && (
-            <div className="flex flex-col gap-3">
-              <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" className="h-11" onClick={() => goAdd('ajout_salaire')}>
-                  <CirclePlus className="text-credit" /> Ajout
-                </Button>
-                <Button variant="outline" className="h-11" onClick={() => goAdd('retenue_manuelle')}>
-                  <CircleMinus className="text-debt" /> Retenue
-                </Button>
-              </div>
-              {/* Actions plus rares, plus discrètes */}
-              <div className="flex items-center justify-center gap-1 text-xs">
-                <Button variant="link" size="sm" className="h-auto px-2 text-muted-foreground" onClick={() => setPanel('arreter')}>
-                  <Pause className="size-3.5" /> Arrêter le mois
-                </Button>
-                <span className="text-muted-foreground/50">·</span>
-                <Button variant="link" size="sm" className="h-auto px-2 text-destructive" onClick={() => setPanel('annuler')}>
-                  <Ban className="size-3.5" /> Annuler le mois
-                </Button>
-              </div>
-            </div>
-          )
         )}
         </div>
       </DialogContent>
+
+      {/* Arrêter ou annuler le mois : une fenêtre à part ; la question du trop reçu s'y affiche à la place du formulaire */}
+      <Dialog
+        open={panel !== 'none'}
+        onOpenChange={o => {
+          if (!o) {
+            setPanel('none')
+            setAskSurplus(null)
+          }
+        }}
+      >
+        <DialogContent>
+          <div className="flex flex-col gap-4">
+            <DialogHeader className="gap-1 p-0">
+              <DialogTitle className="text-left">{panel === 'annuler' ? 'Annuler le mois' : 'Arrêter le mois'}</DialogTitle>
+              <DialogDescription className="text-left">
+                {emp.name} · {ofMonth(period)}
+              </DialogDescription>
+            </DialogHeader>
+
+            {askSurplus ? (
+              <div className="flex flex-col gap-3">
+                <div className="rounded-xl bg-destructive/10 p-3">
+                  <p className="text-sm font-semibold">Il a déjà reçu {formatFCFA(askSurplus.amount)} de trop</p>
+                  <p className="text-xs text-muted-foreground">Après ce changement, ses versements dépassent ce qui lui est dû.</p>
+                </div>
+                <Button size="lg" className="h-12" onClick={() => askSurplus.apply('avance')}>
+                  Ça devient une avance à rendre
+                </Button>
+                <Button variant="outline" size="lg" className="h-12" onClick={() => askSurplus.apply('rendu')}>
+                  Il l'a déjà rendu
+                </Button>
+                <Button variant="ghost" onClick={() => setAskSurplus(null)}>
+                  Revenir
+                </Button>
+              </div>
+            ) : panel === 'arreter' ? (
+              <div className="flex flex-col gap-4">
+                <Tabs value={basis} onValueChange={v => setBasis(v as Basis)}>
+                  <TabsList className="w-full">
+                    <TabsTrigger value="complet">Mois complet</TabsTrigger>
+                    <TabsTrigger value="prorata">Prorata</TabsTrigger>
+                    <TabsTrigger value="fixe">Montant fixe</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+                {basis === 'prorata' && (
+                  <label className="flex items-center gap-2 text-sm">
+                    Jours travaillés
+                    <Input
+                      inputMode="numeric"
+                      value={daysStr}
+                      onFocus={e => e.currentTarget.select()}
+                      onChange={e => setDaysStr(digits(e.target.value).slice(0, 2))}
+                      className="h-10 w-16 text-center"
+                    />
+                    <span className="text-muted-foreground">sur {dim}</span>
+                  </label>
+                )}
+                {basis === 'fixe' && (
+                  <Input inputMode="numeric" placeholder="Montant convenu" value={thousands(fixedStr)} onChange={e => setFixedStr(digits(e.target.value))} className="h-11" />
+                )}
+                <div className="flex items-baseline justify-between rounded-xl bg-muted/50 p-3 text-sm">
+                  <span className="text-muted-foreground">Salaire de base du mois</span>
+                  <span className="text-right">
+                    <span className="font-semibold tabular-nums">{formatFCFA(newBase)}</span>
+                    <span className="block text-xs text-muted-foreground">au lieu de {formatFCFA(row.base)}</span>
+                  </span>
+                </div>
+                <Button size="lg" className="h-12" disabled={basis !== 'complet' && newBase <= 0} onClick={doStop}>
+                  Arrêter le mois
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <p className="text-sm text-muted-foreground">Base, ajouts et retenues du mois sont annulés et restent barrés. L'avance reste due.</p>
+                <Input autoFocus placeholder="Motif obligatoire" value={reason} onChange={e => setReason(e.target.value)} className="h-11" />
+                <Button variant="destructive" size="lg" className="h-12" disabled={!reason.trim()} onClick={doCancel}>
+                  Annuler le mois
+                </Button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Modifier une ligne : une petite fenêtre isolée, par-dessus la fiche du mois */}
       <Dialog open={!!editing} onOpenChange={o => !o && setCancelling(null)}>
