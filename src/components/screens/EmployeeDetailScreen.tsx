@@ -84,6 +84,13 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
     ? `${formatFCFA(emp.advanceDeductionPerPeriod)} / mois`
     : 'Direct'
 
+  // Versements sortis d'un mois arrêté ou annulé : combien, vers quoi, de quel mois
+  const moved = new Map<string, { amount: number; to: 'avance' | 'rendu'; month: string }>()
+  for (const r of pr.months)
+    for (const p of r.movedParts) {
+      const prev = moved.get(p.mov.id)
+      moved.set(p.mov.id, { amount: (prev?.amount ?? 0) + p.amount, to: p.to, month: r.label })
+    }
   const chip = (on: boolean) => (on ? 'secondary' : 'ghost') as 'secondary' | 'ghost'
 
   return (
@@ -162,7 +169,7 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
                 Mois <span className="text-xs text-muted-foreground">{pr.months.length}</span>
               </Button>
               <Button size="sm" variant={chip(salaryList === 'versements')} className="rounded-full" onClick={() => setSalaryList('versements')}>
-                Versements <span className="text-xs text-muted-foreground">{pr.payments.length}</span>
+                Versements <span className="text-xs text-muted-foreground">{pr.payments.filter(m => m.type !== 'surplus_salaire').length}</span>
               </Button>
             </div>
             {active && (
@@ -181,7 +188,25 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
               empty="Aucun mois pour l'instant."
             />
           ) : (
-            <MovementHistory title="Versements" movements={pr.payments} onOpen={openMovementDetail} amountClass={() => 'text-debt'} />
+            <MovementHistory
+              title="Versements"
+              // Le « trop reçu » n'est pas un versement : on ne l'affiche pas comme une ligne à part.
+              // Le versement concerné est barré, avec ce qu'il est devenu.
+              movements={pr.payments.filter(m => m.type !== 'surplus_salaire')}
+              onOpen={openMovementDetail}
+              amountClass={() => 'text-debt'}
+              struck={m => (moved.get(m.id)?.amount ?? 0) >= m.amount}
+              sub={m => {
+                const mv = moved.get(m.id)
+                if (!mv) return undefined
+                const what = mv.to === 'avance' ? 'passé en avance' : 'rendu'
+                return (
+                  <Badge variant="destructive">
+                    {mv.amount >= m.amount ? `Mois ${mv.month} : ${what}` : `${formatFCFA(mv.amount)} ${what} (${mv.month})`}
+                  </Badge>
+                )
+              }}
+            />
           )}
         </>
       )}
@@ -194,6 +219,9 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
                 <div>
                   <p className="text-xs text-muted-foreground">Reste à rendre</p>
                   <p className="text-2xl font-semibold text-credit tabular-nums">{formatFCFA(pr.advanceReste)}</p>
+                  {pr.plannedRetenue > 0 && (
+                    <p className="text-xs text-muted-foreground tabular-nums">dont {formatFCFA(pr.plannedRetenue)} retenus ce mois-ci</p>
+                  )}
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-muted-foreground">Dernier remboursement</p>

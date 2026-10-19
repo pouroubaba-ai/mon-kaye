@@ -108,7 +108,8 @@ export function MonthDialog({
   const lines = [...row.items]
     .filter(m => !(m.isCancelled && m.type === 'retenue_salaire' && REPLACED.includes(m.cancellationReason ?? '')))
     .sort((a, b) => order(a) - order(b))
-  const canCancelLine = (m: Movement) => isOpen && !m.isCancelled && m.type !== 'salaire_du'
+  // Crayon : ajouts et retenues du mois en cours ; la retenue d'avance reste modifiable même mise à 0
+  const canCancelLine = (m: Movement) => isOpen && m.type !== 'salaire_du' && (!m.isCancelled || m.type === 'retenue_salaire')
 
   // Totaux des deux lignes repliables
   const gross = lines.filter(m => !m.isCancelled && (m.type === 'salaire_du' || m.type === 'ajout_salaire')).reduce((a, m) => a + m.amount, 0)
@@ -123,6 +124,7 @@ export function MonthDialog({
                   <div className="flex min-w-0 flex-1 items-baseline gap-3">
                     <span className={cn('min-w-0 flex-1 truncate', m.isCancelled && 'text-muted-foreground line-through')}>
                       {m.label}
+                      {m.type === 'retenue_salaire' && isOpen && !m.isCancelled && <span className="text-xs text-muted-foreground"> · prévue</span>}
                       {m.items?.length ? <span className="text-xs text-muted-foreground"> · {m.items.length} lignes</span> : null}
                     </span>
                     <span
@@ -173,7 +175,7 @@ export function MonthDialog({
   // Ligne en cours de modification (petite fenêtre à part)
   const editing = cancelling ? row.items.find(m => m.id === cancelling) : undefined
   // Retenue d'avance : jamais plus que ce qu'il doit encore sur ses avances
-  const maxRetenue = editing?.type === 'retenue_salaire' ? pr.advanceReste + editing.amount : 0
+  const maxRetenue = editing?.type === 'retenue_salaire' ? pr.advanceReste : 0
   const retAmount = parseInt(retStr, 10) || 0
 
   return (
@@ -444,7 +446,7 @@ export function MonthDialog({
                     variant="ghost"
                     className="text-destructive"
                     onClick={() => {
-                      cancelMovement(editing.id, 'Pas de retenue ce mois-ci')
+                      setMonthRetenue(empId, 0)
                       setCancelling(null)
                     }}
                   >

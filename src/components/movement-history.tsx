@@ -29,6 +29,7 @@ export function MovementHistory({
   action,
   hideLabel,
   sub,
+  struck,
 }: {
   movements: Movement[]
   filters?: Filter[]
@@ -43,6 +44,8 @@ export function MovementHistory({
   hideLabel?: boolean
   // Petit élément en plus sous une opération (ex. pastille « Retour 20 000 FCFA » sur un crédit)
   sub?: (m: Movement) => React.ReactNode
+  // Ligne à barrer même si elle n'est pas annulée (ex. versement d'un mois annulé, passé en avance)
+  struck?: (m: Movement) => boolean
 }) {
   const [filter, setFilter] = React.useState('all')
   const active = filters?.find(f => f.value === filter)
@@ -84,7 +87,7 @@ export function MovementHistory({
                 onClick={() => onOpen(m)}
                 className={cn(
                   'flex items-center gap-3 p-3 text-left transition-colors hover:bg-muted/50',
-                  m.isCancelled && 'opacity-60'
+                  (m.isCancelled || struck?.(m)) && 'opacity-60'
                 )}
               >
                 <div className="min-w-0 flex-1">
@@ -113,14 +116,14 @@ export function MovementHistory({
                     m.note && <p className={cn('truncate text-sm', m.isCancelled && 'line-through')}>{m.note}</p>
                   ) : (
                     <>
-                      <p className={cn('truncate text-sm font-medium', m.isCancelled && 'line-through')}>{m.label}</p>
+                      <p className={cn('truncate text-sm font-medium', (m.isCancelled || struck?.(m)) && 'line-through')}>{m.label}</p>
                       {m.note && <p className="truncate text-xs text-muted-foreground">{m.note}</p>}
                     </>
                   )}
                   {sub?.(m) && <div className="mt-1 flex">{sub(m)}</div>}
                 </div>
                 {/* Opération annulée : montant barré, en rouge, comme une ligne barrée dans le cahier. */}
-                <span className={cn('shrink-0 font-semibold tabular-nums', m.isCancelled ? 'text-destructive line-through' : amountClass?.(m))}>{formatFCFA(m.amount)}</span>
+                <span className={cn('shrink-0 font-semibold tabular-nums', m.isCancelled || struck?.(m) ? 'text-destructive line-through' : amountClass?.(m))}>{formatFCFA(m.amount)}</span>
                 <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
               </button>
             ))}

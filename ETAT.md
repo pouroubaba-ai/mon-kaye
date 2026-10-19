@@ -193,3 +193,8 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 - « Arrêter le mois » et « Annuler le mois » s'ouvrent chacun dans leur propre fenêtre ; la question du trop reçu s'affiche dans cette même fenêtre. La fiche du mois ne contient plus que le résumé, les deux lignes et les boutons.
 - « Arrêter le mois » : trois choix empilés avec une phrase chacun (Montant complet, Selon les jours travaillés, Montant convenu), le champ utile s'ouvre sous le choix, puis « Il touchera pour ce mois ». Un versement annulé reste visible, barré, dans le mois qu'il payait.
 - Mois arrêté ou annulé après des versements : chaque versement concerné reste visible dans le mois, barré, avec sa date, son moyen de paiement et ce qu'il est devenu (« Passé en avance à rendre » ou « Rendu »). Le trop reçu et l'avance qui en naît disent de quel mois il s'agit. Pas de moyen de paiement affiché pour ce qui n'est pas un paiement.
+
+## 2026-10-19 — Retenue prévue et versements barrés
+- La retenue d'avance du mois en cours reste « prévue » jusqu'à la clôture du mois : elle se modifie sur place, sans lignes annulées puis recréées.
+- Onglet Avance : reste à rendre total, plus « dont X retenus ce mois-ci ».
+- Salaire › Versements : un versement passé en avance ou rendu (mois arrêté ou annulé) est barré avec une pastille ; la ligne « Trop reçu » n'apparaît plus.

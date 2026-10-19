@@ -49,6 +49,8 @@ export type Payroll = {
   advanceReste: number
   lastRepayment?: string
   surplus: number // reçu en trop, non encore traité (normalement 0)
+  // Retenue d'avance prévue sur le mois en cours (appliquée à la clôture du mois)
+  plannedRetenue: number
 }
 
 const SHORT = ['Janv.', 'Févr.', 'Mars', 'Avr.', 'Mai', 'Juin', 'Juil.', 'Août', 'Sept.', 'Oct.', 'Nov.', 'Déc.']
@@ -191,7 +193,11 @@ export function payrollOf(
 
   // 3. Avances, remboursées de la plus ancienne à la plus récente
   const advMovs = mine.filter(m => m.type === 'avance_salaire').sort(byDateAsc)
-  const repayments = mine.filter(m => m.type === 'remboursement_direct' || m.type === 'retenue_salaire')
+  // Retenue du mois en cours (pas encore clos) : seulement prévue. Elle n'entre dans les remboursements
+  // et ne baisse l'avance qu'à la clôture du mois ; ses changements ne laissent pas de trace ici.
+  const isPlanned = (m: Movement) => m.type === 'retenue_salaire' && m.period === cur && !monthStates[monthKey(empId, cur)]
+  const plannedRetenue = mine.filter(m => isPlanned(m) && isLive(m)).reduce((a, m) => a + m.amount, 0)
+  const repayments = mine.filter(m => (m.type === 'remboursement_direct' || m.type === 'retenue_salaire') && !isPlanned(m))
   let repaid = repayments.filter(isLive).reduce((a, m) => a + m.amount, 0)
   const advRows: AdvanceRow[] = advMovs.map(mov => {
     if (mov.isCancelled) return { mov, rendu: 0, reste: 0, etat: 'Annulée' }
@@ -213,6 +219,7 @@ export function payrollOf(
     advanceReste: advRows.reduce((a, r) => a + r.reste, 0),
     lastRepayment: lastOf(repayments),
     surplus,
+    plannedRetenue,
   }
 }
 
