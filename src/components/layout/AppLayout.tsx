@@ -30,7 +30,7 @@ const TITLES: Record<Tab, string> = {
 // Mise en page : barre latérale shadcn (ordinateur, tablette) + barre du bas à 4 onglets
 // et un seul bouton « + » (téléphone). Une seule entrée « nouveau mouvement » par appareil.
 export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { shop, persons, activeTab, selectedPersonId, navigate, navKey, setSelectedPersonId, openNewMovement, theme, toggleTheme, lockApp, accountsView, setAccountsView, modules } =
+  const { shop, persons, activeTab, selectedPersonId, navigate, navKey, setSelectedPersonId, openNewMovement, theme, toggleTheme, lockApp, accountsView, setAccountsView, modules, settingsView, setSettingsView } =
     useStore()
 
   // Position de défilement :
@@ -58,7 +58,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
   React.useLayoutEffect(() => {
     pageScroll.current = 0
     top()
-  }, [activeTab, accountsView?.dir, navKey])
+  }, [activeTab, accountsView?.dir, settingsView, navKey])
 
   const shopName = shop.name?.trim()
   const openPerson = selectedPersonId ? persons.find(p => p.id === selectedPersonId) : undefined
@@ -67,7 +67,9 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
     ? { label: openPerson.name, back: () => setSelectedPersonId(null) }
     : accountsView && activeTab === 'accueil'
       ? { label: accountsView.dir === 'leurs' ? 'Leurs comptes' : 'Mes comptes', back: () => setAccountsView(null) }
-      : null
+      : activeTab === 'reglages' && settingsView === 'modules'
+        ? { label: 'Modules', back: () => setSettingsView('main') }
+        : null
 
   const go = (tab: Tab) => navigate(tab)
 
@@ -130,7 +132,8 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
               <Lock />
             </Button>
             {/* Réglages : ici sur téléphone, la barre du bas laisse sa place à « Salaires » */}
-            {!settingsInBar && (
+            {/* Dans une page ouverte (fiche, Modules…), on revient par le fil d'Ariane : pas de roue ici */}
+            {!settingsInBar && !crumb && (
               <Button variant="ghost" size="icon" onClick={() => go('reglages')} aria-label="Réglages" className={cn(activeTab === 'reglages' && 'bg-muted')}>
                 <Settings />
               </Button>

@@ -18,6 +18,21 @@ import { EmployeesMonthScreen } from '@/components/screens/EmployeesMonthScreen'
 const AppContent: React.FC = () => {
   const { isLocked, activeTab, selectedPersonId, persons, accountsView, modules } = useStore()
 
+  // Sens du glissement entre le tableau de bord et « Leurs/Mes comptes » (rien au premier affichage)
+  const wasOpen = React.useRef(!!accountsView)
+  const [slide, setSlide] = React.useState('')
+  React.useLayoutEffect(() => {
+    const open = !!accountsView
+    if (open !== wasOpen.current) {
+      setSlide(
+        open
+          ? 'animate-in slide-in-from-right fade-in-50 duration-300 ease-out motion-reduce:animate-none'
+          : 'animate-in slide-in-from-left fade-in-50 duration-300 ease-out motion-reduce:animate-none'
+      )
+      wasOpen.current = open
+    }
+  }, [accountsView])
+
   // Si verrouillé -> Écran PIN obligatoire
   if (isLocked) {
     return <AuthPinScreen />
@@ -30,7 +45,15 @@ const AppContent: React.FC = () => {
   return (
     <AppLayout>
       <div hidden={!!person}>
-        {activeTab === 'accueil' && (accountsView ? <AccountsScreen /> : <DashboardScreen />)}
+        {activeTab === 'accueil' && (
+          // Tableau de bord ⇄ Leurs/Mes comptes : l'écran glisse (aller : depuis la droite, retour : depuis la gauche).
+          // Changer d'onglet dans l'écran ne glisse pas (même clé).
+          <div className="overflow-x-clip">
+            <div key={accountsView ? `acc-${accountsView.dir}` : 'dash'} className={slide}>
+              {accountsView ? <AccountsScreen /> : <DashboardScreen />}
+            </div>
+          </div>
+        )}
         {activeTab === 'personnes' && modules.personnes && <PersonsListScreen />}
         {activeTab === 'employes' && modules.employes && <PersonsListScreen />}
         {activeTab === 'salaires' && modules.employes && <EmployeesMonthScreen />}

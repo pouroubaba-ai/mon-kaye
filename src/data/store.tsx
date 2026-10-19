@@ -44,6 +44,9 @@ interface StoreContextType {
   // Écran ouvert depuis le tableau de bord : « Leurs comptes » ou « Mes comptes », et le côté choisi.
   accountsView: { dir: 'leurs' | 'mes'; group: 'partner' | 'employee' } | null
   setAccountsView: (v: { dir: 'leurs' | 'mes'; group: 'partner' | 'employee' } | null) => void
+  // Réglages : la page principale ou la page « Modules » (une vraie page, avec retour)
+  settingsView: 'main' | 'modules'
+  setSettingsView: (v: 'main' | 'modules') => void
   setSelectedPersonId: (id: string | null) => void
   
   // Modals state
@@ -158,15 +161,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   })
   const [activeTab, setActiveTabRaw] = useState<'accueil' | 'personnes' | 'employes' | 'salaires' | 'reglages'>('accueil')
   const [accountsView, setAccountsView] = useState<{ dir: 'leurs' | 'mes'; group: 'partner' | 'employee' } | null>(null)
+  const [settingsView, setSettingsView] = useState<'main' | 'modules'>('main')
   // Changer de page referme l'écran « Leurs comptes / Mes comptes ».
   const setActiveTab = (tab: 'accueil' | 'personnes' | 'employes' | 'salaires' | 'reglages') => {
     setAccountsView(null)
+    setSettingsView('main')
     setActiveTabRaw(tab)
   }
   const [navKey, setNavKey] = useState(0)
   const navigate = (tab: 'accueil' | 'personnes' | 'employes' | 'salaires' | 'reglages') => {
     setSelectedPersonId(null)
     setAccountsView(null)
+    setSettingsView('main')
     setActiveTabRaw(tab)
     setNavKey(k => k + 1)
   }
@@ -866,6 +872,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     if (selectedPersonId) { setSelectedPersonId(null); return true }
     if (accountsView) { setAccountsView(null); return true }
+    if (activeTab === 'reglages' && settingsView === 'modules') { setSettingsView('main'); return true }
     if (activeTab !== 'accueil') { setActiveTabRaw('accueil'); setNavKey(k => k + 1); return true }
     return false
   }
@@ -900,6 +907,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         selectedPersonId,
         accountsView,
         setAccountsView,
+        settingsView,
+        setSettingsView,
         setSelectedPersonId,
         isNewMovementOpen,
         openNewMovement,

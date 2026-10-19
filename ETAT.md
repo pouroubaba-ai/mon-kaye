@@ -254,3 +254,5 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 - Liste « Qui ? » : les deux comptes séparés. Détail : quantité 1,5 acceptée, prix sans centimes.
 - Bouton retour du téléphone géré dans l'app. PIN non affiché, clavier d'ordinateur. Recherche sans accents ni espaces, numéros au format +242.
 - Petits points : réglages vérifiés, thème retenu, « % rendu », pas d'avance après départ, textes, tablette, accessibilité.
+
+## 2026-10-19 — Glissement tableau de bord ⇄ Leurs/Mes comptes (aller et retour, pas entre onglets) ; Réglages › Modules devient une vraie page (fil d'Ariane, sans menu du bas)

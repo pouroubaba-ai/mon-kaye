@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { ArrowLeft, Blocks, Briefcase, Check, ChevronRight, Download, Moon, Sun, Users } from 'lucide-react'
+import { Blocks, Briefcase, Check, ChevronRight, Download, Moon, Sun, Users } from 'lucide-react'
 
 import { useStore } from '@/data/store'
 import { Badge } from '@/components/ui/badge'
@@ -22,12 +22,11 @@ import { Switch } from '@/components/ui/switch'
 // Le verrouillage reste dans l'en-tête et la barre latérale : pas de doublon ici.
 
 export const SettingsScreen: React.FC = () => {
-  const { shop, setShopName, setShopPin, theme, toggleTheme, exportCSV, modules, setModule } = useStore()
+  const { shop, setShopName, setShopPin, theme, toggleTheme, exportCSV, modules, setModule, settingsView: view, setSettingsView: setView } = useStore()
   const [shopNameInput, setShopNameInput] = useState(shop.name)
   const [pinInput, setPinInput] = useState(shop.pin)
   const [saved, setSaved] = useState(false)
 
-  const [view, setView] = useState<'main' | 'modules'>('main')
   const onNames = [modules.personnes && 'Personnes', modules.employes && 'Employés'].filter(Boolean).join(' · ')
 
   // On n'enregistre que si tout est bon : un nom, et un code de 4 chiffres
@@ -50,11 +49,7 @@ export const SettingsScreen: React.FC = () => {
     ] as const
     return (
       <div className="flex max-w-2xl flex-col gap-4">
-        <button type="button" onClick={() => setView('main')} className="flex items-center gap-2 self-start text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="size-4" /> Réglages
-        </button>
         <div className="flex flex-col gap-1">
-          <h2 className="text-lg font-semibold">Modules</h2>
           <p className="text-sm text-muted-foreground">Gardez seulement ce que vous utilisez. Couper un module ne supprime rien : tout revient quand vous le rallumez.</p>
         </div>
         <Card className="py-0">
