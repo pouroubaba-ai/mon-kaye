@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Blocks, Briefcase, Check, ChevronRight, Download, Moon, Sun, Users } from 'lucide-react'
 
 import { useStore } from '@/data/store'
+import { slideIn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -41,6 +42,15 @@ export const SettingsScreen: React.FC = () => {
     setTimeout(() => setSaved(false), 2000)
   }
 
+  // Entrer dans « Modules » ou en revenir : la page glisse (comme une fiche)
+  const boxRef = React.useRef<HTMLDivElement>(null)
+  const prevView = React.useRef(view)
+  React.useLayoutEffect(() => {
+    if (prevView.current === view) return
+    slideIn(boxRef.current, view === 'modules' ? 'forward' : 'back')
+    prevView.current = view
+  }, [view])
+
   // Liste des modules : on allume ou coupe chacun. Couper ne supprime rien.
   if (view === 'modules') {
     const MODS = [
@@ -48,7 +58,7 @@ export const SettingsScreen: React.FC = () => {
       { key: 'employes', title: 'Employés', hint: 'Salaires, avances et la page Salaires', Icon: Briefcase },
     ] as const
     return (
-      <div className="flex max-w-2xl flex-col gap-4">
+      <div ref={boxRef} className="flex max-w-2xl flex-col gap-4">
         <div className="flex flex-col gap-1">
           <p className="text-sm text-muted-foreground">Gardez seulement ce que vous utilisez. Couper un module ne supprime rien : tout revient quand vous le rallumez.</p>
         </div>
@@ -76,7 +86,7 @@ export const SettingsScreen: React.FC = () => {
   }
 
   return (
-    <div className="flex max-w-2xl flex-col gap-4">
+    <div ref={boxRef} className="flex max-w-2xl flex-col gap-4">
       <Card>
         <form onSubmit={handleSave} className="flex flex-col gap-6">
           <CardHeader>

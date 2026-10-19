@@ -12,6 +12,7 @@ import { NewMovementModal } from '@/components/modals/NewMovementModal'
 import { DepartureModal } from '@/components/modals/DepartureModal'
 import { CompensationModal } from '@/components/modals/CompensationModal'
 import { MovementDetailModal } from '@/components/modals/MovementDetailModal'
+import { slideIn } from '@/lib/utils'
 import { SplashScreen } from '@/components/splash-screen'
 import { EmployeesMonthScreen } from '@/components/screens/EmployeesMonthScreen'
 
@@ -33,6 +34,19 @@ const AppContent: React.FC = () => {
     }
   }, [accountsView])
 
+  // Ouvrir / fermer une fiche : la fiche glisse depuis la droite, la page revient depuis la gauche.
+  // Pas de glissement quand on change de page par le menu.
+  const pageRef = React.useRef<HTMLDivElement>(null)
+  const ficheRef = React.useRef<HTMLDivElement>(null)
+  const prev = React.useRef({ person: selectedPersonId, tab: activeTab })
+  React.useLayoutEffect(() => {
+    const p = prev.current
+    prev.current = { person: selectedPersonId, tab: activeTab }
+    if (p.person === selectedPersonId || p.tab !== activeTab) return
+    if (selectedPersonId) slideIn(ficheRef.current, 'forward')
+    else slideIn(pageRef.current, 'back')
+  }, [selectedPersonId, activeTab])
+
   // Si verrouillé -> Écran PIN obligatoire
   if (isLocked) {
     return <AuthPinScreen />
@@ -44,14 +58,13 @@ const AppContent: React.FC = () => {
 
   return (
     <AppLayout>
-      <div hidden={!!person}>
+      <div className="overflow-x-clip">
+      <div ref={pageRef} hidden={!!person}>
         {activeTab === 'accueil' && (
           // Tableau de bord ⇄ Leurs/Mes comptes : l'écran glisse (aller : depuis la droite, retour : depuis la gauche).
           // Changer d'onglet dans l'écran ne glisse pas (même clé).
-          <div className="overflow-x-clip">
-            <div key={accountsView ? `acc-${accountsView.dir}` : 'dash'} className={slide}>
-              {accountsView ? <AccountsScreen /> : <DashboardScreen />}
-            </div>
+          <div key={accountsView ? `acc-${accountsView.dir}` : 'dash'} className={slide}>
+            {accountsView ? <AccountsScreen /> : <DashboardScreen />}
           </div>
         )}
         {activeTab === 'personnes' && modules.personnes && <PersonsListScreen />}
@@ -59,8 +72,12 @@ const AppContent: React.FC = () => {
         {activeTab === 'salaires' && modules.employes && <EmployeesMonthScreen />}
         {activeTab === 'reglages' && <SettingsScreen />}
       </div>
-      {person?.type === 'employee' && <EmployeeDetailScreen key={person.id} employeeId={person.id} />}
-      {person && person.type !== 'employee' && <PartnerDetailScreen key={person.id} partnerId={person.id} />}
+      {person && (
+        <div ref={ficheRef}>
+          {person.type === 'employee' ? <EmployeeDetailScreen key={person.id} employeeId={person.id} /> : <PartnerDetailScreen key={person.id} partnerId={person.id} />}
+        </div>
+      )}
+      </div>
 
       {/* Modales globales interactives */}
       <NewMovementModal />

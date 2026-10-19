@@ -256,3 +256,5 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 - Petits points : réglages vérifiés, thème retenu, « % rendu », pas d'avance après départ, textes, tablette, accessibilité.
 
 ## 2026-10-19 — Glissement tableau de bord ⇄ Leurs/Mes comptes (aller et retour, pas entre onglets) ; Réglages › Modules devient une vraie page (fil d'Ariane, sans menu du bas)
+
+## 2026-10-19 — Glissement aussi à l'ouverture et à la fermeture des fiches, et pour la page Modules (pas pour le menu ni les onglets)

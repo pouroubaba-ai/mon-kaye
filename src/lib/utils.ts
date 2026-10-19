@@ -49,3 +49,17 @@ export function waNumber(s?: string): string {
   if (d.length === 9 && d.startsWith('0')) return `242${d}`
   return d.length >= 8 ? digitsOf(s || '') : ''
 }
+
+// ——— Glissement d'écran ———
+// Aller : l'écran arrive depuis la droite ; retour : depuis la gauche. Rien si l'appareil demande moins d'animations.
+export function slideIn(el: HTMLElement | null, dir: 'forward' | 'back') {
+  if (!el || typeof el.animate !== 'function') return
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+  el.animate(
+    [
+      { transform: `translateX(${dir === 'forward' ? '100%' : '-100%'})`, opacity: 0.5 },
+      { transform: 'translateX(0)', opacity: 1 },
+    ],
+    { duration: 300, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' }
+  )
+}
