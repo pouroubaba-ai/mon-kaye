@@ -211,3 +211,5 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 ## 2026-10-19 — Versement qui touche la retenue : alerte courte + fenêtre de confirmation (Continuer / Revenir)
 
 ## 2026-10-19 — Écran « kayé » au démarrage (moins d'une seconde, seulement à l'ouverture de l'app)
+
+## 2026-10-19 — Logo Kayé enregistré dans logo/ (icône é doré, icône nom complet, nom seul, nom + slogan ; SVG et PNG)
