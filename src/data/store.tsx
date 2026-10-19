@@ -29,6 +29,11 @@ interface StoreContextType {
   theme: 'dark' | 'light'
   toggleTheme: () => void
   
+  // Modules : Personnes (clients, fournisseurs) et Employés (salaires, avances). Un module coupé est
+  // seulement caché : ses données restent et reviennent quand on le rallume. Au moins un reste allumé.
+  modules: Modules
+  setModule: (key: keyof Modules, on: boolean) => void
+
   // Navigation
   activeTab: 'accueil' | 'personnes' | 'employes' | 'salaires' | 'reglages'
   setActiveTab: (tab: 'accueil' | 'personnes' | 'employes' | 'salaires' | 'reglages') => void
@@ -110,6 +115,22 @@ interface StoreContextType {
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined)
 
+export type Modules = { personnes: boolean; employes: boolean }
+// Par défaut : Personnes seulement. Le choix est gardé sur l'appareil.
+const DEFAULT_MODULES: Modules = { personnes: true, employes: false }
+const MODULES_KEY = 'kaye.modules'
+const loadModules = (): Modules => {
+  try {
+    const raw = localStorage.getItem(MODULES_KEY)
+    if (!raw) return DEFAULT_MODULES
+    const m = JSON.parse(raw)
+    const out = { personnes: m.personnes !== false, employes: m.employes === true }
+    return out.personnes || out.employes ? out : DEFAULT_MODULES
+  } catch {
+    return DEFAULT_MODULES
+  }
+}
+
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [shop, setShop] = useState(INITIAL_SHOP)
   const [isLocked, setIsLocked] = useState(false)
@@ -129,6 +150,25 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setNavKey(k => k + 1)
   }
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null)
+
+  const [modules, setModules] = useState<Modules>(loadModules)
+  const setModule: StoreContextType['setModule'] = (key, on) => {
+    const next = { ...modules, [key]: on }
+    if (!next.personnes && !next.employes) return // au moins un module allumé
+    setModules(next)
+    try {
+      localStorage.setItem(MODULES_KEY, JSON.stringify(next))
+    } catch {
+      /* rien : le choix vaut pour cette fois */
+    }
+    if (!on) {
+      // On quitte ce qui vient d'être caché
+      setSelectedPersonId(null)
+      setAccountsView(null)
+      if ((key === 'personnes' && activeTab === 'personnes') || (key === 'employes' && (activeTab === 'employes' || activeTab === 'salaires')))
+        setActiveTabRaw('accueil')
+    }
+  }
   
   // Démonstration : la paie des employés est reconstituée en opérations (mois, versements, avances),
   // puis les compteurs de chaque employé sont recalculés à partir d'elles.
@@ -727,8 +767,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const employeesSalaryDue = persons.filter(p => p.type === 'employee' && p.status === 'actif').reduce((acc, p) => acc + (p.currentSalaryDue || 0), 0)
   const employeesAdvanceOwed = persons.filter(p => p.type === 'employee').reduce((acc, p) => acc + (p.advanceBalance || 0), 0)
 
-  const totalOwesMe = partnersOwesMe + employeesAdvanceOwed
-  const totalIOwe = partnersIOwe + employeesSalaryDue
+  // Un module coupé ne compte pas dans les totaux (ses données restent)
+  const totalOwesMe = (modules.personnes ? partnersOwesMe : 0) + (modules.employes ? employeesAdvanceOwed : 0)
+  const totalIOwe = (modules.personnes ? partnersIOwe : 0) + (modules.employes ? employeesSalaryDue : 0)
 
   const soonSalariesDueCount = persons.filter(p => p.type === 'employee' && p.status === 'actif' && (p.currentSalaryDue || 0) > 0).length
   const latePartnersCount = persons.filter(p => p.type === 'partner' && (p.owesMe || 0) > 0 && (p.daysSinceLastPayment || 0) >= 30).length
@@ -793,6 +834,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         lockApp,
         theme,
         toggleTheme,
+        modules,
+        setModule,
         activeTab,
         setActiveTab,
         navigate,

@@ -32,7 +32,7 @@ const NAV: { tab: Tab; title: string; icon: React.ComponentType }[] = [
 ]
 
 export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
-  const { shop, activeTab, navigate, openNewMovement, theme, toggleTheme, lockApp, totals } =
+  const { shop, activeTab, navigate, openNewMovement, theme, toggleTheme, lockApp, totals, modules } =
     useStore()
 
   // Bouton du menu : toujours en haut de la page (même si on y est déjà).
@@ -81,7 +81,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {NAV.map(item => {
+              {NAV.filter(i => (i.tab === 'personnes' ? modules.personnes : i.tab === 'employes' || i.tab === 'salaires' ? modules.employes : true)).map(item => {
                 const badge = badgeFor(item.tab)
                 return (
                   <SidebarMenuItem key={item.tab}>

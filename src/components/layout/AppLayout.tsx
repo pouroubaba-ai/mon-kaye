@@ -30,7 +30,7 @@ const TITLES: Record<Tab, string> = {
 // Mise en page : barre latérale shadcn (ordinateur, tablette) + barre du bas à 4 onglets
 // et un seul bouton « + » (téléphone). Une seule entrée « nouveau mouvement » par appareil.
 export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { shop, persons, activeTab, selectedPersonId, navigate, navKey, setSelectedPersonId, openNewMovement, theme, toggleTheme, lockApp, accountsView, setAccountsView } =
+  const { shop, persons, activeTab, selectedPersonId, navigate, navKey, setSelectedPersonId, openNewMovement, theme, toggleTheme, lockApp, accountsView, setAccountsView, modules } =
     useStore()
 
   // Position de défilement :
@@ -71,12 +71,16 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
 
   const go = (tab: Tab) => navigate(tab)
 
-  const tabs: { tab: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  type NavTab = { tab: Tab; label: string; icon: React.ComponentType<{ className?: string }> }
+  const allTabs: NavTab[] = [
     { tab: 'accueil', label: 'Accueil', icon: LayoutDashboard },
     { tab: 'personnes', label: 'Personnes', icon: Users },
     { tab: 'employes', label: 'Employés', icon: Briefcase },
     { tab: 'salaires', label: 'Salaires', icon: Coins },
   ]
+  const tabs = allTabs.filter(t => (t.tab === 'personnes' ? modules.personnes : t.tab === 'employes' || t.tab === 'salaires' ? modules.employes : true))
+  // Le « + » au milieu : autant d'onglets de chaque côté (un de plus à gauche si impair)
+  const half = Math.ceil(tabs.length / 2)
   const toPay = useToPayCount()
 
   return (
@@ -135,8 +139,8 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
       {/* Barre du bas (téléphone) : masquée dans une fiche, le fil d'Ariane sert au retour */}
       {!crumb && (
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background md:hidden">
-        <div className="grid grid-cols-5 items-end">
-          {tabs.slice(0, 2).map(t => (
+        <div className="grid items-end" style={{ gridTemplateColumns: `repeat(${tabs.length + 1}, minmax(0, 1fr))` }}>
+          {tabs.slice(0, half).map(t => (
             <TabButton key={t.tab} active={activeTab === t.tab} label={t.label} Icon={t.icon} onClick={() => go(t.tab)} />
           ))}
           <div className="flex justify-center">
@@ -149,7 +153,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
               <Plus className="size-7" />
             </Button>
           </div>
-          {tabs.slice(2).map(t => (
+          {tabs.slice(half).map(t => (
             <TabButton key={t.tab} active={activeTab === t.tab} label={t.label} Icon={t.icon} badge={t.tab === 'salaires' ? toPay : 0} onClick={() => go(t.tab)} />
           ))}
         </div>

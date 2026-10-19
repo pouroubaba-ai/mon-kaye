@@ -16,7 +16,7 @@ import { SplashScreen } from '@/components/splash-screen'
 import { EmployeesMonthScreen } from '@/components/screens/EmployeesMonthScreen'
 
 const AppContent: React.FC = () => {
-  const { isLocked, activeTab, selectedPersonId, persons, accountsView } = useStore()
+  const { isLocked, activeTab, selectedPersonId, persons, accountsView, modules } = useStore()
 
   // Si verrouillé -> Écran PIN obligatoire
   if (isLocked) {
@@ -31,9 +31,9 @@ const AppContent: React.FC = () => {
     <AppLayout>
       <div hidden={!!person}>
         {activeTab === 'accueil' && (accountsView ? <AccountsScreen /> : <DashboardScreen />)}
-        {activeTab === 'personnes' && <PersonsListScreen />}
-        {activeTab === 'employes' && <PersonsListScreen />}
-        {activeTab === 'salaires' && <EmployeesMonthScreen />}
+        {activeTab === 'personnes' && modules.personnes && <PersonsListScreen />}
+        {activeTab === 'employes' && modules.employes && <PersonsListScreen />}
+        {activeTab === 'salaires' && modules.employes && <EmployeesMonthScreen />}
         {activeTab === 'reglages' && <SettingsScreen />}
       </div>
       {person?.type === 'employee' && <EmployeeDetailScreen key={person.id} employeeId={person.id} />}

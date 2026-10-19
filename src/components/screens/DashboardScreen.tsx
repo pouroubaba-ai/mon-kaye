@@ -197,16 +197,19 @@ function DonutCard({
 }
 
 export const DashboardScreen: React.FC = () => {
-  const { totals, persons, setAccountsView } = useStore()
+  const { totals, persons, setAccountsView, modules } = useStore()
 
   const partners = persons.filter(p => p.type === 'partner')
   const employees = persons.filter(p => p.type === 'employee')
   const PEOPLE: [string, string] = ['personne', 'personnes']
   const STAFF: [string, string] = ['employé', 'employés']
-  const nOwesMe = partners.filter(p => (p.owesMe || 0) > 0).length
-  const nAdvances = employees.filter(p => (p.advanceBalance || 0) > 0).length
-  const nIOwe = partners.filter(p => (p.iOweHim || 0) > 0).length
-  const nSalaries = employees.filter(p => (p.currentSalaryDue || 0) > 0).length
+  // Un module coupé n'apparaît pas (ses données restent)
+  const nOwesMe = modules.personnes ? partners.filter(p => (p.owesMe || 0) > 0).length : 0
+  const nAdvances = modules.employes ? employees.filter(p => (p.advanceBalance || 0) > 0).length : 0
+  const nIOwe = modules.personnes ? partners.filter(p => (p.iOweHim || 0) > 0).length : 0
+  const nSalaries = modules.employes ? employees.filter(p => (p.currentSalaryDue || 0) > 0).length : 0
+  const firstGroup = modules.personnes ? 'partner' : 'employee'
+  const on = (k: string) => (k === 'partenaires' ? modules.personnes : modules.employes)
   const owesMePeople = nOwesMe + nAdvances
   const iOwePeople = nIOwe + nSalaries
 
@@ -214,8 +217,8 @@ export const DashboardScreen: React.FC = () => {
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-2 gap-3 md:gap-4">
-        <StatCard label="On me doit" value={totals.totalOwesMe} tone="credit" Icon={ArrowDownLeft} onClick={() => setAccountsView({ dir: 'leurs', group: 'partner' })} />
-        <StatCard label="Je dois" value={totals.totalIOwe} tone="debt" Icon={ArrowUpRight} onClick={() => setAccountsView({ dir: 'mes', group: 'partner' })} />
+        <StatCard label="On me doit" value={totals.totalOwesMe} tone="credit" Icon={ArrowDownLeft} onClick={() => setAccountsView({ dir: 'leurs', group: firstGroup })} />
+        <StatCard label="Je dois" value={totals.totalIOwe} tone="debt" Icon={ArrowUpRight} onClick={() => setAccountsView({ dir: 'mes', group: firstGroup })} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -228,7 +231,7 @@ export const DashboardScreen: React.FC = () => {
           slices={[
             { key: 'partenaires', label: 'Personnes', value: totals.partnersOwesMe, color: 'var(--color-credit)', count: nOwesMe, unit: PEOPLE },
             { key: 'avances', label: 'Avances', value: totals.employeesAdvanceOwed, color: 'color-mix(in oklch, var(--color-credit) 45%, transparent)', count: nAdvances, unit: STAFF },
-          ]}
+          ].filter(s => on(s.key))}
         />
         <DonutCard
           title="Mes comptes"
@@ -239,7 +242,7 @@ export const DashboardScreen: React.FC = () => {
           slices={[
             { key: 'partenaires', label: 'Personnes', value: totals.partnersIOwe, color: 'var(--color-debt)', count: nIOwe, unit: PEOPLE },
             { key: 'salaires', label: 'Salaires', value: totals.employeesSalaryDue, color: 'color-mix(in oklch, var(--color-debt) 45%, transparent)', count: nSalaries, unit: STAFF },
-          ]}
+          ].filter(s => on(s.key))}
         />
       </div>
     </div>

@@ -79,7 +79,7 @@ const digits = (s: string) => s.replace(/\D/g, '').slice(0, 9)
 const lineTotal = (l: DraftLine, calc: boolean) => (calc ? num(l.price) * num(l.qty) : num(l.total))
 
 export const NewMovementModal: React.FC = () => {
-  const { isNewMovementOpen, closeNewMovement, newMovementTargetPersonId, newMovementInitialType, newMovementSide, persons, addMovement, movements, monthStates } =
+  const { isNewMovementOpen, closeNewMovement, newMovementTargetPersonId, newMovementInitialType, newMovementSide, persons, addMovement, movements, monthStates, modules } =
     useStore()
 
   const [step, setStep] = useState<Step>('qui')
@@ -260,8 +260,9 @@ export const NewMovementModal: React.FC = () => {
     closeNewMovement()
   }
 
-  const partnersList = persons.filter(p => p.type === 'partner')
-  const employeesList = persons.filter(p => p.type === 'employee' && p.status === 'actif')
+  // Un module coupé n'est pas proposé
+  const partnersList = modules.personnes ? persons.filter(p => p.type === 'partner') : []
+  const employeesList = modules.employes ? persons.filter(p => p.type === 'employee' && p.status === 'actif') : []
   const bothGroups = partnersList.length > 0 && employeesList.length > 0
   const activeGroup = bothGroups ? group : partnersList.length > 0 ? 'partner' : 'employee'
   const visible = (activeGroup === 'partner' ? partnersList : employeesList)

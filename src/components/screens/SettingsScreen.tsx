@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Check, Download, Moon, Sun } from 'lucide-react'
+import { Briefcase, Check, Download, Moon, Sun, Users } from 'lucide-react'
 
 import { useStore } from '@/data/store'
 import { Badge } from '@/components/ui/badge'
@@ -16,12 +16,13 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Switch } from '@/components/ui/switch'
 
 // Réglages : trois cartes shadcn standard (formulaire, apparence, données).
 // Le verrouillage reste dans l'en-tête et la barre latérale : pas de doublon ici.
 
 export const SettingsScreen: React.FC = () => {
-  const { shop, setShopName, setShopPin, theme, toggleTheme, exportCSV } = useStore()
+  const { shop, setShopName, setShopPin, theme, toggleTheme, exportCSV, modules, setModule } = useStore()
   const [shopNameInput, setShopNameInput] = useState(shop.name)
   const [pinInput, setPinInput] = useState(shop.pin)
   const [saved, setSaved] = useState(false)
@@ -69,6 +70,33 @@ export const SettingsScreen: React.FC = () => {
             )}
           </CardFooter>
         </form>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Modules</CardTitle>
+          <CardDescription>Gardez seulement ce que vous utilisez. Couper un module ne supprime rien : tout revient quand vous le rallumez.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col divide-y">
+          {([
+            { key: 'personnes', title: 'Personnes', hint: 'Clients, fournisseurs : leurs comptes et les miens', Icon: Users },
+            { key: 'employes', title: 'Employés', hint: 'Salaires, avances et la page Salaires', Icon: Briefcase },
+          ] as const).map(m => {
+            const on = modules[m.key]
+            // Le dernier module allumé ne peut pas être coupé
+            const last = on && !(m.key === 'personnes' ? modules.employes : modules.personnes)
+            return (
+              <label key={m.key} htmlFor={`module-${m.key}`} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                <m.Icon className="size-5 shrink-0 text-muted-foreground" />
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="text-sm font-medium">{m.title}</span>
+                  <span className="text-xs text-muted-foreground">{last ? 'Au moins un module doit rester allumé' : m.hint}</span>
+                </span>
+                <Switch id={`module-${m.key}`} checked={on} disabled={last} onCheckedChange={v => setModule(m.key, v)} />
+              </label>
+            )
+          })}
+        </CardContent>
       </Card>
 
       <Card>

@@ -228,3 +228,7 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 ## 2026-10-19 — « Salaires » devient un onglet du menu
 - Barre du bas : Accueil, Personnes, +, Employés, Salaires (pastille rouge). Réglages passe en icône en haut à droite (téléphone) ; la barre latérale garde Réglages.
 - La page Employés redevient la liste seule.
+
+## 2026-10-19 — Réglages : modules Personnes et Employés
+- Deux interrupteurs ; par défaut Personnes seul. Au moins un reste allumé. Le choix est gardé sur l'appareil.
+- Un module coupé est caché partout (menu, tableau de bord, totaux, comptes, saisie) ; ses données restent.
