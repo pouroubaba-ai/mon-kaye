@@ -242,3 +242,5 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 - Chaque nouveau mois commence avec le salaire entier (et la retenue d'avance prévue) : ajouté automatiquement.
 
 ## 2026-10-19 — Nouvel employé : phrases plus simples, « Anciennes avances », résumé rangé en 3 blocs (salaire, paie du mois, anciennes avances)
+
+## 2026-10-19 — Fiche de paie du mois (bouton dans la fiche du mois) : feuille blanche, envoi WhatsApp, impression / PDF

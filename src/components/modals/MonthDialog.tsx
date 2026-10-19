@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Ban, ChevronRight, CircleMinus, CirclePlus, Lock, Pause, Pencil } from 'lucide-react'
+import { Ban, ChevronRight, CircleMinus, CirclePlus, FileText, Lock, Pause, Pencil } from 'lucide-react'
 
 import { useStore } from '@/data/store'
 import { PAYMENT_LABELS } from '@/components/movement-history'
@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PayslipDialog } from '@/components/modals/PayslipDialog'
 import { cn, formatFCFA } from '@/lib/utils'
 
 // Fiche d'un mois de salaire.
@@ -36,6 +37,7 @@ export function MonthDialog({
 }) {
   const { persons, movements, monthStates, cancelMovement, openNewMovement, openMovementDetail, stopMonth, cancelMonth, setMonthRetenue } = useStore()
   const [panel, setPanel] = React.useState<Panel>('none')
+  const [slip, setSlip] = React.useState(false) // fiche de paie ouverte par-dessus
   const [basis, setBasis] = React.useState<Basis>('complet')
   const [daysStr, setDaysStr] = React.useState('')
   const [fixedStr, setFixedStr] = React.useState('')
@@ -49,6 +51,7 @@ export function MonthDialog({
   React.useEffect(() => {
     if (!open) return
     setPanel('none')
+    setSlip(false)
     setBasis('complet')
     setDaysStr(String(new Date().getDate()))
     setFixedStr('')
@@ -267,6 +270,13 @@ export function MonthDialog({
           </Group>
         </div>
 
+        {/* Fiche de paie du mois (pas pour un mois annulé) */}
+        {row.state !== 'annule' && (
+          <Button variant="outline" className="h-11" onClick={() => setSlip(true)}>
+            <FileText /> Fiche de paie
+          </Button>
+        )}
+
         {!isOpen && row.state !== 'annule' && (
           <p className="flex items-center gap-2 rounded-lg bg-muted/50 p-2.5 text-xs text-muted-foreground">
             <Lock className="size-3.5 shrink-0" /> Mois scellé : on peut seulement le payer.
@@ -484,6 +494,7 @@ export function MonthDialog({
           )}
         </DialogContent>
       </Dialog>
+      <PayslipDialog empId={empId} period={period} open={slip} onOpenChange={setSlip} />
     </Dialog>
   )
 }
