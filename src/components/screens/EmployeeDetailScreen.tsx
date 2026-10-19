@@ -1,5 +1,5 @@
 import React from 'react'
-import { Coins, HandCoins, Pencil, Plus, Scale, UserMinus } from 'lucide-react'
+import { Coins, HandCoins, Pencil, Plus, UserMinus } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 
 import { useStore } from '@/data/store'
@@ -80,7 +80,6 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
   const advRepaid = openAdv.reduce((a, r) => a + r.rendu, 0)
   // Salaire encore dû, retenue prévue comprise (elle n'est coupée qu'à la clôture du mois)
   const salaryReste = pr.totalReste + pr.plannedRetenue
-  const net = salaryReste - pr.advanceReste
   // Façon de rendre : court, la valeur seule (« 15 000 FCFA / mois » ou « Direct »)
   const plan = emp.advanceDeductionPerPeriod && emp.advanceDeductionPerPeriod > 0
     ? `${formatFCFA(emp.advanceDeductionPerPeriod)} / mois`
@@ -109,22 +108,6 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
 
       {view === 'ensemble' && (
         <>
-          {salaryReste > 0 && pr.advanceReste > 0 && (
-            <div
-              className="flex items-center gap-3 rounded-xl border p-3"
-              style={{
-                background: `color-mix(in srgb, ${net >= 0 ? 'var(--color-debt)' : 'var(--color-credit)'} 12%, var(--card))`,
-                borderColor: `color-mix(in srgb, ${net >= 0 ? 'var(--color-debt)' : 'var(--color-credit)'} 35%, transparent)`,
-              }}
-            >
-              <Scale className={net >= 0 ? 'size-5 shrink-0 text-debt' : 'size-5 shrink-0 text-credit'} />
-              <p className="min-w-0 flex-1 text-sm">
-                {net > 0 && <>Avance déduite, <span className="font-semibold text-debt">vous lui devez {formatFCFA(net)}</span></>}
-                {net < 0 && <>Salaire déduit, <span className="font-semibold text-credit">il vous doit {formatFCFA(-net)}</span></>}
-                {net === 0 && <span className="font-semibold">Salaire et avance s'annulent</span>}
-              </p>
-            </div>
-          )}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <BalanceCard title="Je lui dois" Icon={Coins} tone="debt" remaining={salaryReste} paid={salaryPaid} onClick={() => setView('salaire')} />
             <BalanceCard

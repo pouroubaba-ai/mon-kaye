@@ -205,3 +205,5 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 - Verser plus que salaire moins retenue est permis jusqu'au salaire entier : un avertissement dit de combien la retenue du mois baisse.
 - À la clôture (mois arrêté), la retenue est inscrite pour ce qu'elle vaut vraiment.
 - Reste à faire : au passage naturel au mois suivant, la retenue est comptée à son montant inscrit.
+
+## 2026-10-19 — Fiche employé : bandeau « Avance déduite » retiré de la vue d'ensemble
