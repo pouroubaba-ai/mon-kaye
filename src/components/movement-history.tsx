@@ -104,7 +104,7 @@ export function MovementHistory({
                       <Badge variant="destructive">Annulé</Badge>
                     ) : (
                       // pas de moyen de paiement pour un retour ou un trop reçu (ce n'est pas un paiement)
-                      m.type !== 'il_a_retourne' && m.type !== 'j_ai_retourne' && m.type !== 'surplus_salaire' && (
+                      m.type !== 'il_a_retourne' && m.type !== 'j_ai_retourne' && m.type !== 'surplus_salaire' && !m.label.startsWith('Avance laissée') && (
                         <>
                           <span>·</span>
                           <span>{PAYMENT_LABELS[m.paymentMethod || 'especes']}</span>

@@ -390,3 +390,35 @@ export function payHistoryFromMovements(
   }
   return [...map.values()].sort((a, b) => a.year - b.year || a.month - b.month)
 }
+
+// ——— Départ d'un employé ———
+// Le mois en cours (s'il est encore ouvert) est arrêté avec le montant choisi ; la retenue d'avance
+// prévue est enlevée (l'avance se règle au départ). Rien n'est payé ici : on calcule seulement.
+export function simulateDeparture(
+  empId: string,
+  movements: Movement[],
+  monthStates: Record<string, 'arrete' | 'annule'>,
+  newBase: number | null, // null : garder le salaire tel quel
+  basisLabel: string,
+  date: string,
+  stamp = Date.now()
+): { next: Movement[]; states: Record<string, 'arrete' | 'annule'>; stopped: boolean } {
+  const cur = currentPeriod()
+  const key = monthKey(empId, cur)
+  const hasMonth = movements.some(m => m.personId === empId && m.period === cur && m.type === 'salaire_du' && !m.isCancelled)
+  if (monthStates[key] || !hasMonth) return { next: movements, states: monthStates, stopped: false }
+  const emp = movements.find(m => m.personId === empId)
+  let next = movements.map(m => {
+    if (m.personId !== empId || m.period !== cur || m.isCancelled) return m
+    if (m.type === 'retenue_salaire') return { ...m, isCancelled: true, cancellationReason: "Départ : l'avance se règle au départ", cancelledAt: date }
+    if (m.type === 'salaire_du' && newBase !== null) return { ...m, isCancelled: true, cancellationReason: 'Départ', cancelledAt: date }
+    return m
+  })
+  if (newBase !== null) {
+    next = [
+      { id: `mov-sal-dep-${stamp}`, personId: empId, personName: emp?.personName ?? '', type: 'salaire_du', label: `Salaire de base (${basisLabel})`, amount: newBase, date, period: cur },
+      ...next,
+    ]
+  }
+  return { next, states: { ...monthStates, [key]: 'arrete' }, stopped: true }
+}

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { type Person, type Movement, INITIAL_SHOP, INITIAL_PERSONS, INITIAL_MOVEMENTS } from './mockData'
-import { buildPayrollSeed, currentPeriod, monthKey, ofMonth, payrollOf, syncEmployee } from './payroll'
+import { buildPayrollSeed, currentPeriod, monthKey, ofMonth, payrollOf, simulateDeparture, syncEmployee } from './payroll'
 
 // Trop versé : « plus tard » = la différence passe dans l'autre compte ; « déjà rendu » = réglé en main propre.
 export type ExcessChoice = 'plus_tard' | 'deja_rendu'
@@ -83,10 +83,10 @@ interface StoreContextType {
   applyCompensation: (partnerId: string) => void
   processDeparture: (
     employeeId: string,
-    salaryChoice: 'mois_complet' | 'prorata' | 'fixe',
-    customAmount: number,
-    advanceChoice: 'retenir' | 'dette' | 'abandonner',
-    abandonNote?: string
+    newBase: number | null,
+    basisLabel: string,
+    advanceChoice: 'retenir' | 'dette' | 'laisser',
+    note?: string
   ) => void
   
   // Aggregated Totals
@@ -668,54 +668,55 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     closeCompensation()
   }
 
-  // PROCESS DEPARTURE
-  const processDeparture = (
-    employeeId: string,
-    salaryChoice: 'mois_complet' | 'prorata' | 'fixe',
-    customAmount: number,
-    advanceChoice: 'retenir' | 'dette' | 'abandonner',
-    abandonNote?: string
-  ) => {
+  // DÉPART D'UN EMPLOYÉ : le mois en cours est arrêté, l'avance est réglée selon le choix,
+  // l'employé passe « Parti ». Ce qui reste à lui verser se verse ensuite comme d'habitude.
+  const processDeparture: StoreContextType['processDeparture'] = (employeeId, newBase, basisLabel, advanceChoice, note) => {
     const emp = persons.find(p => p.id === employeeId)
     if (!emp || emp.type !== 'employee') return
-
-    const today = new Date()
-    const dateStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`
-    
-    let finalSalary = customAmount
-    const advanceLeft = emp.advanceBalance || 0
-    let finalNetToPay = finalSalary
-
+    const date = todayStr()
+    const stamp = Date.now()
+    const sim = simulateDeparture(employeeId, movements, monthStates, newBase, basisLabel, date, stamp)
+    let next = sim.stopped ? settleSurplus(emp, currentPeriod(), sim.next, sim.states, 'avance') : sim.next
+    const pr = payrollOf(employeeId, next, sim.states)
+    let left = pr.advanceReste
+    const extra: Movement[] = []
     if (advanceChoice === 'retenir') {
-      finalNetToPay = Math.max(0, finalSalary - advanceLeft)
-    }
-
-    // Add movement for final settlement
-    const settlementMov: Movement = {
-      id: `mov-dep-${Date.now()}`,
-      personId: emp.id,
-      personName: emp.name,
-      type: 'je_lui_ai_verse',
-      label: `Solde tout compte départ (${salaryChoice === 'prorata' ? 'Prorata' : salaryChoice === 'mois_complet' ? 'Mois complet' : 'Montant fixe'})`,
-      amount: finalNetToPay,
-      date: dateStr,
-      paymentMethod: 'especes',
-      note: `Départ définitif de l'employé. Avance restante (${advanceLeft.toLocaleString()} FCFA) : ${advanceChoice === 'retenir' ? 'Retenue sur solde' : advanceChoice === 'dette' ? 'Conservée comme dette' : `Abandonnée (${abandonNote || 'accord amiable'})`}.`,
-    }
-
-    setMovements(prev => [settlementMov, ...prev])
-
-    setPersons(prev => prev.map(p => {
-      if (p.id !== employeeId) return p
-      return {
-        ...p,
-        status: 'inactif',
-        currentSalaryDue: 0,
-        advanceBalance: advanceChoice === 'dette' ? advanceLeft : 0,
-        notes: `${p.notes || ''} [DÉPART LE ${dateStr} - Statut Inactif]`,
+      // Retirée de ce qu'il reste à lui verser, du mois le plus récent au plus ancien
+      for (const r of pr.months) {
+        if (left <= 0) break
+        const cut = Math.min(left, r.reste)
+        if (cut <= 0) continue
+        extra.push({
+          id: `mov-dep-ret-${stamp}-${r.period}`,
+          personId: emp.id,
+          personName: emp.name,
+          type: 'retenue_salaire',
+          label: "Retenue pour l'avance (départ)",
+          amount: cut,
+          date,
+          period: r.period,
+          note: 'Avance retirée du salaire au départ',
+        })
+        left -= cut
       }
-    }))
-
+    } else if (advanceChoice === 'laisser' && left > 0) {
+      extra.push({
+        id: `mov-dep-laisse-${stamp}`,
+        personId: emp.id,
+        personName: emp.name,
+        type: 'remboursement_direct',
+        label: 'Avance laissée au départ',
+        amount: left,
+        date,
+        note: note?.trim() || undefined,
+      })
+    }
+    next = [...extra, ...next]
+    setMovements(next)
+    setMonthStates(sim.states)
+    setPersons(prev =>
+      prev.map(p => (p.id === employeeId ? syncEmployee({ ...p, status: 'inactif', notes: `${p.notes || ''} [Parti le ${date}]`.trim() }, next, sim.states) : p))
+    )
     closeDeparture()
   }
 

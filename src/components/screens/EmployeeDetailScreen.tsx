@@ -120,7 +120,8 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
               note={pr.advanceReste > 0 ? `Façon de rendre : ${plan}` : undefined}
             />
           </div>
-          {active && (
+          {/* Parti : on peut encore lui verser ce qui reste, ou noter qu'il rend son avance */}
+          {(active || salaryReste > 0 || pr.advanceReste > 0) && (
             <Button size="lg" className="h-12" onClick={() => openNewMovement(emp.id)}>
               <Plus /> Enregistrer une opération
             </Button>
@@ -160,7 +161,7 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
                 Versements <span className="text-xs text-muted-foreground">{pr.payments.filter(m => m.type !== 'surplus_salaire').length}</span>
               </Button>
             </div>
-            {active && (
+            {(active || salaryReste > 0) && (
               <Button size="sm" onClick={() => openNewMovement(emp.id, 'je_lui_ai_verse')}>
                 <Plus /> Verser
               </Button>

@@ -1,282 +1,161 @@
 import React, { useState } from 'react'
 import { useStore } from '@/data/store'
+import { currentPeriod, daysInPeriod, ofMonth, payrollOf, simulateDeparture } from '@/data/payroll'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/responsive-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import { formatFCFA } from '@/lib/utils'
-import { UserMinus, AlertTriangle, ShieldCheck, Check } from 'lucide-react'
+import { cn, formatFCFA } from '@/lib/utils'
+
+// L'employé quitte la boutique : deux questions courtes (son dernier mois, son avance),
+// puis ce qui reste à faire. Rien n'est versé ici : on verse ensuite comme d'habitude.
+
+const thousands = (s: string) => (s ? Number(s).toLocaleString('fr-FR').replace(/\s/g, ' ') : '')
+const digits = (s: string) => s.replace(/\D/g, '').slice(0, 9)
+
+type Basis = 'complet' | 'prorata' | 'fixe'
+type AdvChoice = 'retenir' | 'dette' | 'laisser'
+
+function Choice({ on, title, hint, onPick, children }: { on: boolean; title: string; hint?: string; onPick: () => void; children?: React.ReactNode }) {
+  return (
+    <div className={cn('rounded-xl border transition-colors', on && 'border-primary bg-muted/40')}>
+      <button type="button" role="radio" aria-checked={on} onClick={onPick} className="flex w-full items-center gap-3 p-3 text-left">
+        <span className={cn('flex size-5 shrink-0 items-center justify-center rounded-full border-2', on ? 'border-primary' : 'border-muted-foreground/40')}>
+          {on && <span className="size-2.5 rounded-full bg-primary" />}
+        </span>
+        <span className="flex min-w-0 flex-col">
+          <span className="text-sm font-medium">{title}</span>
+          {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
+        </span>
+      </button>
+      {on && children && <div className="px-3 pb-3 pl-11">{children}</div>}
+    </div>
+  )
+}
 
 export const DepartureModal: React.FC = () => {
-  const { isDepartureOpen, closeDeparture, departureTargetEmployeeId, persons, processDeparture } = useStore()
+  const { isDepartureOpen, closeDeparture, departureTargetEmployeeId, persons, movements, monthStates, processDeparture } = useStore()
   const emp = persons.find(p => p.id === departureTargetEmployeeId)
+  const cur = currentPeriod()
+  const dim = daysInPeriod(cur)
 
-  // Options
-  const [salaryChoice, setSalaryChoice] = useState<'mois_complet' | 'prorata' | 'fixe'>('prorata')
-  const [prorataDays, setProrataDays] = useState('18')
-  const [customFixedSalary, setCustomFixedSalary] = useState('50000')
-  const [advanceChoice, setAdvanceChoice] = useState<'retenir' | 'dette' | 'abandonner'>('retenir')
-  const [abandonNote, setAbandonNote] = useState('')
+  const [basis, setBasis] = useState<Basis>('prorata')
+  const [daysStr, setDaysStr] = useState('')
+  const [fixedStr, setFixedStr] = useState('')
+  const [adv, setAdv] = useState<AdvChoice>('retenir')
+  const [note, setNote] = useState('')
 
   // À chaque ouverture, on repart des choix par défaut.
   React.useEffect(() => {
     if (!isDepartureOpen) return
-    setSalaryChoice('prorata')
-    setProrataDays('18')
-    setCustomFixedSalary('50000')
-    setAdvanceChoice('retenir')
-    setAbandonNote('')
+    setBasis('prorata')
+    setDaysStr(String(new Date().getDate()))
+    setFixedStr('')
+    setAdv('retenir')
+    setNote('')
   }, [isDepartureOpen])
-  const dirty =
-    salaryChoice !== 'prorata' ||
-    prorataDays !== '18' ||
-    customFixedSalary !== '50000' ||
-    advanceChoice !== 'retenir' ||
-    abandonNote.trim() !== ''
 
   if (!emp) return null
 
   const salary = emp.salary || 0
-  const advance = emp.advanceBalance || 0
+  const days = Math.min(dim, parseInt(daysStr, 10) || 0)
+  const newBase = basis === 'complet' ? salary : basis === 'prorata' ? Math.round((salary * days) / dim) : parseInt(fixedStr, 10) || 0
+  const basisLabel = basis === 'complet' ? 'montant complet' : basis === 'prorata' ? `${days} jours sur ${dim}` : 'montant convenu'
 
-  // Calculate settlement salary
-  let calculatedSalary = salary
-  if (salaryChoice === 'prorata') {
-    const days = parseInt(prorataDays, 10) || 0
-    calculatedSalary = Math.round((days / 30) * salary)
-  } else if (salaryChoice === 'fixe') {
-    calculatedSalary = parseInt(customFixedSalary, 10) || 0
-  }
+  // Ce que le départ donnerait : salaire encore dû, avance encore due (un trop reçu devient de l'avance)
+  const sim = simulateDeparture(emp.id, movements, monthStates, basis === 'complet' ? null : newBase, basisLabel, '', 0)
+  const pr = payrollOf(emp.id, sim.next, sim.states)
+  const monthOpen = sim.stopped
+  const salaryDue = pr.totalReste
+  const advDue = pr.advanceReste + pr.surplus
+  const cut = adv === 'retenir' ? Math.min(advDue, salaryDue) : 0
+  const toPay = salaryDue - cut
+  const stillOwes = adv === 'laisser' ? 0 : advDue - cut
 
-  // Net amount to pay after advance treatment
-  let finalNetToPay = calculatedSalary
-  if (advanceChoice === 'retenir') {
-    finalNetToPay = Math.max(0, calculatedSalary - advance)
-  }
+  const invalid = (monthOpen && basis !== 'complet' && newBase <= 0) || (advDue > 0 && adv === 'laisser' && !note.trim())
+  const dirty = basis !== 'prorata' || fixedStr !== '' || adv !== 'retenir' || note.trim() !== ''
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    processDeparture(
-      emp.id,
-      salaryChoice,
-      calculatedSalary,
-      advanceChoice,
-      abandonNote
-    )
+  const submit = () => {
+    if (invalid) return
+    processDeparture(emp.id, basis === 'complet' ? null : newBase, basisLabel, advDue > 0 ? adv : 'dette', note)
   }
 
   return (
     <Dialog open={isDepartureOpen} onOpenChange={open => !open && closeDeparture()} dirty={dirty} dirtyKind="modification">
-      <DialogContent className="max-w-lg p-4 sm:p-6 max-h-[95vh] overflow-y-auto rounded-2xl">
-        <DialogHeader className="pb-2">
-          <DialogTitle className="text-xl font-bold flex items-center gap-2 text-destructive">
-            <UserMinus className="w-6 h-6" />
-            Assistant de départ : {emp.name}
-          </DialogTitle>
-          <DialogDescription className="text-xs">
-            Règlement des comptes de clôture. Aucun nouveau salaire ne sera créé après ce départ.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto">
+        <div className="flex flex-col gap-5">
+          <DialogHeader className="gap-1 p-0">
+            <DialogTitle className="text-left">Il quitte la boutique</DialogTitle>
+            <DialogDescription className="text-left">{emp.name}</DialogDescription>
+          </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          
-          {/* ÉTAPE 1 : COMMENT SOLDER LA PÉRIODE EN COURS */}
-          <div className="space-y-2 p-3 rounded-xl border bg-card">
-            <span className="text-xs font-bold text-foreground block uppercase">
-              1. Salaire de la période en cours
-            </span>
-            <div className="space-y-2 text-xs">
-              <label className="flex items-center gap-2.5 p-2 rounded-lg border cursor-pointer hover:bg-muted/30">
-                <input
-                  type="radio"
-                  name="salaryOption"
-                  checked={salaryChoice === 'mois_complet'}
-                  onChange={() => setSalaryChoice('mois_complet')}
+          {monthOpen && (
+            <div className="flex flex-col gap-2" role="radiogroup" aria-label="Dernier mois">
+              <p className="text-sm font-medium">Combien touche-t-il pour le mois {ofMonth(cur)} ?</p>
+              <Choice on={basis === 'complet'} title="Montant complet" hint={formatFCFA(salary)} onPick={() => setBasis('complet')} />
+              <Choice on={basis === 'prorata'} title="Selon les jours travaillés" onPick={() => setBasis('prorata')}>
+                <label className="flex items-center gap-2 text-sm">
+                  Il a travaillé
+                  <Input
+                    inputMode="numeric"
+                    aria-label="Jours travaillés"
+                    value={daysStr}
+                    onFocus={e => e.currentTarget.select()}
+                    onChange={e => setDaysStr(digits(e.target.value).slice(0, 2))}
+                    className="h-10 w-16 text-center"
+                  />
+                  jours sur {dim}
+                </label>
+                <p className="mt-1 text-xs text-muted-foreground tabular-nums">Soit {formatFCFA(newBase)}</p>
+              </Choice>
+              <Choice on={basis === 'fixe'} title="Montant convenu" onPick={() => setBasis('fixe')}>
+                <Input
+                  autoFocus
+                  inputMode="numeric"
+                  placeholder="Montant"
+                  aria-label="Montant convenu"
+                  value={thousands(fixedStr)}
+                  onChange={e => setFixedStr(digits(e.target.value))}
+                  className="h-10"
                 />
-                <div className="flex-1 flex justify-between">
-                  <span>Mois complet normal</span>
-                  <span className="font-bold">{formatFCFA(salary)}</span>
-                </div>
-              </label>
-
-              <label className="flex items-center gap-2.5 p-2 rounded-lg border cursor-pointer hover:bg-muted/30">
-                <input
-                  type="radio"
-                  name="salaryOption"
-                  checked={salaryChoice === 'prorata'}
-                  onChange={() => setSalaryChoice('prorata')}
-                />
-                <div className="flex-1 space-y-1.5">
-                  <div className="flex justify-between">
-                    <span className="font-semibold">Au prorata des jours travaillés (Recommandé)</span>
-                    <span className="font-bold text-primary">{formatFCFA(calculatedSalary)}</span>
-                  </div>
-                  {salaryChoice === 'prorata' && (
-                    <div className="flex items-center gap-2 pt-1">
-                      <span className="text-[11px] text-muted-foreground">Jours travaillés sur 30 :</span>
-                      <Input
-                        type="number"
-                        min="1"
-                        max="30"
-                        value={prorataDays}
-                        onChange={e => setProrataDays(e.target.value)}
-                        className="w-16 h-8 text-xs text-center"
-                      />
-                    </div>
-                  )}
-                </div>
-              </label>
-
-              <label className="flex items-center gap-2.5 p-2 rounded-lg border cursor-pointer hover:bg-muted/30">
-                <input
-                  type="radio"
-                  name="salaryOption"
-                  checked={salaryChoice === 'fixe'}
-                  onChange={() => setSalaryChoice('fixe')}
-                />
-                <div className="flex-1 space-y-1.5">
-                  <div className="flex justify-between">
-                    <span>Montant fixe convenu</span>
-                    <span className="font-bold">{formatFCFA(calculatedSalary)}</span>
-                  </div>
-                  {salaryChoice === 'fixe' && (
-                    <Input
-                      type="number"
-                      value={customFixedSalary}
-                      onChange={e => setCustomFixedSalary(e.target.value)}
-                      className="h-8 text-xs"
-                      placeholder="Montant convenu en FCFA"
-                    />
-                  )}
-                </div>
-              </label>
+              </Choice>
             </div>
-          </div>
+          )}
 
-          {/* ÉTAPE 2 : TRAITEMENT DE L'AVANCE RESTANTE */}
-          <div className="space-y-2 p-3 rounded-xl border bg-card">
-            <div className="flex justify-between items-center">
-              <span className="text-xs font-bold text-foreground uppercase block">
-                2. Avance restante non remboursée
-              </span>
-              <Badge variant="outline" className="text-xs text-credit border-credit/30">
-                {formatFCFA(advance)}
-              </Badge>
-            </div>
-
-            {advance > 0 ? (
-              <div className="space-y-2 text-xs">
-                {/* Choix 1 (Recommandé par défaut) */}
-                <label className="flex items-center gap-2.5 p-2.5 rounded-lg border-2 border-primary/30 bg-primary/5 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="advanceOption"
-                    checked={advanceChoice === 'retenir'}
-                    onChange={() => setAdvanceChoice('retenir')}
-                  />
-                  <div className="flex-1">
-                    <span className="font-bold text-foreground block">
-                      Retenir sur le montant final (Choix par défaut recommandé)
-                    </span>
-                    <span className="text-muted-foreground text-[11px]">
-                      Déduit automatiquement {formatFCFA(advance)} du solde à lui verser.
-                    </span>
-                  </div>
-                </label>
-
-                {/* Choix 2 */}
-                <label className="flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer hover:bg-muted/30">
-                  <input
-                    type="radio"
-                    name="advanceOption"
-                    checked={advanceChoice === 'dette'}
-                    onChange={() => setAdvanceChoice('dette')}
-                  />
-                  <div className="flex-1">
-                    <span className="font-bold text-foreground block">
-                      Garder comme dette de l'employé
-                    </span>
-                    <span className="text-muted-foreground text-[11px]">
-                      Il continuera à vous devoir {formatFCFA(advance)} hors du cadre du salaire.
-                    </span>
-                  </div>
-                </label>
-
-                {/* Choix 3 */}
-                <label className="flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer hover:bg-muted/30">
-                  <input
-                    type="radio"
-                    name="advanceOption"
-                    checked={advanceChoice === 'abandonner'}
-                    onChange={() => setAdvanceChoice('abandonner')}
-                  />
-                  <div className="flex-1 space-y-1">
-                    <span className="font-bold text-foreground block">
-                      Abandonner l'avance restante
-                    </span>
-                    <span className="text-muted-foreground text-[11px]">
-                      Cadeau ou accord amiable. Note explicative obligatoire.
-                    </span>
-                    {advanceChoice === 'abandonner' && (
-                      <Input
-                        required
-                        placeholder="Motif d'abandon obligatoire..."
-                        value={abandonNote}
-                        onChange={e => setAbandonNote(e.target.value)}
-                        className="h-8 text-xs mt-1"
-                      />
-                    )}
-                  </div>
-                </label>
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground flex items-center gap-1.5 py-1">
-                <Check className="w-4 h-4 text-credit" />
-                Cet employé n'a aucune avance en cours.
+          {advDue > 0 && (
+            <div className="flex flex-col gap-2" role="radiogroup" aria-label="Son avance">
+              <p className="text-sm font-medium">
+                Son avance : il doit encore <span className="text-credit tabular-nums">{formatFCFA(advDue)}</span>
               </p>
-            )}
-          </div>
-
-          {/* RÉCAPITULATIF FINAL */}
-          <div className="p-3.5 rounded-xl border bg-muted/30 space-y-2 text-xs">
-            <span className="font-bold text-foreground block text-sm">
-              Récapitulatif du versement de solde :
-            </span>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Salaire calculé :</span>
-              <span className="font-semibold">{formatFCFA(calculatedSalary)}</span>
+              <Choice
+                on={adv === 'retenir'}
+                title="La retirer de son salaire"
+                hint={salaryDue > 0 ? `${formatFCFA(Math.min(advDue, salaryDue))} en moins à lui verser` : 'Rien à retirer : son salaire est déjà payé'}
+                onPick={() => setAdv('retenir')}
+              />
+              <Choice on={adv === 'dette'} title="Il me la rendra plus tard" onPick={() => setAdv('dette')} />
+              <Choice on={adv === 'laisser'} title="Je la lui laisse" onPick={() => setAdv('laisser')}>
+                <Input autoFocus placeholder="Motif obligatoire" value={note} onChange={e => setNote(e.target.value)} className="h-10" />
+              </Choice>
             </div>
-            {advanceChoice === 'retenir' && advance > 0 && (
-              <div className="flex justify-between text-credit font-semibold">
-                <span>Retenue avance :</span>
-                <span>- {formatFCFA(advance)}</span>
+          )}
+
+          <div className="flex flex-col gap-1 rounded-xl bg-muted/50 p-3 text-sm">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-muted-foreground">À lui verser</span>
+              <span className="text-base font-semibold text-debt tabular-nums">{formatFCFA(toPay)}</span>
+            </div>
+            {stillOwes > 0 && (
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-muted-foreground">Il vous devra encore</span>
+                <span className="text-base font-semibold text-credit tabular-nums">{formatFCFA(stillOwes)}</span>
               </div>
             )}
-            <div className="flex justify-between pt-2 border-t text-sm font-black text-foreground">
-              <span>Net à lui verser maintenant :</span>
-              <span className="text-base text-debt">{formatFCFA(finalNetToPay)}</span>
-            </div>
           </div>
 
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={closeDeparture}
-              className="flex-1 h-12 text-xs"
-            >
-              Annuler
-            </Button>
-            <Button
-              type="submit"
-              className="flex-1 h-12 text-sm font-bold bg-destructive text-white hover:bg-destructive/90"
-            >
-              Valider le départ définitif
-            </Button>
-          </div>
-
-        </form>
+          <Button variant="destructive" size="lg" className="h-12" disabled={invalid} onClick={submit}>
+            Confirmer son départ
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   )

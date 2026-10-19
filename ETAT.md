@@ -213,3 +213,7 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 ## 2026-10-19 — Écran « kayé » au démarrage (moins d'une seconde, seulement à l'ouverture de l'app)
 
 ## 2026-10-19 — Logo Kayé enregistré dans logo/ (icône é doré, icône nom complet, nom seul, nom + slogan ; SVG et PNG)
+
+## 2026-10-19 — Départ de l'employé refait
+- Fenêtre « Il quitte la boutique » : son dernier mois (complet / jours travaillés / montant convenu), son avance (la retirer de son salaire / il la rendra plus tard / je la lui laisse + motif), puis « À lui verser » et « Il vous devra encore ».
+- Le départ arrête le mois en cours, enlève la retenue prévue, règle l'avance, passe l'employé « Parti ». Rien n'est versé automatiquement : « Verser » reste possible tant qu'il reste quelque chose à lui payer.
