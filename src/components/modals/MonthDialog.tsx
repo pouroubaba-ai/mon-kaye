@@ -8,7 +8,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn, formatFCFA } from '@/lib/utils'
 
 // Fiche d'un mois de salaire.
@@ -36,7 +35,7 @@ export function MonthDialog({
 }) {
   const { persons, movements, monthStates, cancelMovement, openNewMovement, openMovementDetail, stopMonth, cancelMonth, setMonthRetenue } = useStore()
   const [panel, setPanel] = React.useState<Panel>('none')
-  const [basis, setBasis] = React.useState<Basis>('prorata')
+  const [basis, setBasis] = React.useState<Basis>('complet')
   const [daysStr, setDaysStr] = React.useState('')
   const [fixedStr, setFixedStr] = React.useState('')
   const [reason, setReason] = React.useState('')
@@ -49,7 +48,7 @@ export function MonthDialog({
   React.useEffect(() => {
     if (!open) return
     setPanel('none')
-    setBasis('prorata')
+    setBasis('complet')
     setDaysStr(String(new Date().getDate()))
     setFixedStr('')
     setReason('')
@@ -71,7 +70,7 @@ export function MonthDialog({
   // Nouveau salaire de base si on arrête le mois
   const days = Math.min(dim, parseInt(daysStr, 10) || 0)
   const newBase = basis === 'complet' ? salary : basis === 'prorata' ? Math.round((salary * days) / dim) : parseInt(fixedStr, 10) || 0
-  const basisLabel = basis === 'complet' ? 'mois complet' : basis === 'prorata' ? `prorata ${days}/${dim} j` : 'montant fixe'
+  const basisLabel = basis === 'complet' ? 'montant complet' : basis === 'prorata' ? `${days} jours sur ${dim}` : 'montant convenu'
 
   // Surplus : ce qu'il a déjà reçu au-delà de ce qui sera dû après le changement.
   const totalPaid = pr.months.reduce((a, m) => a + m.verse, 0) + pr.surplus
@@ -228,7 +227,17 @@ export function MonthDialog({
                 <span className="shrink-0 tabular-nums text-debt">− {formatFCFA(amount)}</span>
               </div>
             ))}
-            {lines.every(m => m.type !== 'retenue_salaire' && m.type !== 'retenue_manuelle') && row.paymentParts.length === 0 && (
+            {row.cancelledParts.map(({ mov, amount }) => (
+              // Versement annulé : il reste visible ici, barré, et ne compte plus
+              <div key={`x-${mov.id}`} className="flex flex-col border-b border-dashed py-2 last:border-0">
+                <div className="flex items-baseline gap-3 text-muted-foreground">
+                  <span className="min-w-0 flex-1 truncate line-through">Versement du {mov.date.slice(0, 5)}</span>
+                  <span className="shrink-0 tabular-nums line-through">− {formatFCFA(amount)}</span>
+                </div>
+                {mov.cancellationReason && <p className="mt-0.5 text-xs text-muted-foreground">Annulé : {mov.cancellationReason}</p>}
+              </div>
+            ))}
+            {lines.every(m => m.type !== 'retenue_salaire' && m.type !== 'retenue_manuelle') && row.paymentParts.length === 0 && row.cancelledParts.length === 0 && (
               <p className="py-2 text-xs text-muted-foreground">Rien pour l'instant.</p>
             )}
           </Group>
@@ -303,35 +312,67 @@ export function MonthDialog({
               </div>
             ) : panel === 'arreter' ? (
               <div className="flex flex-col gap-4">
-                <Tabs value={basis} onValueChange={v => setBasis(v as Basis)}>
-                  <TabsList className="w-full">
-                    <TabsTrigger value="complet">Mois complet</TabsTrigger>
-                    <TabsTrigger value="prorata">Prorata</TabsTrigger>
-                    <TabsTrigger value="fixe">Montant fixe</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-                {basis === 'prorata' && (
-                  <label className="flex items-center gap-2 text-sm">
-                    Jours travaillés
-                    <Input
-                      inputMode="numeric"
-                      value={daysStr}
-                      onFocus={e => e.currentTarget.select()}
-                      onChange={e => setDaysStr(digits(e.target.value).slice(0, 2))}
-                      className="h-10 w-16 text-center"
-                    />
-                    <span className="text-muted-foreground">sur {dim}</span>
-                  </label>
-                )}
-                {basis === 'fixe' && (
-                  <Input inputMode="numeric" placeholder="Montant convenu" value={thousands(fixedStr)} onChange={e => setFixedStr(digits(e.target.value))} className="h-11" />
-                )}
+                <p className="text-sm text-muted-foreground">Combien doit-il toucher pour ce mois ?</p>
+                {/* Trois choix, chacun dit ce qu'il fait ; le champ utile s'ouvre sous le choix */}
+                <div className="flex flex-col gap-2" role="radiogroup" aria-label="Montant du mois">
+                  {([
+                    { v: 'complet', title: 'Montant complet', hint: `Tout son salaire : ${formatFCFA(salary)}` },
+                    { v: 'prorata', title: 'Selon les jours travaillés', hint: 'Le salaire est partagé selon les jours' },
+                    { v: 'fixe', title: 'Montant convenu', hint: 'Vous tapez le montant décidé ensemble' },
+                  ] as const).map(o => {
+                    const on = basis === o.v
+                    return (
+                      <div key={o.v} className={cn('rounded-xl border transition-colors', on && 'border-primary bg-muted/40')}>
+                        <button
+                          type="button"
+                          role="radio"
+                          aria-checked={on}
+                          onClick={() => setBasis(o.v)}
+                          className="flex w-full items-center gap-3 p-3 text-left"
+                        >
+                          <span className={cn('flex size-5 shrink-0 items-center justify-center rounded-full border-2', on ? 'border-primary' : 'border-muted-foreground/40')}>
+                            {on && <span className="size-2.5 rounded-full bg-primary" />}
+                          </span>
+                          <span className="flex min-w-0 flex-col">
+                            <span className="text-sm font-medium">{o.title}</span>
+                            <span className="text-xs text-muted-foreground">{o.hint}</span>
+                          </span>
+                        </button>
+                        {on && o.v === 'prorata' && (
+                          <label className="flex items-center gap-2 px-3 pb-3 pl-11 text-sm">
+                            Il a travaillé
+                            <Input
+                              autoFocus
+                              inputMode="numeric"
+                              aria-label="Jours travaillés"
+                              value={daysStr}
+                              onFocus={e => e.currentTarget.select()}
+                              onChange={e => setDaysStr(digits(e.target.value).slice(0, 2))}
+                              className="h-10 w-16 text-center"
+                            />
+                            jours sur {dim}
+                          </label>
+                        )}
+                        {on && o.v === 'fixe' && (
+                          <div className="px-3 pb-3 pl-11">
+                            <Input
+                              autoFocus
+                              inputMode="numeric"
+                              placeholder="Montant"
+                              aria-label="Montant convenu"
+                              value={thousands(fixedStr)}
+                              onChange={e => setFixedStr(digits(e.target.value))}
+                              className="h-10"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
                 <div className="flex items-baseline justify-between rounded-xl bg-muted/50 p-3 text-sm">
-                  <span className="text-muted-foreground">Salaire de base du mois</span>
-                  <span className="text-right">
-                    <span className="font-semibold tabular-nums">{formatFCFA(newBase)}</span>
-                    <span className="block text-xs text-muted-foreground">au lieu de {formatFCFA(row.base)}</span>
-                  </span>
+                  <span className="text-muted-foreground">Il touchera pour ce mois</span>
+                  <span className="text-base font-semibold tabular-nums">{formatFCFA(newBase)}</span>
                 </div>
                 <Button size="lg" className="h-12" disabled={basis !== 'complet' && newBase <= 0} onClick={doStop}>
                   Arrêter le mois

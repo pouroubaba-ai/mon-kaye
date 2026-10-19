@@ -22,6 +22,8 @@ export type PayMonthRow = {
   verse: number
   // Part de chaque versement qui revient à ce mois (un versement peut se partager entre deux mois)
   paymentParts: { mov: Movement; amount: number }[]
+  // Versements annulés qui étaient tombés sur ce mois : affichés barrés, sans compter
+  cancelledParts: { mov: Movement; amount: number }[]
   reste: number
   etat: 'Payé' | 'En partie' | 'Pas payé' | 'Annulé'
   state: MonthState
@@ -110,6 +112,7 @@ export function payrollOf(
       aPayer: Math.max(0, base + ajouts - retenues),
       verse: 0,
       paymentParts: [],
+      cancelledParts: [],
       reste: 0,
       etat: 'Pas payé',
       state,
@@ -141,6 +144,32 @@ export function payrollOf(
       avail -= part
     }
   }
+  // Versements annulés : on refait la répartition comme s'ils comptaient encore, pour savoir
+  // sur quel mois chacun était tombé ; ils y restent visibles, barrés.
+  {
+    const fill = rows.map(() => 0)
+    let k = 0
+    for (const pay of salaryPayments.filter(m => m.type === 'je_lui_ai_verse').sort(byDateAsc)) {
+      let avail = pay.amount
+      while (avail > 0 && k < rows.length) {
+        const room = rows[k].aPayer - fill[k]
+        if (room <= 0) {
+          k++
+          continue
+        }
+        const part = Math.min(room, avail)
+        fill[k] += part
+        if (pay.isCancelled) rows[k].cancelledParts.push({ mov: pay, amount: part })
+        avail -= part
+      }
+      // Rien à payer pour l'accueillir : on le montre sur le mois de sa date
+      if (avail > 0 && pay.isCancelled) {
+        const r = rows.find(x => x.period === periodOf(new Date(toTime(pay.date)))) ?? rows[rows.length - 1]
+        r?.cancelledParts.push({ mov: pay, amount: avail })
+      }
+    }
+  }
+
   // Reçu en plus de tout ce qui est à payer
   const surplus = Math.max(0, paid) - rows.reduce((a, r) => a + r.verse, 0)
   for (const r of rows) {
