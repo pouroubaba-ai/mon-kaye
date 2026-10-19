@@ -219,3 +219,8 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 - Le départ arrête le mois en cours, enlève la retenue prévue, règle l'avance, passe l'employé « Parti ». Rien n'est versé automatiquement : « Verser » reste possible tant qu'il reste quelque chose à lui payer.
 
 ## 2026-10-19 — Liste des employés : pastille Actif / Parti
+
+## 2026-10-19 — Employés : onglet « Ce mois »
+- Pastille rouge : employés pas encore payés en entier ce mois-ci.
+- Cartes « Salaires du mois » (avec le nombre d'employés) et « Reste à verser » (dont la retenue d'avance prévue).
+- Tableau du mois pour tous les employés (colonne Employé en plus, bouton Colonnes) ; toucher une ligne ouvre son mois.
