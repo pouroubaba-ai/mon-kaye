@@ -1,14 +1,31 @@
 import * as React from 'react'
 
 // Écran « kayé » à l'ouverture de l'app : une seconde au plus, seulement quand l'app démarre
-// (pas en revenant d'un autre écran). L'app se charge derrière pendant ce temps.
+// vraiment (ouverte après avoir été fermée, ou adresse ouverte dans un nouvel onglet).
+// Pas en actualisant la page ni en changeant d'écran. L'app se charge derrière pendant ce temps.
+// Comment on le sait : une marque gardée le temps de la « session » (sessionStorage). Elle survit
+// à l'actualisation, mais disparaît quand on ferme l'app ou l'onglet.
+const SEEN_KEY = 'kaye.splash'
+const firstOpenOfSession = () => {
+  try {
+    if (sessionStorage.getItem(SEEN_KEY)) return false
+    sessionStorage.setItem(SEEN_KEY, '1')
+    return true
+  } catch {
+    return true
+  }
+}
 const SHOW_MS = 750
 const FADE_MS = 200
 
+// Décidé une seule fois, au chargement de l'app
+const SHOW_SPLASH = firstOpenOfSession()
+
 export function SplashScreen() {
-  const [phase, setPhase] = React.useState<'on' | 'fading' | 'off'>('on')
+  const [phase, setPhase] = React.useState<'on' | 'fading' | 'off'>(SHOW_SPLASH ? 'on' : 'off')
 
   React.useEffect(() => {
+    if (phase === 'off') return
     const t1 = setTimeout(() => setPhase('fading'), SHOW_MS)
     const t2 = setTimeout(() => setPhase('off'), SHOW_MS + FADE_MS)
     return () => {
