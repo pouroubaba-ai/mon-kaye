@@ -262,3 +262,5 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 ## 2026-10-19 — Adresses des écrans (/personnes/id, /employes, /salaires, /comptes/leurs, /reglages/modules…) : actualiser garde l'écran, le retour suit les adresses, une fenêtre ouverte se ferme d'abord. À prévoir à la mise en ligne : renvoyer toutes les adresses vers index.html.
 
 ## 2026-10-19 — Écran « kayé » seulement à l'ouverture de l'app (session), plus à chaque actualisation
+
+## 2026-10-19 — Aperçu des écrans Connexion (/connexion) et Inscription (/inscription) : Google, Apple, e-mail + mot de passe. Pas encore branchés à Firebase. Dépôt GitHub : Pouroubaba-ai/mon-kaye

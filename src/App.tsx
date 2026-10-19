@@ -13,6 +13,7 @@ import { DepartureModal } from '@/components/modals/DepartureModal'
 import { CompensationModal } from '@/components/modals/CompensationModal'
 import { MovementDetailModal } from '@/components/modals/MovementDetailModal'
 import { slideIn } from '@/lib/utils'
+import { AuthScreen, type AuthMode } from '@/components/screens/AuthScreen'
 import { SplashScreen } from '@/components/splash-screen'
 import { EmployeesMonthScreen } from '@/components/screens/EmployeesMonthScreen'
 
@@ -88,7 +89,27 @@ const AppContent: React.FC = () => {
   )
 }
 
+// Connexion / inscription : /connexion et /inscription (aperçu, pas encore branché à Firebase)
+const authModeOf = (path: string): AuthMode | null => (path === '/connexion' ? 'connexion' : path === '/inscription' ? 'inscription' : null)
+
 export function App() {
+  const [auth, setAuth] = React.useState<AuthMode | null>(() => authModeOf(window.location.pathname))
+  React.useEffect(() => {
+    const onPop = () => setAuth(authModeOf(window.location.pathname))
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+  if (auth) {
+    return (
+      <AuthScreen
+        mode={auth}
+        onSwitch={m => {
+          window.history.pushState(null, '', `/${m}`)
+          setAuth(m)
+        }}
+      />
+    )
+  }
   return (
     <StoreProvider>
       <AppContent />
