@@ -168,3 +168,4 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 - Interrupteur « Calculer avec prix et quantité » : libellé, prix, quantité (total calculé) ; sinon libellé et total de la ligne.
 - Avec un détail, le montant vient des lignes : le pavé laisse la place à la liste, avec « Modifier » ; « Supprimer le détail » rend le pavé.
 - Le détail apparaît dans la fiche de l'opération et dans le reçu WhatsApp.
+- Lignes du détail compactes (une rangée : libellé, prix × quantité ou total, poubelle ; total de ligne en petit dessous). Entrée passe au champ suivant ; sur le dernier champ, une nouvelle ligne s'ouvre. Les champs chiffrés se sélectionnent à l'entrée (taper 2 remplace le 1).

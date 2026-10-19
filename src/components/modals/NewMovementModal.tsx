@@ -142,6 +142,26 @@ export const NewMovementModal: React.FC = () => {
     setStep('combien')
   }
   const setLine = (i: number, patch: Partial<DraftLine>) => setDraft(d => d.map((l, j) => (j === i ? { ...l, ...patch } : l)))
+  // Entrée : champ suivant ; sur le tout dernier champ, nouvelle ligne et curseur sur son libellé.
+  const linesRef = React.useRef<HTMLDivElement>(null)
+  const focusNewLine = React.useRef(false)
+  const nextOnEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter') return
+    e.preventDefault()
+    const fields = Array.from(linesRef.current?.querySelectorAll<HTMLInputElement>('input[data-line-field]') ?? [])
+    const next = fields[fields.indexOf(e.currentTarget) + 1]
+    if (next) next.focus()
+    else {
+      focusNewLine.current = true
+      setDraft(d => [...d, emptyLine()])
+    }
+  }
+  React.useEffect(() => {
+    if (!focusNewLine.current) return
+    focusNewLine.current = false
+    const fields = linesRef.current?.querySelectorAll<HTMLInputElement>('input[aria-label="Libellé"]')
+    fields?.[fields.length - 1]?.focus()
+  }, [draft.length])
 
   // Le compte que l'opération fait bouger, et son montant actuel.
   // Un versement (ou un remboursement) ne peut jamais dépasser ce qui est dû.
@@ -500,59 +520,77 @@ export const NewMovementModal: React.FC = () => {
               <Switch checked={draftCalc} onCheckedChange={setDraftCalc} />
             </label>
 
-            <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
+            {/* Lignes compactes : tout sur une rangée (libellé, prix, quantité ou total, poubelle).
+                Entrée passe au champ suivant ; sur le dernier champ, une nouvelle ligne s'ouvre. */}
+            <div ref={linesRef} className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto">
               {draft.map((l, i) => (
-                <div key={i} className="flex flex-col gap-2 rounded-lg border p-2.5">
-                  <div className="flex items-center gap-2">
+                <div key={i} className="flex flex-col gap-0.5 rounded-lg border px-2 py-1.5">
+                  <div className="flex items-center gap-1.5">
                     <Input
+                      data-line-field
+                      enterKeyHint="next"
+                      onKeyDown={nextOnEnter}
                       placeholder={`Article ${i + 1}`}
+                      aria-label="Libellé"
                       value={l.label}
                       onChange={e => setLine(i, { label: e.target.value })}
-                      className="h-9"
+                      className="h-8 min-w-0 flex-1 px-2 text-sm"
                     />
+                    {draftCalc ? (
+                      <>
+                        <Input
+                          data-line-field
+                          enterKeyHint="next"
+                          onKeyDown={nextOnEnter}
+                          onFocus={e => e.currentTarget.select()}
+                          inputMode="numeric"
+                          placeholder="Prix"
+                          aria-label="Prix"
+                          value={thousands(l.price)}
+                          onChange={e => setLine(i, { price: digits(e.target.value) })}
+                          className="h-8 w-[4.75rem] shrink-0 px-2 text-right text-sm"
+                        />
+                        <span className="text-xs text-muted-foreground">×</span>
+                        <Input
+                          data-line-field
+                          enterKeyHint="next"
+                          onKeyDown={nextOnEnter}
+                          onFocus={e => e.currentTarget.select()}
+                          inputMode="numeric"
+                          placeholder="Qté"
+                          aria-label="Quantité"
+                          value={l.qty}
+                          onChange={e => setLine(i, { qty: digits(e.target.value).slice(0, 5) })}
+                          className="h-8 w-11 shrink-0 px-1 text-center text-sm"
+                        />
+                      </>
+                    ) : (
+                      <Input
+                        data-line-field
+                        enterKeyHint="next"
+                        onKeyDown={nextOnEnter}
+                        onFocus={e => e.currentTarget.select()}
+                        inputMode="numeric"
+                        placeholder="Total"
+                        aria-label="Total de la ligne"
+                        value={thousands(l.total)}
+                        onChange={e => setLine(i, { total: digits(e.target.value) })}
+                        className="h-8 w-24 shrink-0 px-2 text-right text-sm"
+                      />
+                    )}
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="size-9 shrink-0 text-muted-foreground"
+                      className="size-8 shrink-0 text-muted-foreground"
                       aria-label="Supprimer la ligne"
                       onClick={() => setDraft(d => (d.length > 1 ? d.filter((_, j) => j !== i) : [emptyLine()]))}
                     >
                       <Trash2 className="size-4" />
                     </Button>
                   </div>
-                  {draftCalc ? (
-                    <div className="flex items-center gap-2 text-sm">
-                      <Input
-                        inputMode="numeric"
-                        placeholder="Prix"
-                        aria-label="Prix"
-                        value={thousands(l.price)}
-                        onChange={e => setLine(i, { price: digits(e.target.value) })}
-                        className="h-9 min-w-0 flex-[3]"
-                      />
-                      <span className="text-muted-foreground">×</span>
-                      <Input
-                        inputMode="numeric"
-                        placeholder="Qté"
-                        aria-label="Quantité"
-                        value={l.qty}
-                        onChange={e => setLine(i, { qty: digits(e.target.value).slice(0, 5) })}
-                        className="h-9 min-w-0 flex-[2]"
-                      />
-                      <span className="w-24 shrink-0 text-right font-medium tabular-nums">
-                        {formatFCFA(lineTotal(l, true))}
-                      </span>
-                    </div>
-                  ) : (
-                    <Input
-                      inputMode="numeric"
-                      placeholder="Total de la ligne"
-                      aria-label="Total de la ligne"
-                      value={thousands(l.total)}
-                      onChange={e => setLine(i, { total: digits(e.target.value) })}
-                      className="h-9"
-                    />
+                  {draftCalc && lineTotal(l, true) > 0 && (
+                    <span className="pr-10 text-right text-xs text-muted-foreground tabular-nums">= {formatFCFA(lineTotal(l, true))}</span>
                   )}
                 </div>
               ))}
