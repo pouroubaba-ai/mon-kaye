@@ -236,3 +236,7 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 ## 2026-10-19 — Bouton « + » toujours au centre ; Réglages › ligne « Modules » qui ouvre la liste des modules
 
 ## 2026-10-19 — Tableau de bord : anneaux en couleur pleine quand seul le module Employés est allumé
+
+## 2026-10-19 — Nouvel employé en 6 écrans courts
+- Qui ? → Son salaire → Ce mois-ci (interrupteur « au début du mois », sinon selon son jour d'arrivée — le jour compte — ou montant convenu) → Ancien compte (ajouté au mois en cours) → Son avance (retenue par mois dès ce mois-ci, ou il la rend lui-même) → Résumé.
+- Chaque nouveau mois commence avec le salaire entier (et la retenue d'avance prévue) : ajouté automatiquement.

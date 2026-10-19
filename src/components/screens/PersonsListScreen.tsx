@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Search, Phone, Plus, X } from 'lucide-react'
 import { PersonFormDialog } from '@/components/person-header'
+import { NewEmployeeDialog } from '@/components/modals/NewEmployeeDialog'
 
 export const PersonsListScreen: React.FC = () => {
   const { persons, setSelectedPersonId, activeTab } = useStore()
@@ -69,12 +70,12 @@ export const PersonsListScreen: React.FC = () => {
           <Plus /> Ajouter
         </Button>
       </div>
-      <PersonFormDialog
-        type={activeTab === 'employes' ? 'employee' : 'partner'}
-        open={adding}
-        onOpenChange={setAdding}
-        onCreated={id => setSelectedPersonId(id)}
-      />
+      {activeTab === 'employes' ? (
+        // Nouvel employé : écrans courts (salaire, ce mois-ci, ancien compte, avance)
+        <NewEmployeeDialog open={adding} onOpenChange={setAdding} onCreated={id => setSelectedPersonId(id)} />
+      ) : (
+        <PersonFormDialog type="partner" open={adding} onOpenChange={setAdding} onCreated={id => setSelectedPersonId(id)} />
+      )}
 
       {/* Liste des personnes triée */}
       <div className="space-y-2.5">

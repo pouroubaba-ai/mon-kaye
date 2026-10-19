@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { type Person, type Movement, INITIAL_SHOP, INITIAL_PERSONS, INITIAL_MOVEMENTS } from './mockData'
-import { buildPayrollSeed, currentPeriod, monthKey, ofMonth, payrollOf, simulateDeparture, syncEmployee } from './payroll'
+import { buildPayrollSeed, currentPeriod, missingMonths, monthKey, ofMonth, payrollOf, simulateDeparture, syncEmployee } from './payroll'
 
 // Trop versé : « plus tard » = la différence passe dans l'autre compte ; « déjà rendu » = réglé en main propre.
 export type ExcessChoice = 'plus_tard' | 'deja_rendu'
@@ -110,7 +110,19 @@ interface StoreContextType {
   // Modifier les informations d'une personne (nom, numéro, rôle, salaire…)
   updatePerson: (id: string, changes: Partial<Pick<Person, 'name' | 'phone' | 'role' | 'salary' | 'dueDay'>>) => void
   // Ajouter une personne ou un employé ; renvoie son identifiant
-  addPerson: (data: { type: 'partner' | 'employee'; name: string; phone: string; role?: string; salary?: number; dueDay?: number }) => string
+  addPerson: (data: {
+    type: 'partner' | 'employee'
+    name: string
+    phone: string
+    role?: string
+    salary?: number
+    dueDay?: number
+    // Employé : son arrivée (premier mois), ce qu'on lui devait déjà, son avance et la façon de la rendre
+    start?: { day: number; amount: number; label: string } // absent : il commence au début du mois
+    oldDebt?: number
+    advance?: number
+    perMonth?: number
+  }) => string
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined)
@@ -181,6 +193,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const all = [...INITIAL_MOVEMENTS, ...buildPayrollSeed(INITIAL_PERSONS, INITIAL_MOVEMENTS)]
     return INITIAL_PERSONS.map(p => syncEmployee(p, all, {}))
   })
+  // Nouveau mois : chaque employé actif commence le mois avec son salaire entier
+  React.useEffect(() => {
+    const extra = missingMonths(persons, movements, monthStates)
+    if (extra.length === 0) return
+    const next = [...extra, ...movements]
+    setMovements(next)
+    const ids = new Set(extra.map(m => m.personId))
+    setPersons(prev => prev.map(p => (ids.has(p.id) ? syncEmployee(p, next, monthStates) : p)))
+  }, [persons, movements, monthStates])
+
   // Employé : on enregistre les opérations, puis on recalcule ses compteurs depuis elles.
   const commitEmployee = (empId: string, next: Movement[], states = monthStates) => {
     setMovements(next)
@@ -798,13 +820,40 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             salary: data.salary,
             dueDay: data.dueDay,
             frequency: 'mensuel',
-            startDate,
+            startDate: data.start ? `${String(data.start.day).padStart(2, '0')}/${startDate.slice(3)}` : startDate,
             status: 'actif',
             currentSalaryDue: 0,
             advanceBalance: 0,
+            advanceDeductionPerPeriod: data.advance && data.perMonth ? data.perMonth : undefined,
           }
         : { id, type: 'partner', name: data.name, phone: data.phone, role: data.role, owesMe: 0, iOweHim: 0 }
-    setPersons(prev => [...prev, person])
+    if (person.type !== 'employee') {
+      setPersons(prev => [...prev, person])
+      return id
+    }
+    // Employé : son premier mois, et ce qu'il apporte d'avant (ancien compte, avance)
+    const cur = currentPeriod()
+    const base = { personId: id, personName: data.name, date: startDate }
+    const extra: Movement[] = [
+      {
+        ...base,
+        id: `mov-sal-${id}-${cur}`,
+        type: 'salaire_du',
+        label: data.start ? `Salaire de base (${data.start.label})` : 'Salaire de base',
+        amount: data.start ? data.start.amount : data.salary || 0,
+        period: cur,
+      },
+    ]
+    if (data.oldDebt && data.oldDebt > 0)
+      extra.push({ ...base, id: `mov-old-${id}`, type: 'ajout_salaire', label: 'Ajout : ancien compte', amount: data.oldDebt, period: cur, note: "Ce qu'on lui devait déjà avant" })
+    if (data.advance && data.advance > 0) {
+      extra.push({ ...base, id: `mov-adv-${id}`, type: 'avance_salaire', label: 'Avance (déjà donnée)', amount: data.advance, note: 'Avance donnée avant son entrée dans le carnet' })
+      if (data.perMonth && data.perMonth > 0)
+        extra.push({ ...base, id: `mov-ret-${id}-${cur}`, type: 'retenue_salaire', label: "Retenue pour l'avance", amount: Math.min(data.perMonth, data.advance), period: cur, note: 'Retenue automatique' })
+    }
+    const next = [...extra, ...movements]
+    setMovements(next)
+    setPersons(prev => [...prev, syncEmployee(person, next, monthStates)])
     return id
   }
 

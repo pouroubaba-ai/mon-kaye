@@ -422,3 +422,38 @@ export function simulateDeparture(
   }
   return { next, states: { ...monthStates, [key]: 'arrete' }, stopped: true }
 }
+
+// ——— Nouveaux mois ———
+// Chaque mois commence avec le salaire entier (et la retenue d'avance prévue, s'il y a une façon de rendre).
+// Le premier mois d'un employé est créé à son arrivée (entier, selon les jours, ou montant convenu) ;
+// les suivants sont ajoutés ici dès qu'ils arrivent.
+export function missingMonths(
+  persons: Person[],
+  movements: Movement[],
+  monthStates: Record<string, 'arrete' | 'annule'>,
+  today = new Date()
+): Movement[] {
+  const cur = periodOf(today)
+  const out: Movement[] = []
+  for (const p of persons) {
+    if (p.type !== 'employee' || p.status !== 'actif' || !p.salary) continue
+    const mine = movements.filter(m => m.personId === p.id)
+    const have = new Set(mine.filter(m => m.type === 'salaire_du' && m.period).map(m => m.period!))
+    if (have.size === 0) continue // pas encore de premier mois : rien à compléter
+    let [y, m] = [...have].sort()[0].split('-').map(Number)
+    while (true) {
+      m++
+      if (m > 12) { m = 1; y++ }
+      const period = `${y}-${String(m).padStart(2, '0')}`
+      if (period > cur) break
+      if (have.has(period) || monthStates[monthKey(p.id, period)]) continue
+      const date = `01/${period.slice(5)}/${period.slice(0, 4)}`
+      out.push({ id: `mov-sal-${p.id}-${period}`, personId: p.id, personName: p.name, type: 'salaire_du', label: 'Salaire de base', amount: p.salary, date, period })
+      const reste = payrollOf(p.id, [...movements, ...out], monthStates, today).advanceReste
+      const per = p.advanceDeductionPerPeriod || 0
+      if (per > 0 && reste > 0)
+        out.push({ id: `mov-ret-${p.id}-${period}`, personId: p.id, personName: p.name, type: 'retenue_salaire', label: "Retenue pour l'avance", amount: Math.min(per, reste), date, period, note: 'Retenue automatique' })
+    }
+  }
+  return out
+}
