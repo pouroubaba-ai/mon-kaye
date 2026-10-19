@@ -83,6 +83,8 @@ export const NewMovementModal: React.FC = () => {
     useStore()
 
   const [step, setStep] = useState<Step>('qui')
+  // Versement qui prend sur la retenue d'avance : on demande de confirmer dans une fenêtre à part
+  const [confirmRetenue, setConfirmRetenue] = useState(false)
   const [personId, setPersonId] = useState('')
   const [type, setType] = useState<MType>('il_m_a_verse')
   const [amountStr, setAmountStr] = useState('0')
@@ -451,13 +453,8 @@ export const NewMovementModal: React.FC = () => {
               {tooMuch && balance && (
                 <p className="mt-1 text-xs text-destructive">Pas plus de {formatFCFA(balance.value)}</p>
               )}
-              {eatsRetenue > 0 && planned && (
-                <p className="mx-auto mt-1 max-w-72 text-xs text-amber-600 dark:text-amber-400">
-                  {planned.totalReste > 0
-                    ? `Attention : au-delà de ${formatFCFA(planned.totalReste)}, ce versement prend sur la part retenue pour l'avance.`
-                    : "Attention : le reste du salaire est déjà payé, ce versement prend sur la part retenue pour l'avance."}{' '}
-                  Ce mois-ci, il rendra {formatFCFA(planned.plannedRetenue - eatsRetenue)} au lieu de {formatFCFA(planned.plannedRetenue)}.
-                </p>
+              {eatsRetenue > 0 && (
+                <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">− {formatFCFA(eatsRetenue)} sur la retenue d'avance</p>
               )}
             </div>
 
@@ -550,7 +547,7 @@ export const NewMovementModal: React.FC = () => {
                 </Button>
               )}
 
-              <Button size="lg" className="h-12 text-base" disabled={amount <= 0 || tooMuch} onClick={save}>
+              <Button size="lg" className="h-12 text-base" disabled={amount <= 0 || tooMuch} onClick={() => (eatsRetenue > 0 ? setConfirmRetenue(true) : save())}>
                 Enregistrer
               </Button>
             </div>
@@ -668,6 +665,25 @@ export const NewMovementModal: React.FC = () => {
           </div>
         )}
       </DialogContent>
+
+      <Dialog open={confirmRetenue} onOpenChange={setConfirmRetenue}>
+        <DialogContent>
+          <div className="flex flex-col gap-4">
+            <DialogHeader className="gap-1 p-0">
+              <DialogTitle className="text-left">Toucher à la retenue d'avance ?</DialogTitle>
+              <DialogDescription className="text-left">
+                Ce mois-ci, il rendra {formatFCFA((planned?.plannedRetenue ?? 0) - eatsRetenue)} au lieu de {formatFCFA(planned?.plannedRetenue ?? 0)}.
+              </DialogDescription>
+            </DialogHeader>
+            <Button size="lg" className="h-12" onClick={() => { setConfirmRetenue(false); save() }}>
+              Continuer
+            </Button>
+            <Button variant="outline" size="lg" className="h-12" onClick={() => setConfirmRetenue(false)}>
+              Revenir
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   )
 }
