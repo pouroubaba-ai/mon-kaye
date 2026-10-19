@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Ban, CircleMinus, CirclePlus, Lock, Pause } from 'lucide-react'
+import { Ban, ChevronRight, CircleMinus, CirclePlus, Lock, Pause } from 'lucide-react'
 
 import { useStore } from '@/data/store'
 import type { Movement } from '@/data/mockData'
@@ -42,7 +42,8 @@ export function MonthDialog({
   const [reason, setReason] = React.useState('')
   const [cancelling, setCancelling] = React.useState<string | null>(null) // ligne en cours d'annulation
   const [lineReason, setLineReason] = React.useState('')
-  const [retStr, setRetStr] = React.useState('') // nouveau montant de la retenue d'avance
+  const [retStr, setRetStr] = React.useState('')
+  const [openGroups, setOpenGroups] = React.useState<{ payer: boolean; retenues: boolean }>({ payer: false, retenues: false }) // nouveau montant de la retenue d'avance
   const [askSurplus, setAskSurplus] = React.useState<{ amount: number; apply: (c: 'avance' | 'rendu') => void } | null>(null)
 
   React.useEffect(() => {
@@ -55,6 +56,7 @@ export function MonthDialog({
     setCancelling(null)
     setLineReason('')
     setAskSurplus(null)
+    setOpenGroups({ payer: false, retenues: false })
   }, [open, period])
 
   const emp = persons.find(p => p.id === empId)
@@ -108,54 +110,14 @@ export function MonthDialog({
     .sort((a, b) => order(a) - order(b))
   const canCancelLine = (m: Movement) => isOpen && !m.isCancelled && m.type !== 'salaire_du'
 
-  const stateBadge = {
-    en_cours: <Badge variant="outline">En cours</Badge>,
-    passe: <Badge variant="secondary"><Lock /> Scellé</Badge>,
-    arrete: <Badge variant="secondary"><Pause /> Arrêté</Badge>,
-    annule: <Badge variant="destructive">Annulé</Badge>,
-  }[row.state]
+  // Totaux des deux lignes repliables
+  const gross = lines.filter(m => !m.isCancelled && (m.type === 'salaire_du' || m.type === 'ajout_salaire')).reduce((a, m) => a + m.amount, 0)
+  const deducted = Math.min(gross, row.retenues + row.verse)
 
-  const goAdd = (type: 'ajout_salaire' | 'retenue_manuelle') => {
-    onOpenChange(false)
-    window.setTimeout(() => openNewMovement(empId, type), 150)
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange} dirty={reason.trim() !== '' || (cancelling !== null && lineReason.trim() !== '' && lineReason !== 'Pas de retenue ce mois-ci')} dirtyKind="modification">
-      <DialogContent className="max-h-[90dvh] overflow-y-auto">
-        {/* Mise en page : en-tête, résumé (le reste en grand), détail façon reçu, puis les actions. */}
-        <div className="flex flex-col gap-5">
-        <DialogHeader className="gap-1 p-0">
-          <div className="flex items-center justify-between gap-2">
-            <DialogTitle>Salaire {ofMonth(period)}</DialogTitle>
-            {stateBadge}
-          </div>
-          <DialogDescription className="text-left">{emp.name}</DialogDescription>
-        </DialogHeader>
-
-        {/* Résumé : ce qui reste, une barre versé / à payer */}
-        <div className="flex flex-col gap-2">
-          <div className="flex items-end justify-between gap-3">
-            <div>
-              <p className="text-xs text-muted-foreground">Reste à payer</p>
-              <p className={cn('text-3xl font-bold tabular-nums', row.reste > 0 ? 'text-debt' : 'text-credit')}>{formatFCFA(row.reste)}</p>
-            </div>
-            <p className="pb-1 text-right text-xs text-muted-foreground tabular-nums">
-              Versé {formatFCFA(row.verse)}
-              <br />
-              sur {formatFCFA(row.aPayer)}
-            </p>
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-muted">
-            <div className="h-full rounded-full bg-credit" style={{ width: `${row.aPayer ? Math.round((row.verse / row.aPayer) * 100) : 0}%` }} />
-          </div>
-        </div>
-
-        {/* Détail façon reçu : une ligne par élément, le total « À payer » en bas */}
-        <div className="flex flex-col text-sm">
-          {lines.map(m => {
-            const tappable = canCancelLine(m)
-            return (
+  // Une ligne du mois (salaire, ajout, retenue) ; touchable dans le mois en cours pour la changer ou l'annuler.
+  const renderLine = (m: Movement) => {
+    const tappable = canCancelLine(m)
+    return (
               <div key={m.id} className="flex flex-col border-b border-dashed py-2 last:border-0">
                 <button
                   type="button"
@@ -239,16 +201,86 @@ export function MonthDialog({
                   </div>
                 )}
               </div>
-            )
-          })}
-          <div className="mt-1 flex items-baseline justify-between border-t pt-2 font-semibold">
-            <span>À payer</span>
-            <span className="tabular-nums">{formatFCFA(row.aPayer)}</span>
+    )
+  }
+
+  const stateBadge = {
+    en_cours: <Badge variant="outline">En cours</Badge>,
+    passe: <Badge variant="secondary"><Lock /> Scellé</Badge>,
+    arrete: <Badge variant="secondary"><Pause /> Arrêté</Badge>,
+    annule: <Badge variant="destructive">Annulé</Badge>,
+  }[row.state]
+
+  const goAdd = (type: 'ajout_salaire' | 'retenue_manuelle') => {
+    onOpenChange(false)
+    window.setTimeout(() => openNewMovement(empId, type), 150)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange} dirty={reason.trim() !== '' || (cancelling !== null && lineReason.trim() !== '' && lineReason !== 'Pas de retenue ce mois-ci')} dirtyKind="modification">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto">
+        {/* Mise en page : en-tête, résumé (le reste en grand), détail façon reçu, puis les actions. */}
+        <div className="flex flex-col gap-5">
+        <DialogHeader className="gap-1 p-0">
+          <div className="flex items-center justify-between gap-2">
+            <DialogTitle>Salaire {ofMonth(period)}</DialogTitle>
+            {stateBadge}
           </div>
-          {isOpen && lines.some(canCancelLine) && (
-            <p className="mt-2 text-xs text-muted-foreground">Touchez une retenue ou un ajout pour le changer ou l'annuler.</p>
-          )}
+          <DialogDescription className="text-left">{emp.name}</DialogDescription>
+        </DialogHeader>
+
+        {/* Résumé : le reste à payer en grand ; la barre montre la part déjà déduite */}
+        <div className="flex flex-col gap-2">
+          <div>
+            <p className="text-xs text-muted-foreground">Reste à payer</p>
+            <p className={cn('text-3xl font-bold tabular-nums', row.reste > 0 ? 'text-debt' : 'text-credit')}>{formatFCFA(row.reste)}</p>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-muted">
+            <div className="h-full rounded-full bg-credit" style={{ width: `${gross ? Math.round((deducted / gross) * 100) : 0}%` }} />
+          </div>
         </div>
+
+        {/* Deux lignes repliables, comme une fiche de paie :
+            À payer (salaire + ajouts) − Retenues et versements = Reste à payer */}
+        <div className="flex flex-col divide-y rounded-xl border text-sm">
+          <Group
+            title="À payer"
+            total={gross}
+            open={openGroups.payer}
+            onToggle={() => setOpenGroups(g => ({ ...g, payer: !g.payer }))}
+          >
+            {lines.filter(m => m.type === 'salaire_du' || m.type === 'ajout_salaire').map(renderLine)}
+          </Group>
+          <Group
+            title="Retenues et versements"
+            total={deducted}
+            minus
+            open={openGroups.retenues}
+            onToggle={() => setOpenGroups(g => ({ ...g, retenues: !g.retenues }))}
+          >
+            {lines.filter(m => m.type === 'retenue_salaire' || m.type === 'retenue_manuelle').map(renderLine)}
+            {row.paymentParts.map(({ mov, amount }) => (
+              <button
+                key={mov.id}
+                type="button"
+                onClick={() => openMovementDetail(mov)}
+                className="flex items-baseline gap-3 border-b border-dashed py-2 text-left last:border-0"
+              >
+                <span className="min-w-0 flex-1 truncate">
+                  Versement du {mov.date.slice(0, 5)}
+                  {amount < mov.amount && <span className="text-xs text-muted-foreground"> (en partie)</span>}
+                </span>
+                <span className="shrink-0 tabular-nums text-debt">− {formatFCFA(amount)}</span>
+              </button>
+            ))}
+            {lines.every(m => m.type !== 'retenue_salaire' && m.type !== 'retenue_manuelle') && row.paymentParts.length === 0 && (
+              <p className="py-2 text-xs text-muted-foreground">Rien pour l'instant.</p>
+            )}
+          </Group>
+        </div>
+        {isOpen && lines.some(canCancelLine) && (
+          <p className="-mt-3 text-xs text-muted-foreground">Touchez un ajout ou une retenue pour le changer ou l'annuler.</p>
+        )}
 
         {!isOpen && row.state !== 'annule' && (
           <p className="flex items-center gap-2 rounded-lg bg-muted/50 p-2.5 text-xs text-muted-foreground">
@@ -350,3 +382,34 @@ export function MonthDialog({
 
 const order = (m: Movement) =>
   ({ salaire_du: 0, ajout_salaire: 1, retenue_salaire: 2, retenue_manuelle: 3 } as Record<string, number>)[m.type] ?? 9
+
+// Ligne repliable : titre et total ; on la touche pour voir le détail.
+function Group({
+  title,
+  total,
+  minus,
+  open,
+  onToggle,
+  children,
+}: {
+  title: string
+  total: number
+  minus?: boolean
+  open: boolean
+  onToggle: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <div className="flex flex-col">
+      <button type="button" onClick={onToggle} aria-expanded={open} className="flex items-center gap-2 px-3 py-3 text-left">
+        <ChevronRight className={cn('size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-90')} />
+        <span className="flex-1 font-medium">{title}</span>
+        <span className={cn('font-semibold tabular-nums', minus && total > 0 && 'text-debt')}>
+          {minus && total > 0 ? '− ' : ''}
+          {formatFCFA(total)}
+        </span>
+      </button>
+      {open && <div className="flex flex-col px-3 pb-2 pl-9">{children}</div>}
+    </div>
+  )
+}

@@ -20,6 +20,8 @@ export type PayMonthRow = {
   retenues: number // retenue d'avance + retenues manuelles
   aPayer: number
   verse: number
+  // Part de chaque versement qui revient à ce mois (un versement peut se partager entre deux mois)
+  paymentParts: { mov: Movement; amount: number }[]
   reste: number
   etat: 'Payé' | 'En partie' | 'Pas payé' | 'Annulé'
   state: MonthState
@@ -107,6 +109,7 @@ export function payrollOf(
       retenues,
       aPayer: Math.max(0, base + ajouts - retenues),
       verse: 0,
+      paymentParts: [],
       reste: 0,
       etat: 'Pas payé',
       state,
@@ -119,14 +122,31 @@ export function payrollOf(
   const paid =
     salaryPayments.filter(m => isLive(m) && m.type === 'je_lui_ai_verse').reduce((a, m) => a + m.amount, 0) -
     salaryPayments.filter(m => isLive(m) && m.type === 'surplus_salaire').reduce((a, m) => a + m.amount, 0)
-  let left = Math.max(0, paid)
+  // Chaque versement, du plus ancien au plus récent, remplit les mois du plus ancien au plus récent.
+  let budget = Math.max(0, paid)
+  let mi = 0
+  for (const pay of salaryPayments.filter(m => isLive(m) && m.type === 'je_lui_ai_verse').sort(byDateAsc)) {
+    let avail = Math.min(pay.amount, budget)
+    budget -= avail
+    while (avail > 0 && mi < rows.length) {
+      const r = rows[mi]
+      const room = r.aPayer - r.verse
+      if (room <= 0) {
+        mi++
+        continue
+      }
+      const part = Math.min(room, avail)
+      r.verse += part
+      r.paymentParts.push({ mov: pay, amount: part })
+      avail -= part
+    }
+  }
+  // Reçu en plus de tout ce qui est à payer
+  const surplus = Math.max(0, paid) - rows.reduce((a, r) => a + r.verse, 0)
   for (const r of rows) {
-    r.verse = Math.min(r.aPayer, left)
-    left -= r.verse
     r.reste = r.aPayer - r.verse
     r.etat = r.state === 'annule' ? 'Annulé' : r.reste === 0 ? 'Payé' : r.verse > 0 ? 'En partie' : 'Pas payé'
   }
-  const surplus = left
 
   // 3. Avances, remboursées de la plus ancienne à la plus récente
   const advMovs = mine.filter(m => m.type === 'avance_salaire').sort(byDateAsc)
