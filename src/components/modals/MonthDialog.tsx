@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Ban, CircleMinus, CirclePlus, Lock, Pause, X } from 'lucide-react'
+import { Ban, CircleMinus, CirclePlus, Lock, Pause } from 'lucide-react'
 
 import { useStore } from '@/data/store'
 import type { Movement } from '@/data/mockData'
@@ -34,7 +34,7 @@ export function MonthDialog({
   open: boolean
   onOpenChange: (o: boolean) => void
 }) {
-  const { persons, movements, monthStates, cancelMovement, openNewMovement, openMovementDetail, stopMonth, cancelMonth } = useStore()
+  const { persons, movements, monthStates, cancelMovement, openNewMovement, openMovementDetail, stopMonth, cancelMonth, setMonthRetenue } = useStore()
   const [panel, setPanel] = React.useState<Panel>('none')
   const [basis, setBasis] = React.useState<Basis>('prorata')
   const [daysStr, setDaysStr] = React.useState('')
@@ -42,6 +42,7 @@ export function MonthDialog({
   const [reason, setReason] = React.useState('')
   const [cancelling, setCancelling] = React.useState<string | null>(null) // ligne en cours d'annulation
   const [lineReason, setLineReason] = React.useState('')
+  const [retStr, setRetStr] = React.useState('') // nouveau montant de la retenue d'avance
   const [askSurplus, setAskSurplus] = React.useState<{ amount: number; apply: (c: 'avance' | 'rendu') => void } | null>(null)
 
   React.useEffect(() => {
@@ -100,7 +101,11 @@ export function MonthDialog({
     })
   }
 
-  const lines = [...row.items].sort((a, b) => order(a) - order(b))
+  // Une retenue d'avance dont seul le montant a changé n'est pas affichée barrée : la nouvelle ligne dit « au lieu de … ».
+  const REPLACED = ['Montant modifié pour ce mois', 'Façon de rendre modifiée']
+  const lines = [...row.items]
+    .filter(m => !(m.isCancelled && m.type === 'retenue_salaire' && REPLACED.includes(m.cancellationReason ?? '')))
+    .sort((a, b) => order(a) - order(b))
   const canCancelLine = (m: Movement) => isOpen && !m.isCancelled && m.type !== 'salaire_du'
 
   const stateBadge = {
@@ -116,94 +121,138 @@ export function MonthDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} dirty={reason.trim() !== '' || lineReason.trim() !== ''} dirtyKind="modification">
+    <Dialog open={open} onOpenChange={onOpenChange} dirty={reason.trim() !== '' || (cancelling !== null && lineReason.trim() !== '' && lineReason !== 'Pas de retenue ce mois-ci')} dirtyKind="modification">
       <DialogContent className="max-h-[90dvh] overflow-y-auto">
-        <DialogHeader>
+        {/* Mise en page : en-tête, résumé (le reste en grand), détail façon reçu, puis les actions. */}
+        <div className="flex flex-col gap-5">
+        <DialogHeader className="gap-1 p-0">
           <div className="flex items-center justify-between gap-2">
             <DialogTitle>Salaire {ofMonth(period)}</DialogTitle>
             {stateBadge}
           </div>
-          <DialogDescription>{emp.name}</DialogDescription>
+          <DialogDescription className="text-left">{emp.name}</DialogDescription>
         </DialogHeader>
 
-        {/* Lignes du mois */}
-        <div className="flex flex-col divide-y rounded-lg border text-sm">
-          {lines.map(m => (
-            <div key={m.id} className="flex flex-col gap-1.5 px-3 py-2">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => (m.note || m.items || m.receiptPhoto ? openMovementDetail(m) : undefined)}
-                  className={cn('min-w-0 flex-1 truncate text-left', m.isCancelled && 'text-muted-foreground line-through')}
-                >
-                  {m.label}
-                  {m.items?.length ? <span className="text-xs text-muted-foreground"> · {m.items.length} lignes</span> : null}
-                </button>
-                <span
-                  className={cn(
-                    'shrink-0 tabular-nums',
-                    m.isCancelled ? 'text-destructive line-through' : m.type === 'salaire_du' ? '' : m.type === 'ajout_salaire' ? 'text-credit' : 'text-debt'
-                  )}
-                >
-                  {m.type === 'salaire_du' ? '' : m.type === 'ajout_salaire' ? '+ ' : '− '}
-                  {formatFCFA(m.amount)}
-                </span>
-                {canCancelLine(m) && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="-mr-1.5 size-7 shrink-0 text-muted-foreground"
-                    aria-label={`Annuler : ${m.label}`}
-                    onClick={() => {
-                      setCancelling(m.id)
-                      setLineReason(m.type === 'retenue_salaire' ? 'Pas de retenue ce mois-ci' : '')
-                    }}
-                  >
-                    <X className="size-4" />
-                  </Button>
-                )}
-              </div>
-              {m.isCancelled && m.cancellationReason && <p className="text-xs text-muted-foreground">Annulé : {m.cancellationReason}</p>}
-              {cancelling === m.id && (
-                <div className="flex flex-col gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-2">
-                  {m.type === 'retenue_salaire' && (
-                    <p className="text-xs text-muted-foreground">L'avance reste due : elle sera retenue un autre mois.</p>
-                  )}
-                  <Input placeholder="Motif" value={lineReason} onChange={e => setLineReason(e.target.value)} className="h-8 text-xs" />
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="ghost" className="flex-1" onClick={() => setCancelling(null)}>
-                      Garder
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      className="flex-1"
-                      disabled={!lineReason.trim()}
-                      onClick={() => {
-                        cancelMovement(m.id, lineReason.trim())
-                        setCancelling(null)
-                        setLineReason('')
-                      }}
-                    >
-                      Annuler la ligne
-                    </Button>
-                  </div>
-                </div>
-              )}
+        {/* Résumé : ce qui reste, une barre versé / à payer */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <p className="text-xs text-muted-foreground">Reste à payer</p>
+              <p className={cn('text-3xl font-bold tabular-nums', row.reste > 0 ? 'text-debt' : 'text-credit')}>{formatFCFA(row.reste)}</p>
             </div>
-          ))}
+            <p className="pb-1 text-right text-xs text-muted-foreground tabular-nums">
+              Versé {formatFCFA(row.verse)}
+              <br />
+              sur {formatFCFA(row.aPayer)}
+            </p>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-muted">
+            <div className="h-full rounded-full bg-credit" style={{ width: `${row.aPayer ? Math.round((row.verse / row.aPayer) * 100) : 0}%` }} />
+          </div>
         </div>
 
-        {/* Totaux du mois */}
-        <div className="grid grid-cols-3 gap-2 text-center">
-          <Total label="À payer" value={row.aPayer} />
-          <Total label="Versé" value={row.verse} />
-          <Total label="Reste" value={row.reste} tone={row.reste > 0 ? 'debt' : undefined} />
+        {/* Détail façon reçu : une ligne par élément, le total « À payer » en bas */}
+        <div className="flex flex-col text-sm">
+          {lines.map(m => {
+            const tappable = canCancelLine(m)
+            return (
+              <div key={m.id} className="flex flex-col border-b border-dashed py-2 last:border-0">
+                <button
+                  type="button"
+                  disabled={!tappable && !(m.note || m.items || m.receiptPhoto)}
+                  onClick={() => {
+                    if (tappable) {
+                      setCancelling(cancelling === m.id ? null : m.id)
+                      setLineReason(m.type === 'retenue_salaire' ? 'Pas de retenue ce mois-ci' : '')
+                      setRetStr(String(m.amount))
+                    } else openMovementDetail(m)
+                  }}
+                  className="flex items-baseline gap-3 text-left disabled:cursor-default"
+                >
+                  <span className={cn('min-w-0 flex-1 truncate', m.isCancelled && 'text-muted-foreground line-through')}>
+                    {m.label}
+                    {m.items?.length ? <span className="text-xs text-muted-foreground"> · {m.items.length} lignes</span> : null}
+                  </span>
+                  <span
+                    className={cn(
+                      'shrink-0 tabular-nums',
+                      m.isCancelled ? 'text-muted-foreground line-through' : m.type === 'ajout_salaire' ? 'text-credit' : m.type === 'salaire_du' ? '' : 'text-debt'
+                    )}
+                  >
+                    {m.type === 'salaire_du' ? '' : m.type === 'ajout_salaire' ? '+ ' : '− '}
+                    {formatFCFA(m.amount)}
+                  </span>
+                </button>
+                {!m.isCancelled && m.note?.startsWith('Montant changé') && (
+                  <p className="mt-0.5 text-xs text-muted-foreground">{m.note.replace('Montant changé ', '').replace(/[()]/g, '')}</p>
+                )}
+                {m.isCancelled && m.cancellationReason && <p className="mt-0.5 text-xs text-muted-foreground">Annulé : {m.cancellationReason}</p>}
+                {cancelling === m.id && (
+                  <div className="mt-2 flex flex-col gap-2 rounded-lg bg-muted/50 p-2.5">
+                    {m.type === 'retenue_salaire' && (
+                      // Retenue d'avance : changer son montant pour ce mois (plus ou moins), ou l'annuler.
+                      <form
+                        className="flex items-center gap-2"
+                        onSubmit={e => {
+                          e.preventDefault()
+                          setMonthRetenue(empId, parseInt(retStr, 10) || 0)
+                          setCancelling(null)
+                        }}
+                      >
+                        <span className="shrink-0 text-xs text-muted-foreground">Ce mois-ci</span>
+                        <Input
+                          autoFocus
+                          inputMode="numeric"
+                          aria-label="Montant de la retenue ce mois-ci"
+                          value={thousands(retStr)}
+                          onFocus={e => e.currentTarget.select()}
+                          onChange={e => setRetStr(digits(e.target.value))}
+                          className="h-8 flex-1 text-right text-xs"
+                        />
+                        <Button type="submit" size="sm" disabled={(parseInt(retStr, 10) || 0) === m.amount}>
+                          Changer
+                        </Button>
+                      </form>
+                    )}
+                    {m.type === 'retenue_salaire' && (
+                      <p className="text-xs text-muted-foreground">Ou l'annuler : l'avance reste due, elle sera retenue un autre mois.</p>
+                    )}
+                    <Input placeholder="Motif" value={lineReason} onChange={e => setLineReason(e.target.value)} className="h-8 text-xs" />
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="ghost" className="flex-1" onClick={() => setCancelling(null)}>
+                        Garder
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="flex-1"
+                        disabled={!lineReason.trim()}
+                        onClick={() => {
+                          cancelMovement(m.id, lineReason.trim())
+                          setCancelling(null)
+                          setLineReason('')
+                        }}
+                      >
+                        Annuler la ligne
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+          <div className="mt-1 flex items-baseline justify-between border-t pt-2 font-semibold">
+            <span>À payer</span>
+            <span className="tabular-nums">{formatFCFA(row.aPayer)}</span>
+          </div>
+          {isOpen && lines.some(canCancelLine) && (
+            <p className="mt-2 text-xs text-muted-foreground">Touchez une retenue ou un ajout pour le changer ou l'annuler.</p>
+          )}
         </div>
 
         {!isOpen && row.state !== 'annule' && (
           <p className="flex items-center gap-2 rounded-lg bg-muted/50 p-2.5 text-xs text-muted-foreground">
-            <Lock className="size-3.5 shrink-0" /> Mois scellé : on peut seulement le payer (« Verser le salaire »).
+            <Lock className="size-3.5 shrink-0" /> Mois scellé : on peut seulement le payer.
           </p>
         )}
 
@@ -271,22 +320,29 @@ export function MonthDialog({
           </div>
         ) : (
           isOpen && (
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" onClick={() => goAdd('ajout_salaire')}>
-                <CirclePlus /> Ajouter au salaire
-              </Button>
-              <Button variant="outline" onClick={() => goAdd('retenue_manuelle')}>
-                <CircleMinus /> Ajouter une retenue
-              </Button>
-              <Button variant="ghost" onClick={() => setPanel('arreter')}>
-                <Pause /> Arrêter le mois
-              </Button>
-              <Button variant="ghost" className="text-destructive" onClick={() => setPanel('annuler')}>
-                <Ban /> Annuler le mois
-              </Button>
+            <div className="flex flex-col gap-3">
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" className="h-11" onClick={() => goAdd('ajout_salaire')}>
+                  <CirclePlus className="text-credit" /> Ajout
+                </Button>
+                <Button variant="outline" className="h-11" onClick={() => goAdd('retenue_manuelle')}>
+                  <CircleMinus className="text-debt" /> Retenue
+                </Button>
+              </div>
+              {/* Actions plus rares, plus discrètes */}
+              <div className="flex items-center justify-center gap-1 text-xs">
+                <Button variant="link" size="sm" className="h-auto px-2 text-muted-foreground" onClick={() => setPanel('arreter')}>
+                  <Pause className="size-3.5" /> Arrêter le mois
+                </Button>
+                <span className="text-muted-foreground/50">·</span>
+                <Button variant="link" size="sm" className="h-auto px-2 text-destructive" onClick={() => setPanel('annuler')}>
+                  <Ban className="size-3.5" /> Annuler le mois
+                </Button>
+              </div>
             </div>
           )
         )}
+        </div>
       </DialogContent>
     </Dialog>
   )
@@ -294,12 +350,3 @@ export function MonthDialog({
 
 const order = (m: Movement) =>
   ({ salaire_du: 0, ajout_salaire: 1, retenue_salaire: 2, retenue_manuelle: 3 } as Record<string, number>)[m.type] ?? 9
-
-function Total({ label, value, tone }: { label: string; value: number; tone?: 'debt' }) {
-  return (
-    <div className="flex flex-col gap-0.5 rounded-lg bg-muted/40 py-2">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className={cn('text-sm font-semibold tabular-nums', tone === 'debt' && 'text-debt')}>{formatFCFA(value)}</span>
-    </div>
-  )
-}

@@ -1,5 +1,6 @@
 import React from 'react'
-import { Coins, HandCoins, Plus, Scale, UserMinus } from 'lucide-react'
+import { Coins, HandCoins, Pencil, Plus, Scale, UserMinus } from 'lucide-react'
+import { Input } from '@/components/ui/input'
 
 import { useStore } from '@/data/store'
 import { payrollOf, type AdvanceRow, type PayMonthRow } from '@/data/payroll'
@@ -61,7 +62,7 @@ const ADVANCE_COLUMNS: Column<AdvanceRow>[] = [
 ]
 
 export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employeeId }) => {
-  const { persons, movements, monthStates, openNewMovement, openDeparture, openMovementDetail } = useStore()
+  const { persons, movements, monthStates, openNewMovement, openDeparture, openMovementDetail, setAdvancePlan } = useStore()
   const [view, setView] = React.useState<'ensemble' | 'salaire' | 'avance'>('ensemble')
   const [salaryList, setSalaryList] = React.useState<'mois' | 'versements'>('mois')
   const [advList, setAdvList] = React.useState<'avances' | 'remboursements'>('avances')
@@ -78,9 +79,10 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
   const openAdv = pr.advances.filter(a => a.etat === 'En cours')
   const advRepaid = openAdv.reduce((a, r) => a + r.rendu, 0)
   const net = pr.totalReste - pr.advanceReste
+  // Façon de rendre : court, la valeur seule (« 15 000 FCFA / mois » ou « Direct »)
   const plan = emp.advanceDeductionPerPeriod && emp.advanceDeductionPerPeriod > 0
-    ? `Retenue de ${formatFCFA(emp.advanceDeductionPerPeriod)} par mois`
-    : 'Il rend directement'
+    ? `${formatFCFA(emp.advanceDeductionPerPeriod)} / mois`
+    : 'Direct'
 
   const chip = (on: boolean) => (on ? 'secondary' : 'ghost') as 'secondary' | 'ghost'
 
@@ -123,7 +125,7 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
               remaining={pr.advanceReste}
               paid={advRepaid}
               onClick={() => setView('avance')}
-              note={pr.advanceReste > 0 ? plan : undefined}
+              note={pr.advanceReste > 0 ? `Façon de rendre : ${plan}` : undefined}
             />
           </div>
           {active && (
@@ -198,10 +200,7 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
                   <p className="text-sm">{ago(pr.lastRepayment)}</p>
                 </div>
               </div>
-              <p className="border-t pt-2 text-sm">
-                <span className="text-muted-foreground">Façon de rendre : </span>
-                {plan}
-              </p>
+              <PlanRow value={emp.advanceDeductionPerPeriod || 0} label={plan} editable={active} onSave={v => setAdvancePlan(emp.id, v)} />
             </CardContent>
           </Card>
           <div className="flex items-center justify-between gap-2">
@@ -235,5 +234,65 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
 
       <MonthDialog empId={emp.id} period={month} open={month !== null} onOpenChange={o => !o && setMonth(null)} />
     </div>
+  )
+}
+
+// « Façon de rendre » : libellé à gauche, valeur à droite, crayon pour la changer (0 = direct).
+function PlanRow({ value, label, editable, onSave }: { value: number; label: string; editable: boolean; onSave: (v: number) => void }) {
+  const [editing, setEditing] = React.useState(false)
+  const [str, setStr] = React.useState('')
+  const fmt = (s: string) => (s ? Number(s).toLocaleString('fr-FR').replace(/\s/g, ' ') : '')
+  if (!editing)
+    return (
+      <div className="flex items-center justify-between gap-2 border-t pt-2 text-sm">
+        <span className="text-muted-foreground">Façon de rendre</span>
+        <span className="flex items-center gap-1 font-medium tabular-nums">
+          {label}
+          {editable && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="-mr-2 size-7 text-muted-foreground"
+              aria-label="Changer la façon de rendre"
+              onClick={() => {
+                setStr(value ? String(value) : '')
+                setEditing(true)
+              }}
+            >
+              <Pencil className="size-3.5" />
+            </Button>
+          )}
+        </span>
+      </div>
+    )
+  return (
+    <form
+      className="flex flex-col gap-2 border-t pt-2"
+      onSubmit={e => {
+        e.preventDefault()
+        onSave(parseInt(str, 10) || 0)
+        setEditing(false)
+      }}
+    >
+      <label className="flex items-center gap-2 text-sm">
+        <span className="text-muted-foreground">Retenue / mois</span>
+        <Input
+          autoFocus
+          inputMode="numeric"
+          placeholder="0 = direct"
+          value={fmt(str)}
+          onChange={e => setStr(e.target.value.replace(/\D/g, '').slice(0, 9))}
+          className="h-8 flex-1 text-right"
+        />
+      </label>
+      <div className="flex gap-2">
+        <Button type="button" variant="ghost" size="sm" className="flex-1" onClick={() => setEditing(false)}>
+          Fermer
+        </Button>
+        <Button type="submit" size="sm" className="flex-1">
+          Enregistrer
+        </Button>
+      </div>
+    </form>
   )
 }

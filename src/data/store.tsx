@@ -77,6 +77,9 @@ interface StoreContextType {
   // Mois en cours seulement. surplus : ce que devient le trop reçu (« avance » ou « rendu »)
   stopMonth: (empId: string, period: string, newBase: number, basisLabel: string, surplus?: 'avance' | 'rendu') => void
   cancelMonth: (empId: string, period: string, reason: string, surplus?: 'avance' | 'rendu') => void
+  // Façon de rendre les avances : retenue par mois (0 = il rend directement). Met à jour la retenue du mois en cours.
+  setAdvancePlan: (empId: string, perMonth: number) => void
+  setMonthRetenue: (empId: string, amount: number) => void
   applyCompensation: (partnerId: string) => void
   processDeparture: (
     employeeId: string,
@@ -532,6 +535,51 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     commitEmployee(empId, settleSurplus(emp, next, states, surplus), states)
   }
 
+  // Retenue d'avance du mois en cours : remplacée par un nouveau montant (0 = pas de retenue ce mois-ci).
+  // Elle ne peut pas dépasser ce qui reste à rendre sur les avances.
+  const replaceCurrentRetenue = (empId: string, perMonth: number, reason: string, base = movements) => {
+    const emp = persons.find(p => p.id === empId)
+    const cur = currentPeriod()
+    if (!emp || monthStates[monthKey(empId, cur)]) return base
+    const auto = base.find(m => m.personId === empId && m.type === 'retenue_salaire' && m.period === cur && !m.isCancelled)
+    const advance = payrollOf(empId, base, monthStates).advanceReste + (auto?.amount ?? 0)
+    const amount = Math.min(perMonth, advance)
+    let next = base.map(m =>
+      auto && m.id === auto.id ? { ...m, isCancelled: true, cancellationReason: reason, cancelledAt: todayStr() } : m
+    )
+    if (amount > 0) {
+      next = [
+        {
+          id: `mov-ret-${Date.now()}`,
+          personId: empId,
+          personName: emp.name,
+          type: 'retenue_salaire',
+          label: "Retenue pour l'avance",
+          amount,
+          // datée du 1er du mois, comme les autres retenues automatiques
+          date: `01/${cur.slice(5)}/${cur.slice(0, 4)}`,
+          period: cur,
+          note: auto && auto.amount !== amount ? `Montant changé (au lieu de ${auto.amount.toLocaleString('fr-FR')} FCFA)` : 'Retenue automatique',
+        },
+        ...next,
+      ]
+    }
+    return next
+  }
+
+  const setAdvancePlan: StoreContextType['setAdvancePlan'] = (empId, perMonth) => {
+    const emp = persons.find(p => p.id === empId)
+    if (!emp) return
+    const next = replaceCurrentRetenue(empId, perMonth, 'Façon de rendre modifiée')
+    setMovements(next)
+    setPersons(prev => prev.map(p => (p.id === empId ? syncEmployee({ ...p, advanceDeductionPerPeriod: perMonth }, next, monthStates) : p)))
+  }
+
+  // Seulement ce mois-ci : plus ou moins que la retenue prévue (la façon de rendre ne change pas).
+  const setMonthRetenue: StoreContextType['setMonthRetenue'] = (empId, amount) => {
+    commitEmployee(empId, replaceCurrentRetenue(empId, amount, 'Montant modifié pour ce mois'))
+  }
+
   // COMPENSATION : chacun « verse » à l'autre le plus petit des deux montants.
   // Deux versements liés, motif « Compensation » : un dans son compte, un dans le mien.
   const applyCompensation = (partnerId: string) => {
@@ -733,6 +781,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         monthStates,
         stopMonth,
         cancelMonth,
+        setAdvancePlan,
+        setMonthRetenue,
         applyCompensation,
         processDeparture,
         totals: {
