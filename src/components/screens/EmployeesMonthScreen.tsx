@@ -78,26 +78,16 @@ export const EmployeesMonthScreen: React.FC = () => {
 
   // Salaires des périodes en cours (le salaire, sans les retenues)
   const total = current.reduce((a, l) => a + l.row.brut, 0)
-  // Reste : ce qui est à verser maintenant (échéances passées), comme sur les fiches et le tableau de bord
-  const reste = lines.filter(l => l.row.state !== 'en_cours').reduce((a, l) => a + l.row.reste, 0)
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-3">
-        <Card className="gap-1 py-4">
-          <CardContent className="flex flex-col gap-1 px-4">
-            <p className="text-xs text-muted-foreground">Salaires du mois</p>
-            <p className="text-xl font-semibold tabular-nums">{formatFCFA(total)}</p>
-            <Badge variant="outline" className="self-start tabular-nums">{current.length} employé{current.length > 1 ? 's' : ''}</Badge>
-          </CardContent>
-        </Card>
-        <Card className="gap-1 py-4">
-          <CardContent className="flex flex-col gap-1 px-4">
-            <p className="text-xs text-muted-foreground">Reste à verser</p>
-            <p className="text-xl font-semibold text-debt tabular-nums">{formatFCFA(reste)}</p>
-          </CardContent>
-        </Card>
-      </div>
+      <Card className="gap-1 py-4">
+        <CardContent className="flex flex-col gap-1 px-4">
+          <p className="text-xs text-muted-foreground">Salaires du mois</p>
+          <p className="text-xl font-semibold tabular-nums">{formatFCFA(total)}</p>
+          <Badge variant="outline" className="self-start tabular-nums">{current.length} employé{current.length > 1 ? 's' : ''}</Badge>
+        </CardContent>
+      </Card>
 
       <ColumnTable
         columns={COLUMNS}
