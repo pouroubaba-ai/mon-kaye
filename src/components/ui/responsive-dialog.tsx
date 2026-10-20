@@ -49,7 +49,7 @@ function Dialog({ open, onOpenChange, children, dirty = false, dirtyKind = "modi
     <IsMobileContext.Provider value={isMobile}>
       {isMobile ? (
         // iPhone : le panneau ne bouge plus quand le clavier s'ouvre (sinon le clavier s'ouvre puis se referme).
-        // Pas de fermeture en glissant (trop instable) : on ferme avec la croix en haut à droite.
+        // Pas de fermeture en glissant ni en touchant à côté : on ferme avec la croix en haut à droite.
         // handleOnly sans poignée affichée = le panneau ne se tire plus du tout.
         <Drawer key={drawerKey} open={open} onOpenChange={requestChange} repositionInputs={false} handleOnly>
           {children}
@@ -117,6 +117,9 @@ function DialogContent({
         // Pas de clavier qui s'ouvre tout seul pendant que le panneau monte : on touche le champ pour écrire
         onOpenAutoFocus={e => e.preventDefault()}
         showHandle={false}
+        // Toucher à côté ne ferme pas : seule la croix ferme
+        onPointerDownOutside={e => e.preventDefault()}
+        onInteractOutside={e => e.preventDefault()}
         className={
           fixedHeight
             ? "data-[vaul-drawer-direction=bottom]:h-[85dvh] data-[vaul-drawer-direction=bottom]:max-h-[85dvh]"
@@ -135,6 +138,9 @@ function DialogContent({
   }
   return (
     <BaseDialogContent
+      // Cliquer à côté ne ferme pas : seule la croix ferme
+      onPointerDownOutside={e => e.preventDefault()}
+      onInteractOutside={e => e.preventDefault()}
       className={cn(
         "sm:max-w-lg",
         fixedHeight ? "flex h-[min(680px,90vh)] flex-col" : "max-h-[90vh] overflow-y-auto",
