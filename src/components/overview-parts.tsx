@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSepa
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn, formatFCFA } from '@/lib/utils'
+import { PaidLine } from '@/components/paid-line'
 
 // Pièces communes aux vues d'ensemble Employés et Personnes :
 // - PersonPicker : choix d'une personne avec recherche (modèle shadcn « Combobox ») ;
@@ -110,7 +111,8 @@ export function PersonPicker({
   )
 }
 
-export type DayRow = { id: string; name: string; days: number; amount: number; role?: string }
+// paid : déjà versé sur ce compte (pour la petite ligne « Total · Versé » sous le grand montant)
+export type DayRow = { id: string; name: string; days: number; amount: number; role?: string; paid?: number }
 
 // Liste en barres : nom + montant sur une ligne, barre des jours en dessous.
 type SortKey = 'days-desc' | 'days-asc' | 'amount-desc' | 'amount-asc'
@@ -171,6 +173,9 @@ export function DaysCard({
             <span className={cn('text-2xl font-semibold tabular-nums', tone === 'credit' ? 'text-credit' : 'text-debt')}>
               {formatFCFA(rawRows.reduce((a, r) => a + r.amount, 0))}
             </span>
+            {rawRows.some(r => r.paid !== undefined) && (
+              <PaidLine className="mt-1" tone={tone} remaining={rawRows.reduce((a, r) => a + r.amount, 0)} paid={rawRows.reduce((a, r) => a + (r.paid ?? 0), 0)} />
+            )}
           </div>
         )}
 

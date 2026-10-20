@@ -22,6 +22,9 @@ export const PartnersOverview: React.FC<{ side: 'leurs' | 'mes' }> = ({ side }) 
     const live = mine.filter(m => !m.isCancelled).sort((a, b) => toTime(b.date) - toTime(a.date))
     return live[0]?.date ?? (mine.length ? undefined : fallback)
   }
+  // Déjà versé sur un compte (versements encore valables)
+  const paidOf = (p: (typeof persons)[number], type: 'il_m_a_verse' | 'je_lui_ai_verse') =>
+    movements.filter(m => m.personId === p.id && m.type === type && !m.isCancelled).reduce((a, m) => a + m.amount, 0)
   const partners = persons.filter(p => p.type === 'partner')
   const [who, setWho] = React.useState('tous')
   const selected = who === 'tous' ? partners : partners.filter(p => p.id === who)
@@ -29,11 +32,11 @@ export const PartnersOverview: React.FC<{ side: 'leurs' | 'mes' }> = ({ side }) 
 
   const owesMeRows: DayRow[] = selected
     .filter(p => (p.owesMe || 0) > 0)
-    .map(p => ({ id: p.id, name: p.name, days: daysSince(lastPay(p, 'il_m_a_verse', p.lastPaymentDate)) ?? -1, amount: p.owesMe || 0, role: p.role }))
+    .map(p => ({ id: p.id, name: p.name, days: daysSince(lastPay(p, 'il_m_a_verse', p.lastPaymentDate)) ?? -1, amount: p.owesMe || 0, role: p.role, paid: paidOf(p, 'il_m_a_verse') }))
 
   const iOweRows: DayRow[] = selected
     .filter(p => (p.iOweHim || 0) > 0)
-    .map(p => ({ id: p.id, name: p.name, days: daysSince(lastPay(p, 'je_lui_ai_verse', p.lastPaidByMeDate)) ?? -1, amount: p.iOweHim || 0, role: p.role }))
+    .map(p => ({ id: p.id, name: p.name, days: daysSince(lastPay(p, 'je_lui_ai_verse', p.lastPaidByMeDate)) ?? -1, amount: p.iOweHim || 0, role: p.role, paid: paidOf(p, 'je_lui_ai_verse') }))
 
   return (
     <div className="flex flex-col gap-4">
@@ -50,7 +53,7 @@ export const PartnersOverview: React.FC<{ side: 'leurs' | 'mes' }> = ({ side }) 
         rows={owesMeRows}
         tone="credit"
         amountLabel="Son compte"
-        totalLabel="Total"
+        totalLabel="On me doit"
         showCount={showCount}
         unit={PEOPLE}
         empty="Personne ne vous doit d'argent."
@@ -60,7 +63,7 @@ export const PartnersOverview: React.FC<{ side: 'leurs' | 'mes' }> = ({ side }) 
         rows={iOweRows}
         tone="debt"
         amountLabel="Mon compte"
-        totalLabel="Total"
+        totalLabel="Je dois"
         showCount={showCount}
         unit={PEOPLE}
         empty="Vous ne devez rien à personne."

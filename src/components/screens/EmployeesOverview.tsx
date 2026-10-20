@@ -3,7 +3,7 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 
 import { useStore } from '@/data/store'
 import { daysSince } from '@/data/payHistory'
-import { payHistoryFromMovements } from '@/data/payroll'
+import { payHistoryFromMovements, payrollOf } from '@/data/payroll'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -68,12 +68,14 @@ export const EmployeesOverview: React.FC<{ side: 'leurs' | 'mes' }> = ({ side })
 
   const advanceRows: DayRow[] = selected
     .filter(p => (p.advanceBalance || 0) > 0)
-    .map(p => ({ id: p.id, name: p.name, days: daysSince(p.lastAdvanceRepaymentDate) ?? 0, amount: p.advanceBalance || 0, role: p.role }))
+    .map(p => ({ id: p.id, name: p.name, days: daysSince(p.lastAdvanceRepaymentDate) ?? 0, amount: p.advanceBalance || 0, role: p.role,
+      paid: payrollOf(p.id, movements, monthStates).advances.filter(a => a.etat === 'En cours').reduce((a, r) => a + r.rendu, 0) }))
     .sort((a, b) => b.days - a.days)
 
   const salaryRows: DayRow[] = selected
     .filter(p => p.status === 'actif' && (p.currentSalaryDue || 0) > 0)
-    .map(p => ({ id: p.id, name: p.name, days: daysSince(p.lastSalaryPaymentDate) ?? 0, amount: p.currentSalaryDue || 0, role: p.role }))
+    .map(p => ({ id: p.id, name: p.name, days: daysSince(p.lastSalaryPaymentDate) ?? 0, amount: p.currentSalaryDue || 0, role: p.role,
+      paid: payrollOf(p.id, movements, monthStates).months.filter(m => m.reste > 0 || m.state === 'en_cours').reduce((a, m) => a + m.verse, 0) }))
     .sort((a, b) => b.days - a.days)
 
   return (
@@ -138,7 +140,7 @@ export const EmployeesOverview: React.FC<{ side: 'leurs' | 'mes' }> = ({ side })
 
       {side === 'leurs' && <DaysCard
         title="Avances à rendre"
-        totalLabel="Total"
+        totalLabel="On me doit"
         showCount={who === 'tous'}
         rows={advanceRows}
         tone="credit"
@@ -147,7 +149,7 @@ export const EmployeesOverview: React.FC<{ side: 'leurs' | 'mes' }> = ({ side })
       />}
       {side === 'mes' && <DaysCard
         title="Salaires dus"
-        totalLabel="Total"
+        totalLabel="Je dois"
         showCount={who === 'tous'}
         rows={salaryRows}
         tone="debt"

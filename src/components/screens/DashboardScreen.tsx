@@ -4,6 +4,7 @@ import { ArrowDownLeft, ArrowUpRight, ChevronRight } from 'lucide-react'
 
 import { useStore } from '@/data/store'
 import { payrollOf } from '@/data/payroll'
+import { PaidLine } from '@/components/paid-line'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
 import { formatFCFA } from '@/lib/utils'
@@ -66,18 +67,7 @@ function StatCard({
             {amount(value)} <span className="text-xs font-normal text-muted-foreground sm:text-sm">FCFA</span>
           </span>
           {value > 0 && (
-            // Petit et en gras, une pastille de couleur devant chaque libellé.
-            // Sur une ligne quand ça tient ; avec de gros montants, « Versé » passe à la ligne.
-            <span className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[10px] font-semibold leading-none whitespace-nowrap text-muted-foreground tabular-nums">
-              <span className="flex items-center gap-1">
-                <span className="size-1.5 shrink-0 rounded-full" style={{ background: `color-mix(in srgb, ${base} 45%, transparent)` }} />
-                Total {amount(value + paid)}
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="size-1.5 shrink-0 rounded-full" style={{ background: base }} />
-                Versé {amount(paid)}
-              </span>
-            </span>
+            <PaidLine remaining={value} paid={paid} tone={tone} className="mt-1.5" />
           )}
         </div>
       </CardContent>
