@@ -3,12 +3,14 @@ import { Label, Pie, PieChart, Sector, type PieSectorDataItem } from 'recharts'
 import { ArrowDownLeft, ArrowUpRight, ChevronRight } from 'lucide-react'
 
 import { useStore } from '@/data/store'
+import { payrollOf } from '@/data/payroll'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
 import { formatFCFA } from '@/lib/utils'
 
 // Tableau de bord léger :
-// 1. deux cartes côte à côte : « On me doit » / « Je dois » (le total, rien d'autre) ;
+// 1. deux cartes côte à côte : « On me doit » / « Je dois », avec en petit le total et le versé
+//    (des comptes pas encore finis : total − versé = le grand montant) ;
 // 2. deux anneaux : de qui vient ce qu'on me doit, à qui va ce que je dois (le détail) ;
 // Chaque montant n'apparaît qu'une fois.
 
@@ -17,12 +19,14 @@ const amount = (v: number) => formatFCFA(v).replace(/\s?FCFA$/, '')
 function StatCard({
   label,
   value,
+  paid,
   tone,
   Icon,
   onClick,
 }: {
   label: string
   value: number
+  paid: number
   tone: 'credit' | 'debt'
   Icon: React.ComponentType<{ className?: string }>
   onClick: () => void
@@ -61,6 +65,12 @@ function StatCard({
           <span className="whitespace-nowrap text-xl font-semibold tabular-nums leading-none sm:text-2xl">
             {amount(value)} <span className="text-xs font-normal text-muted-foreground sm:text-sm">FCFA</span>
           </span>
+          {value > 0 && (
+            <span className="mt-1 flex flex-col text-xs leading-snug text-muted-foreground tabular-nums">
+              <span>Total {amount(value + paid)}</span>
+              <span>Versé {amount(paid)}</span>
+            </span>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -199,7 +209,7 @@ function DonutCard({
 }
 
 export const DashboardScreen: React.FC = () => {
-  const { totals, persons, setAccountsView, modules } = useStore()
+  const { totals, persons, movements, monthStates, setAccountsView, modules } = useStore()
 
   const partners = persons.filter(p => p.type === 'partner')
   const employees = persons.filter(p => p.type === 'employee')
@@ -213,6 +223,22 @@ export const DashboardScreen: React.FC = () => {
   const firstGroup = modules.personnes ? 'partner' : 'employee'
   // Seul, le côté Employés prend la couleur pleine (sa couleur pâle ne sert qu'à le distinguer de Personnes)
   const on = (k: string) => (k === 'partenaires' ? modules.personnes : modules.employes)
+  // Déjà versé sur les comptes pas encore finis (pour « Total » et « Versé » des deux cartes)
+  const paidOf = (p: { id: string }, type: string) =>
+    movements.filter(m => m.personId === p.id && m.type === type && !m.isCancelled).reduce((a, m) => a + m.amount, 0)
+  let paidToMe = 0
+  let paidByMe = 0
+  if (modules.personnes)
+    for (const p of partners) {
+      if ((p.owesMe || 0) > 0) paidToMe += paidOf(p, 'il_m_a_verse')
+      if ((p.iOweHim || 0) > 0) paidByMe += paidOf(p, 'je_lui_ai_verse')
+    }
+  if (modules.employes)
+    for (const e of employees) {
+      const pr = payrollOf(e.id, movements, monthStates)
+      paidToMe += pr.advances.filter(a => a.etat === 'En cours').reduce((a, r) => a + r.rendu, 0)
+      paidByMe += pr.months.filter(m => m.reste > 0 || m.state === 'en_cours').reduce((a, m) => a + m.verse, 0)
+    }
   const owesMePeople = nOwesMe + nAdvances
   const iOwePeople = nIOwe + nSalaries
 
@@ -220,8 +246,8 @@ export const DashboardScreen: React.FC = () => {
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-2 gap-3 md:gap-4">
-        <StatCard label="On me doit" value={totals.totalOwesMe} tone="credit" Icon={ArrowDownLeft} onClick={() => setAccountsView({ dir: 'leurs', group: firstGroup })} />
-        <StatCard label="Je dois" value={totals.totalIOwe} tone="debt" Icon={ArrowUpRight} onClick={() => setAccountsView({ dir: 'mes', group: firstGroup })} />
+        <StatCard label="On me doit" value={totals.totalOwesMe} paid={paidToMe} tone="credit" Icon={ArrowDownLeft} onClick={() => setAccountsView({ dir: 'leurs', group: firstGroup })} />
+        <StatCard label="Je dois" value={totals.totalIOwe} paid={paidByMe} tone="debt" Icon={ArrowUpRight} onClick={() => setAccountsView({ dir: 'mes', group: firstGroup })} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
