@@ -274,3 +274,5 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 - Données : shops/{uid} (boutique), persons, movements, meta/months ; gardées sur le téléphone (hors ligne) et envoyées en ligne. Règles : firestore.rules (publiées). Base Firestore en africa-south1.
 - Démonstration sans compte : ?demo (exemples) ou ?demo=vide (compte neuf).
 - firebase.json : hébergement (dist, toutes les adresses vers index.html).
+
+## 2026-10-20 — En ligne sur Vercel (mon-kaye.vercel.app) : vercel.json renvoie toutes les adresses vers index.html (actualiser /connexion ne fait plus 404). Message clair si le domaine n'est pas autorisé dans Firebase.

@@ -83,6 +83,7 @@ export function authError(e: unknown): string {
   if (code === 'auth/too-many-requests') return 'Trop d’essais. Attendez un moment puis réessayez.'
   if (code === 'auth/operation-not-allowed' || code === 'auth/configuration-not-found')
     return "Cette façon de se connecter n'est pas encore activée."
+  if (code === 'auth/unauthorized-domain') return "Cette adresse n'est pas encore autorisée dans Firebase (Authentication › Paramètres › Domaines autorisés)."
   if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return ''
   return 'Une erreur est survenue. Réessayez.'
 }
