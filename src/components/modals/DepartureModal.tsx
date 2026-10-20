@@ -4,7 +4,7 @@ import { currentPeriod, daysInPeriod, ofMonth, payrollOf, simulateDeparture } fr
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/responsive-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { cn, formatFCFA } from '@/lib/utils'
+import { cn, formatFCFA, useKept } from '@/lib/utils'
 
 // L'employé quitte la boutique : deux questions courtes (son dernier mois, son avance),
 // puis ce qui reste à faire. Rien n'est versé ici : on verse ensuite comme d'habitude.
@@ -34,7 +34,9 @@ function Choice({ on, title, hint, onPick, children }: { on: boolean; title: str
 
 export const DepartureModal: React.FC = () => {
   const { isDepartureOpen, closeDeparture, departureTargetEmployeeId, persons, movements, monthStates, processDeparture } = useStore()
-  const emp = persons.find(p => p.id === departureTargetEmployeeId)
+  // Pendant la fermeture, la fiche reste affichée (pas de disparition d'un coup)
+  const keptId = useKept(departureTargetEmployeeId)
+  const emp = persons.find(p => p.id === keptId)
   const cur = currentPeriod()
   const dim = daysInPeriod(cur)
 

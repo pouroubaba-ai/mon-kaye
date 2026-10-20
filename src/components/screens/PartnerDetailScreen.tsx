@@ -1,5 +1,5 @@
 import React from 'react'
-import { ArrowDownLeft, ArrowUpRight, Plus, Scale } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, FileText, Plus, Scale } from 'lucide-react'
 
 import { useStore, returnedOn } from '@/data/store'
 import { Badge } from '@/components/ui/badge'
@@ -11,6 +11,7 @@ import { BalanceCard } from '@/components/balance-card'
 import { formatFCFA } from '@/lib/utils'
 import { daysSince } from '@/data/payHistory'
 import { DeletePerson } from '@/components/delete-person'
+import { StatementDialog } from '@/components/modals/StatementDialog'
 
 // Fiche d'une personne, inspirée des cartes « Payroll » :
 // - bandeau en haut, seulement si chacun doit quelque chose à l'autre : qui doit à qui, au net ;
@@ -28,6 +29,7 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
   const [view, setViewRaw] = React.useState<'ensemble' | 'lui' | 'moi'>('ensemble')
   const side: 'lui' | 'moi' = view === 'moi' ? 'moi' : 'lui'
   const [kind, setKind] = React.useState<'credit' | 'versement' | 'retour'>('credit')
+  const [statement, setStatement] = React.useState(false) // fiche de compte ouverte
   const setView = (v: 'ensemble' | 'lui' | 'moi') => {
     setViewRaw(v)
     setKind('credit')
@@ -179,6 +181,12 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
           <Plus /> Enregistrer une opération
         </Button>
       )}
+      {view === 'ensemble' && (
+        <Button variant="outline" size="lg" className="h-12" onClick={() => setStatement(true)}>
+          <FileText /> Fiche de compte
+        </Button>
+      )}
+      <StatementDialog person={partner} open={statement} onOpenChange={setStatement} />
       {view === 'ensemble' && <DeletePerson personId={partner.id} />}
     </div>
   )

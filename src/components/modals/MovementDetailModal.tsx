@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { formatFCFA, waNumber } from '@/lib/utils'
+import { formatFCFA, useKept, waNumber } from '@/lib/utils'
 import { 
   FileText, 
   Share2, 
@@ -21,7 +21,9 @@ import {
 } from 'lucide-react'
 
 export const MovementDetailModal: React.FC = () => {
-  const { selectedMovement, closeMovementDetail, cancelMovement, addReturn, shop, persons, movements, monthStates } = useStore()
+  const { selectedMovement: current, closeMovementDetail, cancelMovement, addReturn, shop, persons, movements, monthStates } = useStore()
+  // Pendant la fermeture, l'opération reste affichée (la fenêtre glisse au lieu de disparaître d'un coup)
+  const selectedMovement = useKept(current)
   // Panneau ouvert en bas : rien, l'annulation (motif) ou le retour (montant).
   const [panel, setPanel] = useState<'none' | 'annuler' | 'retour'>('none')
   const [cancelReason, setCancelReason] = useState('')
@@ -131,7 +133,7 @@ export const MovementDetailModal: React.FC = () => {
   }
 
   return (
-    <Dialog open={!!selectedMovement} onOpenChange={open => !open && closeMovementDetail()} dirty={cancelReason.trim() !== '' || returnAmount > 0} dirtyKind="modification">
+    <Dialog open={!!current} onOpenChange={open => !open && closeMovementDetail()} dirty={cancelReason.trim() !== '' || returnAmount > 0} dirtyKind="modification">
       <DialogContent className="max-w-md p-4 sm:p-6 rounded-2xl">
         <DialogHeader className="pb-2">
           <div className="flex items-center justify-between">

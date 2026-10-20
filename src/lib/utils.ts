@@ -1,5 +1,14 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { useRef } from "react"
+
+// Garde la dernière valeur non vide : une fenêtre qui se ferme continue d'afficher son contenu
+// pendant l'animation de fermeture, au lieu de disparaître d'un coup.
+export function useKept<T>(value: T | null | undefined): T | null | undefined {
+  const last = useRef(value)
+  if (value !== null && value !== undefined) last.current = value
+  return value ?? last.current
+}
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))

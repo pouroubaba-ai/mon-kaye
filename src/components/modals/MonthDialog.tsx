@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Ban, ChevronRight, CircleMinus, CirclePlus, FileText, Lock, Pause, Pencil } from 'lucide-react'
+import { Ban, CircleMinus, CirclePlus, Eye, FileText, Lock, Pause, Pencil } from 'lucide-react'
 
 import { useStore } from '@/data/store'
 import { PAYMENT_LABELS } from '@/components/movement-history'
@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PayslipDialog } from '@/components/modals/PayslipDialog'
-import { cn, formatFCFA } from '@/lib/utils'
+import { cn, formatFCFA, useKept } from '@/lib/utils'
 
 // Fiche d'un mois de salaire.
 // - Toujours : le détail (base, ajouts, retenues, à payer, versé, reste).
@@ -25,8 +25,8 @@ type Panel = 'none' | 'arreter' | 'annuler'
 type Basis = 'complet' | 'prorata' | 'fixe'
 
 export function MonthDialog({
-  empId,
-  period,
+  empId: empIdProp,
+  period: periodProp,
   open,
   onOpenChange,
 }: {
@@ -35,6 +35,9 @@ export function MonthDialog({
   open: boolean
   onOpenChange: (o: boolean) => void
 }) {
+  // Pendant la fermeture, on garde le mois affiché (sinon la fenêtre disparaît d'un coup)
+  const empId = useKept(empIdProp || null) ?? ''
+  const period = useKept(periodProp)
   const { persons, movements, monthStates, cancelMovement, openNewMovement, openMovementDetail, stopMonth, cancelMonth, setMonthRetenue } = useStore()
   const [panel, setPanel] = React.useState<Panel>('none')
   const [slip, setSlip] = React.useState(false) // fiche de paie ouverte par-dessus
@@ -43,9 +46,9 @@ export function MonthDialog({
   const [fixedStr, setFixedStr] = React.useState('')
   const [reason, setReason] = React.useState('')
   const [cancelling, setCancelling] = React.useState<string | null>(null) // ligne en cours d'annulation
+  const keptCancelling = useKept(cancelling)
   const [lineReason, setLineReason] = React.useState('')
   const [retStr, setRetStr] = React.useState('')
-  const [openGroups, setOpenGroups] = React.useState<{ payer: boolean; retenues: boolean }>({ payer: false, retenues: false }) // nouveau montant de la retenue d'avance
   const [askSurplus, setAskSurplus] = React.useState<{ amount: number; apply: (c: 'avance' | 'rendu') => void } | null>(null)
 
   React.useEffect(() => {
@@ -59,7 +62,6 @@ export function MonthDialog({
     setCancelling(null)
     setLineReason('')
     setAskSurplus(null)
-    setOpenGroups({ payer: false, retenues: false })
   }, [open, period])
 
   const emp = persons.find(p => p.id === empId)
@@ -180,7 +182,7 @@ export function MonthDialog({
   const goAdd = (type: 'ajout_salaire' | 'retenue_manuelle') => openNewMovement(empId, type)
 
   // Ligne en cours de modification (petite fenêtre à part)
-  const editing = cancelling ? row.items.find(m => m.id === cancelling) : undefined
+  const editing = keptCancelling ? row.items.find(m => m.id === keptCancelling) : undefined
   // Retenue d'avance : jamais plus que ce qu'il doit encore sur ses avances
   const maxRetenue = editing?.type === 'retenue_salaire' ? pr.advanceReste : 0
   const retAmount = parseInt(retStr, 10) || 0
@@ -209,14 +211,13 @@ export function MonthDialog({
           </div>
         </div>
 
-        {/* Deux lignes repliables, comme une fiche de paie :
-            Salaire et ajouts − Retenues et versements = Reste à payer */}
+        {/* Deux lignes, comme une fiche de paie : Salaire et ajouts − Retenues et versements = Reste à payer.
+            L'œil ouvre le détail dans une fenêtre à part (rien ne se déplie ici). */}
         <div className="flex flex-col divide-y rounded-xl border text-sm">
           <Group
             title="Salaire et ajouts"
             total={gross}
-            open={openGroups.payer}
-            onToggle={() => setOpenGroups(g => ({ ...g, payer: !g.payer }))}
+            subtitle={`${emp.name} · salaire ${ofMonth(period)}`}
           >
             {lines.filter(m => m.type === 'salaire_du' || m.type === 'ajout_salaire').map(renderLine)}
           </Group>
@@ -224,8 +225,7 @@ export function MonthDialog({
             title="Retenues et versements"
             total={deducted}
             minus
-            open={openGroups.retenues}
-            onToggle={() => setOpenGroups(g => ({ ...g, retenues: !g.retenues }))}
+            subtitle={`${emp.name} · salaire ${ofMonth(period)}`}
           >
             {lines.filter(m => m.type === 'retenue_salaire' || m.type === 'retenue_manuelle').map(renderLine)}
             {row.paymentParts.map(({ mov, amount }) => (
@@ -421,7 +421,7 @@ export function MonthDialog({
       </Dialog>
 
       {/* Modifier une ligne : une petite fenêtre isolée, par-dessus la fiche du mois */}
-      <Dialog open={!!editing} onOpenChange={o => !o && setCancelling(null)}>
+      <Dialog open={!!cancelling} onOpenChange={o => !o && setCancelling(null)}>
         <DialogContent>
           {editing && (
             <div className="flex flex-col gap-4">
@@ -497,33 +497,51 @@ export function MonthDialog({
 const order = (m: Movement) =>
   ({ salaire_du: 0, ajout_salaire: 1, retenue_salaire: 2, retenue_manuelle: 3 } as Record<string, number>)[m.type] ?? 9
 
-// Ligne repliable : titre et total ; on la touche pour voir le détail.
+// Une ligne : titre, total et un œil. L'œil ouvre le détail dans sa propre fenêtre.
 function Group({
   title,
+  subtitle,
   total,
   minus,
-  open,
-  onToggle,
   children,
 }: {
   title: string
+  subtitle: string
   total: number
   minus?: boolean
-  open: boolean
-  onToggle: () => void
   children: React.ReactNode
 }) {
+  const [open, setOpen] = React.useState(false)
+  const amount = (
+    <span className={cn('font-semibold tabular-nums', minus && total > 0 && 'text-debt')}>
+      {minus && total > 0 ? '− ' : ''}
+      {formatFCFA(total)}
+    </span>
+  )
   return (
-    <div className="flex flex-col">
-      <button type="button" onClick={onToggle} aria-expanded={open} className="flex items-center gap-2 px-3 py-3 text-left">
-        <ChevronRight className={cn('size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-90')} />
+    <>
+      <div className="flex items-center gap-2 py-1.5 pr-1.5 pl-3">
         <span className="flex-1 font-medium">{title}</span>
-        <span className={cn('font-semibold tabular-nums', minus && total > 0 && 'text-debt')}>
-          {minus && total > 0 ? '− ' : ''}
-          {formatFCFA(total)}
-        </span>
-      </button>
-      {open && <div className="flex flex-col px-3 pb-2 pl-9">{children}</div>}
-    </div>
+        {amount}
+        <Button variant="ghost" size="icon" className="size-9 text-muted-foreground" aria-label={`Voir le détail : ${title}`} onClick={() => setOpen(true)}>
+          <Eye />
+        </Button>
+      </div>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <div className="flex flex-col gap-4">
+            <DialogHeader className="gap-1 p-0">
+              <DialogTitle className="text-left">{title}</DialogTitle>
+              <DialogDescription className="text-left">{subtitle}</DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col rounded-xl border px-3 py-1 text-sm">{children}</div>
+            <div className="flex items-baseline justify-between gap-3 rounded-lg bg-muted/60 px-3 py-2.5 text-sm">
+              <span className="font-medium">Total</span>
+              {amount}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
