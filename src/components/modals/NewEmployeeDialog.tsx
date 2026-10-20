@@ -71,8 +71,6 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
   const [dueDay, setDueDay] = React.useState(LAST_DAY) // jour de paie (31 = dernier jour du mois)
   const [oldDebt, setOldDebt] = React.useState('')
   const [advance, setAdvance] = React.useState('')
-  const [direct, setDirect] = React.useState(false)
-  const [perMonth, setPerMonth] = React.useState('')
 
   React.useEffect(() => {
     if (!open) return
@@ -85,8 +83,6 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
     setDueDay(new Date().getDate() > 28 ? LAST_DAY : new Date().getDate())
     setOldDebt('')
     setAdvance('')
-    setDirect(false)
-    setPerMonth('')
   }, [open])
 
   const sal = num(salary)
@@ -96,7 +92,8 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
   const firstMonth = sal
   const debt = num(oldDebt)
   const adv = num(advance)
-  const per = adv > 0 && !direct ? Math.min(num(perMonth), adv) : 0
+  // Façon de rendre l'avance : réglée plus tard (pour l'instant, pas de retenue sur le salaire)
+  const per = 0
   const toPay = Math.max(0, firstMonth + debt - per)
 
   const okStep: Record<Step, boolean> = {
@@ -104,7 +101,7 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
     salaire: sal > 0,
     mois: true,
     ancien: true,
-    avance: adv === 0 || direct || num(perMonth) > 0,
+    avance: true,
     resume: true,
   }
   const i = ORDER.indexOf(step)
@@ -209,7 +206,7 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
 
           {step === 'ancien' && (
             <div className="grid gap-2">
-              <Label htmlFor="ne-old">Combien lui deviez-vous déjà ?</Label>
+              <Label htmlFor="ne-old">Vous lui devez combien ?</Label>
               <MoneyInput id="ne-old" autoFocus value={oldDebt} onChange={setOldDebt} />
               <p className="text-xs text-muted-foreground">Ajouté à sa paie {ofMonth(cur)}. Rien ? Laissez vide.</p>
             </div>
@@ -218,20 +215,10 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
           {step === 'avance' && (
             <div className="flex flex-col gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="ne-adv">Combien vous doit-il encore sur ses anciennes avances ?</Label>
+                <Label htmlFor="ne-adv">Combien vous doit-il sur ses anciennes avances ?</Label>
                 <MoneyInput id="ne-adv" autoFocus value={advance} onChange={setAdvance} />
                 <p className="text-xs text-muted-foreground">Rien ? Laissez vide.</p>
               </div>
-              {adv > 0 && (
-                <div className="flex flex-col gap-2" role="radiogroup" aria-label="Façon de rendre">
-                  <p className="text-sm text-muted-foreground">Comment il rend ?</p>
-                  <Choice on={!direct} title="Je retire une somme de son salaire chaque mois" onPick={() => setDirect(false)}>
-                    <MoneyInput id="ne-per" value={perMonth} onChange={setPerMonth} />
-                    <p className="mt-1 text-xs text-muted-foreground">Dès ce mois-ci.</p>
-                  </Choice>
-                  <Choice on={direct} title="Il me rend lui-même" onPick={() => setDirect(true)} />
-                </div>
-              )}
             </div>
           )}
 
@@ -260,8 +247,7 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
               {adv > 0 && (
                 <section className="flex flex-col rounded-xl border px-3 pt-2 pb-1">
                   <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Anciennes avances</p>
-                  <Row label="Il doit encore" value={formatFCFA(adv)} tone="text-credit" />
-                  <Row label="Comment il rend" value={direct ? 'Lui-même' : `${formatFCFA(per)} / mois`} />
+                  <Row label="Il doit" value={formatFCFA(adv)} tone="text-credit" />
                 </section>
               )}
             </div>
