@@ -3,7 +3,7 @@ import { Coins, HandCoins, Pencil, Plus, UserMinus } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 
 import { useStore } from '@/data/store'
-import { payrollOf, type AdvanceRow, type PayMonthRow } from '@/data/payroll'
+import { dayMonth, daysUntil, dueDateOf, dueDayLabel, payrollOf, type AdvanceRow, type PayMonthRow } from '@/data/payroll'
 import { daysSince } from '@/data/payHistory'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -50,7 +50,8 @@ const MONTH_COLUMNS: Column<PayMonthRow>[] = [
   { key: 'apayer', label: 'À payer', align: 'right', defaultOn: true, render: r => money(r.aPayer) },
   { key: 'verse', label: 'Versé', align: 'right', render: r => money(r.verse) },
   { key: 'reste', label: 'Reste', align: 'right', defaultOn: true, render: r => <span className={r.reste ? 'text-debt' : ''}>{money(r.reste)}</span> },
-  { key: 'etat', label: 'État', defaultOn: true, render: r => <Etat v={r.etat} /> },
+  // Période pas encore échue : « À venir » (pas encore à payer)
+  { key: 'etat', label: 'État', defaultOn: true, render: r => (r.state === 'en_cours' && r.reste > 0 ? <span className="text-xs font-medium text-muted-foreground">À venir</span> : <Etat v={r.etat} />) },
 ]
 
 const ADVANCE_COLUMNS: Column<AdvanceRow>[] = [
@@ -74,13 +75,16 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
   const active = emp.status === 'actif'
   const pr = payrollOf(emp.id, movements, monthStates)
 
-  // Cartes : sur ce qui est encore ouvert (mois pas soldés, avances en cours)
-  const openMonths = pr.months.filter(m => m.reste > 0 || m.state === 'en_cours')
+  // Cartes : sur ce qui est à payer maintenant (échéances passées pas soldées), avances en cours
+  const openMonths = pr.months.filter(m => m.reste > 0 && m.state !== 'en_cours')
   const salaryPaid = openMonths.reduce((a, m) => a + m.verse, 0)
   const openAdv = pr.advances.filter(a => a.etat === 'En cours')
   const advRepaid = openAdv.reduce((a, r) => a + r.rendu, 0)
-  // Salaire encore dû, retenue prévue comprise (elle n'est coupée qu'à la clôture du mois)
-  const salaryReste = pr.totalReste + pr.plannedRetenue
+  // Salaire à payer maintenant : les périodes dont l'échéance est passée. La période en cours est « à venir ».
+  const salaryReste = pr.dueReste
+  const nextDue = dueDateOf(pr.currentPeriod, emp.id)
+  const inDays = daysUntil(nextDue)
+  const nextText = `Prochaine échéance : ${dayMonth(nextDue)}${inDays === 0 ? " (aujourd'hui)" : inDays === 1 ? ' (demain)' : ` (dans ${inDays} jours)`} · ${formatFCFA(pr.upcoming)}`
   // Façon de rendre : court, la valeur seule (« 15 000 FCFA / mois » ou « Direct »)
   const plan = emp.advanceDeductionPerPeriod && emp.advanceDeductionPerPeriod > 0
     ? `${formatFCFA(emp.advanceDeductionPerPeriod)} / mois`
@@ -117,7 +121,7 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
               remaining={salaryReste}
               paid={salaryPaid}
               onClick={() => setView('salaire')}
-              note={pr.plannedRetenue > 0 ? `dont ${formatFCFA(pr.plannedRetenue)} retenus pour l'avance` : undefined}
+              note={active ? nextText : undefined}
             />
             <BalanceCard
               title="Avance à rendre"
@@ -152,9 +156,8 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
               <div>
                 <p className="text-xs text-muted-foreground">Reste à payer</p>
                 <p className="text-2xl font-semibold text-debt tabular-nums">{formatFCFA(salaryReste)}</p>
-                {pr.plannedRetenue > 0 && (
-                  <p className="text-xs text-muted-foreground tabular-nums">dont {formatFCFA(pr.plannedRetenue)} retenus pour l'avance</p>
-                )}
+                <p className="text-xs text-muted-foreground">Payé {dueDayLabel(emp.dueDay)}</p>
+                {active && <p className="text-xs text-muted-foreground tabular-nums">{nextText}</p>}
               </div>
               <div className="text-right">
                 <p className="text-xs text-muted-foreground">Dernier versement</p>

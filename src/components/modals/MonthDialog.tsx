@@ -4,7 +4,7 @@ import { Ban, CircleMinus, CirclePlus, Eye, FileText, Lock, Pause, Pencil } from
 import { useStore } from '@/data/store'
 import { PAYMENT_LABELS } from '@/components/movement-history'
 import type { Movement } from '@/data/mockData'
-import { currentPeriod, daysInPeriod, ofMonth, payrollOf, planCancelMonth, planStopMonth } from '@/data/payroll'
+import { currentPeriod, dayMonth, daysInPeriod, daysUntil, daysWorked, dueDateOf, ofMonth, payrollOf, periodSpan, planCancelMonth, planStopMonth } from '@/data/payroll'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/responsive-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -56,7 +56,8 @@ export function MonthDialog({
     setPanel('none')
     setSlip(false)
     setBasis('complet')
-    setDaysStr(String(new Date().getDate()))
+    // Jours déjà travaillés dans la période (pour un arrêt en cours de période)
+    setDaysStr(String(empIdProp && periodProp ? daysWorked(periodProp, empIdProp) : new Date().getDate()))
     setFixedStr('')
     setReason('')
     setCancelling(null)
@@ -69,9 +70,13 @@ export function MonthDialog({
   const pr = payrollOf(empId, movements, monthStates)
   const row = pr.months.find(m => m.period === period)
   if (!row) return null
-  const isOpen = row.state === 'en_cours' && period === currentPeriod()
+  const isOpen = row.state === 'en_cours' && period === currentPeriod(empId)
   const salary = emp.salary || 0
-  const dim = daysInPeriod(period)
+  const dim = daysInPeriod(period, empId)
+  // La période (d'une échéance à l'autre) et son échéance, en mots simples
+  const due = dueDateOf(period, empId)
+  const left = daysUntil(due)
+  const dueText = row.state === 'en_cours' ? (left === 0 ? "échéance aujourd'hui" : left === 1 ? 'échéance demain' : `échéance dans ${left} jours`) : `échéance le ${dayMonth(due)}`
 
   // Nouveau salaire de base si on arrête le mois
   const days = Math.min(dim, parseInt(daysStr, 10) || 0)
@@ -197,13 +202,15 @@ export function MonthDialog({
             <DialogTitle>Salaire {ofMonth(period)}</DialogTitle>
             {stateBadge}
           </div>
-          <DialogDescription className="text-left">{emp.name}</DialogDescription>
+          <DialogDescription className="text-left">
+            {emp.name} · {periodSpan(period, empId)} · {dueText}
+          </DialogDescription>
         </DialogHeader>
 
         {/* Résumé : le reste à payer en grand ; la barre montre la part déjà déduite */}
         <div className="flex flex-col gap-2">
           <div>
-            <p className="text-xs text-muted-foreground">Reste à payer</p>
+            <p className="text-xs text-muted-foreground">{row.state === 'en_cours' ? "À payer à l'échéance" : 'Reste à payer'}</p>
             <p className={cn('text-3xl font-bold tabular-nums', row.reste > 0 ? 'text-debt' : 'text-credit')}>{formatFCFA(row.reste)}</p>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-muted">

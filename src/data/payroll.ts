@@ -43,6 +43,11 @@ export type Payroll = {
   months: PayMonthRow[] // du plus récent au plus ancien
   payments: Movement[] // versements de salaire (et surplus), du plus récent au plus ancien
   totalReste: number
+  // À payer maintenant : les périodes dont l'échéance est passée (ou arrêtées). La période en cours
+  // n'est à payer qu'à son échéance : elle est « à venir ».
+  dueReste: number
+  upcoming: number // période en cours : ce qui sera à payer à l'échéance (retenue prévue comprise)
+  currentPeriod: string
   lastPayment?: string
   advances: AdvanceRow[] // de la plus récente à la plus ancienne
   repayments: Movement[] // remboursements : directs et retenues d'avance
@@ -60,7 +65,56 @@ const SHORT = ['Janv.', 'Févr.', 'Mars', 'Avr.', 'Mai', 'Juin', 'Juil.', 'Août
 const LONG = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
 
 export const periodOf = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-export const currentPeriod = () => periodOf(new Date())
+
+// ——— Jour de paie (échéance) ———
+// Chaque employé a son jour de paie : du 1 au 28, ou 31 = « le dernier jour du mois ».
+// Une période de paie va d'une échéance à la suivante (du 25 septembre au 25 octobre) et porte
+// le nom du mois de son échéance (« octobre »). Le jour de l'échéance, la période se termine :
+// son salaire est à payer, et la suivante commence.
+// Sans jour de paie enregistré : le dernier jour du mois (comme avant).
+export const LAST_DAY = 31
+const dueDays = new Map<string, number>()
+export const setDueDay = (empId: string, day?: number) => {
+  if (day && day >= 1) dueDays.set(empId, day)
+  else dueDays.delete(empId)
+}
+export const dueDayOf = (empId: string) => dueDays.get(empId) ?? LAST_DAY
+// Le jour de paie dans un mois donné (« le 31 » devient le 30 ou le 28 selon le mois)
+const payDay = (dueDay: number, y: number, m: number) => Math.min(dueDay, new Date(y, m, 0).getDate())
+// La période en cours à une date donnée, pour un jour de paie donné
+export function periodFor(dueDay: number, d = new Date()) {
+  const y = d.getFullYear()
+  const m = d.getMonth() + 1
+  if (d.getDate() < payDay(dueDay, y, m)) return `${y}-${String(m).padStart(2, '0')}`
+  return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`
+}
+// Période en cours : celle de l'employé (selon son jour de paie) ; sans employé, le mois du calendrier
+export const currentPeriod = (empId?: string) => (empId ? periodFor(dueDayOf(empId), new Date()) : periodOf(new Date()))
+// Début et échéance d'une période
+export function periodBounds(period: string, dueDay: number) {
+  const [y, m] = period.split('-').map(Number)
+  const end = new Date(y, m - 1, payDay(dueDay, y, m))
+  const py = m === 1 ? y - 1 : y
+  const pm = m === 1 ? 12 : m - 1
+  const start = new Date(py, pm - 1, payDay(dueDay, py, pm))
+  return { start, end }
+}
+const DAY = 86_400_000
+const SHORT_DAY = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.']
+export const dayMonth = (d: Date) => `${d.getDate()} ${SHORT_DAY[d.getMonth()]}`
+// « du 25 sept. au 25 oct. »
+export const periodSpan = (period: string, empId: string) => {
+  const { start, end } = periodBounds(period, dueDayOf(empId))
+  return `du ${dayMonth(start)} au ${dayMonth(end)}`
+}
+// L'échéance d'une période (date) et le nombre de jours avant elle (0 = aujourd'hui)
+export const dueDateOf = (period: string, empId: string) => periodBounds(period, dueDayOf(empId)).end
+export const daysUntil = (d: Date, today = new Date()) =>
+  Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() - new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()) / DAY)
+const ddmmyyyy = (d: Date) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
+export const periodStartStr = (period: string, empId: string) => ddmmyyyy(periodBounds(period, dueDayOf(empId)).start)
+// « Le 25 de chaque mois » / « Le dernier jour du mois »
+export const dueDayLabel = (day?: number) => (!day || day >= 29 ? 'le dernier jour du mois' : `le ${day} de chaque mois`)
 export const periodLabel = (p: string) => {
   const [y, m] = p.split('-').map(Number)
   return `${SHORT[m - 1]} ${y}`
@@ -74,9 +128,19 @@ export const ofMonth = (p: string) => {
   const name = periodLong(p)
   return /^[aeiouéâ]/i.test(name) ? `d'${name}` : `de ${name}`
 }
-export const daysInPeriod = (p: string) => {
+// Nombre de jours d'une période : celle de l'employé (d'une échéance à l'autre), sinon le mois du calendrier
+export const daysInPeriod = (p: string, empId?: string) => {
+  if (empId) {
+    const { start, end } = periodBounds(p, dueDayOf(empId))
+    return Math.round((end.getTime() - start.getTime()) / DAY)
+  }
   const [y, m] = p.split('-').map(Number)
   return new Date(y, m, 0).getDate()
+}
+// Jours déjà passés dans la période jusqu'à aujourd'hui compris (pour un arrêt en cours de période)
+export const daysWorked = (p: string, empId: string, today = new Date()) => {
+  const { start } = periodBounds(p, dueDayOf(empId))
+  return Math.min(daysInPeriod(p, empId), Math.max(1, daysUntil(today, start) + 1)) // le premier jour compte
 }
 export const toTime = (d: string) => {
   const [dd, mm, yy] = d.split('/').map(Number)
@@ -97,7 +161,7 @@ export function payrollOf(
   today = new Date()
 ): Payroll {
   const mine = movements.filter(m => m.personId === empId)
-  const cur = periodOf(today)
+  const cur = periodFor(dueDayOf(empId), today)
 
   // Avances, remboursées de la plus ancienne à la plus récente.
   // Retenue du mois en cours (pas encore clos) : seulement prévue. Elle n'entre dans les remboursements
@@ -235,6 +299,9 @@ export function payrollOf(
     months: [...rows].reverse(),
     payments: [...salaryPayments].sort(byDateDesc),
     totalReste: rows.reduce((a, r) => a + r.reste, 0),
+    dueReste: rows.filter(r => r.state !== 'en_cours').reduce((a, r) => a + r.reste, 0),
+    upcoming: rows.filter(r => r.state === 'en_cours').reduce((a, r) => a + r.reste, 0) + plannedRetenue,
+    currentPeriod: cur,
     lastPayment: lastOf(salaryPayments.filter(m => m.type === 'je_lui_ai_verse')),
     advances: advRows.reverse(),
     repayments: [...repayments].sort(byDateDesc),
@@ -250,12 +317,13 @@ export function payrollOf(
 // Compteurs gardés sur la fiche (tableau de bord, vues d'ensemble) : recalculés après chaque opération.
 export function syncEmployee(p: Person, movements: Movement[], monthStates: Record<string, 'arrete' | 'annule'>): Person {
   if (p.type !== 'employee') return p
+  setDueDay(p.id, p.dueDay)
   const pr = payrollOf(p.id, movements, monthStates)
   return {
     ...p,
-    // Ce qu'on lui doit : retenue d'avance prévue comprise (elle n'est coupée qu'à la clôture du mois),
-    // la même règle partout (fiche, tableau de bord, page Salaires).
-    currentSalaryDue: pr.totalReste + pr.plannedRetenue,
+    // Ce qu'on lui doit maintenant : les périodes arrivées à échéance. La période en cours
+    // n'est due qu'à son échéance (la même règle partout : fiche, tableau de bord, page Salaires).
+    currentSalaryDue: pr.dueReste,
     advanceBalance: pr.advanceReste,
     lastSalaryPaymentDate: pr.lastPayment ?? p.lastSalaryPaymentDate,
     lastAdvanceRepaymentDate: pr.lastRepayment ?? p.lastAdvanceRepaymentDate,
@@ -410,7 +478,7 @@ export function simulateDeparture(
   date: string,
   stamp = Date.now()
 ): { next: Movement[]; states: Record<string, 'arrete' | 'annule'>; stopped: boolean } {
-  const cur = currentPeriod()
+  const cur = currentPeriod(empId)
   const key = monthKey(empId, cur)
   const hasMonth = movements.some(m => m.personId === empId && m.period === cur && m.type === 'salaire_du' && !m.isCancelled)
   if (monthStates[key] || !hasMonth) return { next: movements, states: monthStates, stopped: false }
@@ -440,10 +508,11 @@ export function missingMonths(
   monthStates: Record<string, 'arrete' | 'annule'>,
   today = new Date()
 ): Movement[] {
-  const cur = periodOf(today)
   const out: Movement[] = []
   for (const p of persons) {
     if (p.type !== 'employee' || p.status !== 'actif' || !p.salary) continue
+    setDueDay(p.id, p.dueDay)
+    const cur = periodFor(dueDayOf(p.id), today)
     const mine = movements.filter(m => m.personId === p.id)
     const have = new Set(mine.filter(m => m.type === 'salaire_du' && m.period).map(m => m.period!))
     if (have.size === 0) continue // pas encore de premier mois : rien à compléter
@@ -454,7 +523,8 @@ export function missingMonths(
       const period = `${y}-${String(m).padStart(2, '0')}`
       if (period > cur) break
       if (have.has(period) || monthStates[monthKey(p.id, period)]) continue
-      const date = `01/${period.slice(5)}/${period.slice(0, 4)}`
+      // Daté du début de la période (l'échéance précédente)
+      const date = periodStartStr(period, p.id)
       out.push({ id: `mov-sal-${p.id}-${period}`, personId: p.id, personName: p.name, type: 'salaire_du', label: 'Salaire de base', amount: p.salary, date, period })
       const reste = payrollOf(p.id, [...movements, ...out], monthStates, today).advanceReste
       const per = p.advanceDeductionPerPeriod || 0
@@ -471,7 +541,7 @@ type States = Record<string, 'arrete' | 'annule'>
 
 // Retenue prévue inscrite pour ce qu'elle vaut vraiment (limitée à l'avance, baissée si on a versé plus)
 export function applyPlannedRetenue(empId: string, next: Movement[], monthStates: States, date: string): Movement[] {
-  const cur = currentPeriod()
+  const cur = currentPeriod(empId)
   const eff = payrollOf(empId, next, monthStates).plannedRetenue
   return next.map(m => {
     if (m.personId !== empId || m.type !== 'retenue_salaire' || m.period !== cur || m.isCancelled || m.amount === eff) return m

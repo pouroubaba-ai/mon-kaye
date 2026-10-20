@@ -228,7 +228,7 @@ export const DashboardScreen: React.FC = () => {
     for (const e of employees) {
       const pr = payrollOf(e.id, movements, monthStates)
       paidToMe += pr.advances.filter(a => a.etat === 'En cours').reduce((a, r) => a + r.rendu, 0)
-      paidByMe += pr.months.filter(m => m.reste > 0 || m.state === 'en_cours').reduce((a, m) => a + m.verse, 0)
+      paidByMe += pr.months.filter(m => m.reste > 0 && m.state !== 'en_cours').reduce((a, m) => a + m.verse, 0)
     }
   const owesMePeople = nOwesMe + nAdvances
   const iOwePeople = nIOwe + nSalaries

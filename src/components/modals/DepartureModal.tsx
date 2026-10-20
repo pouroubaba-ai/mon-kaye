@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useStore } from '@/data/store'
-import { currentPeriod, daysInPeriod, ofMonth, payrollOf, simulateDeparture } from '@/data/payroll'
+import { currentPeriod, daysInPeriod, daysWorked, ofMonth, payrollOf, simulateDeparture } from '@/data/payroll'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/responsive-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -37,8 +37,9 @@ export const DepartureModal: React.FC = () => {
   // Pendant la fermeture, la fiche reste affichée (pas de disparition d'un coup)
   const keptId = useKept(departureTargetEmployeeId)
   const emp = persons.find(p => p.id === keptId)
-  const cur = currentPeriod()
-  const dim = daysInPeriod(cur)
+  // Sa période de paie en cours (d'une échéance à l'autre)
+  const cur = currentPeriod(keptId ?? undefined)
+  const dim = daysInPeriod(cur, keptId ?? undefined)
 
   const [basis, setBasis] = useState<Basis>('prorata')
   const [daysStr, setDaysStr] = useState('')
@@ -50,7 +51,9 @@ export const DepartureModal: React.FC = () => {
   React.useEffect(() => {
     if (!isDepartureOpen) return
     setBasis('prorata')
-    setDaysStr(String(new Date().getDate()))
+    // Jours déjà travaillés dans la période en cours
+    const id = departureTargetEmployeeId
+    setDaysStr(String(id ? daysWorked(currentPeriod(id), id) : new Date().getDate()))
     setFixedStr('')
     setAdv('retenir')
     setNote('')

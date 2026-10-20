@@ -209,8 +209,8 @@ export const NewMovementModal: React.FC = () => {
     }
     if (PAY_ADJUST.has(t)) {
       // Ajout ou retenue du mois en cours : on montre ce qu'il reste à payer ce mois-ci ; une retenue ne peut pas le dépasser.
-      const cur = payrollOf(person.id, movements, monthStates).months.find(m => m.period === currentPeriod())
-      return { label: 'À payer ce mois', value: cur?.aPayer ?? 0, tone: 'debt', isPayment: t === 'retenue_manuelle' }
+      const cur = payrollOf(person.id, movements, monthStates).months.find(m => m.period === currentPeriod(person.id))
+      return { label: 'À payer cette période', value: cur?.aPayer ?? 0, tone: 'debt', isPayment: t === 'retenue_manuelle' }
     }
     if (t === 'remboursement_direct') return { label: 'Avance à rendre', value: person.advanceBalance || 0, tone: 'credit', isPayment: true }
     return { label: 'Avance en cours', value: person.advanceBalance || 0, tone: 'credit', isPayment: false }
@@ -275,7 +275,7 @@ export const NewMovementModal: React.FC = () => {
       label: isAdjust ? `${LABELS[type]}${motif.trim() ? ` : ${motif.trim()}` : ''}` : (LABELS[type] ?? 'Opération'),
       amount,
       paymentMethod: isAdjust ? undefined : payment,
-      period: isAdjust ? currentPeriod() : undefined,
+      period: isAdjust ? currentPeriod(personId) : undefined,
       reference: reference.trim() || undefined,
       note: note.trim() || undefined,
       receiptPhoto: photo ? 'simulation_photo_recu.jpg' : undefined,

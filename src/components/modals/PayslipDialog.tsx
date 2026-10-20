@@ -2,7 +2,7 @@ import * as React from 'react'
 import { MessageCircle, Printer } from 'lucide-react'
 
 import { useStore } from '@/data/store'
-import { payrollOf, periodLong, currentPeriod } from '@/data/payroll'
+import { payrollOf, periodLong, currentPeriod, periodSpan } from '@/data/payroll'
 import type { Movement } from '@/data/mockData'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/responsive-dialog'
 import { Button } from '@/components/ui/button'
@@ -23,7 +23,7 @@ export function PayslipDialog({ empId, period, open, onOpenChange }: { empId: st
   const row = pr.months.find(m => m.period === period)
   if (!row) return null
 
-  const planned = row.state === 'en_cours' && period === currentPeriod()
+  const planned = row.state === 'en_cours' && period === currentPeriod(empId)
   // Lignes du mois (sans les lignes annulées) ; la retenue prévue compte pour ce qu'elle vaut vraiment
   const lines = row.items
     .filter(m => !m.isCancelled)
@@ -43,6 +43,7 @@ export function PayslipDialog({ empId, period, open, onOpenChange }: { empId: st
 
   const text = [
     `*Fiche de paie · ${month}*`,
+    `Période ${periodSpan(period, empId)}`,
     shop.name,
     `${emp.name}${emp.role ? ` (${emp.role})` : ''}`,
     '',
@@ -90,6 +91,7 @@ export function PayslipDialog({ empId, period, open, onOpenChange }: { empId: st
               </div>
               <div className="shrink-0 text-right">
                 <p className="font-semibold">{month}</p>
+                <p className="text-xs text-neutral-500">{periodSpan(period, empId)}</p>
                 <p className="text-xs text-neutral-500">Faite le {today}</p>
               </div>
             </div>

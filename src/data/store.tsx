@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { type Person, type Movement, INITIAL_SHOP, INITIAL_PERSONS, INITIAL_MOVEMENTS } from './mockData'
-import { buildPayrollSeed, currentPeriod, missingMonths, monthKey, ofMonth, payrollOf, planCancelMonth, planStopMonth, simulateDeparture, syncEmployee } from './payroll'
+import { buildPayrollSeed, currentPeriod, missingMonths, monthKey, ofMonth, payrollOf, periodStartStr, planCancelMonth, planStopMonth, setDueDay, simulateDeparture, syncEmployee } from './payroll'
 
 // Trop versé : « plus tard » = la différence passe dans l'autre compte ; « déjà rendu » = réglé en main propre.
 export type ExcessChoice = 'plus_tard' | 'deja_rendu'
@@ -121,7 +121,7 @@ interface StoreContextType {
     salary?: number
     dueDay?: number
     // Employé : son arrivée (premier mois), ce qu'on lui devait déjà, son avance et la façon de la rendre
-    start?: { day: number; amount: number; label: string } // absent : il commence au début du mois
+    start?: { date: string; amount: number; label: string } // arrivé en cours de période (jj/mm/aaaa) ; absent : la période compte en entière
     oldDebt?: number
     advance?: number
     perMonth?: number
@@ -385,7 +385,7 @@ export const StoreProvider: React.FC<{
 
     // Employé : ajout ou retenue rattachés au mois en cours ; compteurs recalculés.
     if (persons.find(p => p.id === newMov.personId)?.type === 'employee') {
-      if ((newMov.type === 'ajout_salaire' || newMov.type === 'retenue_manuelle') && !newMov.period) newMov.period = currentPeriod()
+      if ((newMov.type === 'ajout_salaire' || newMov.type === 'retenue_manuelle') && !newMov.period) newMov.period = currentPeriod(newMov.personId)
       commitEmployee(newMov.personId, [newMov, ...movements])
       return
     }
@@ -656,14 +656,14 @@ export const StoreProvider: React.FC<{
   // (limitée à l'avance à rendre, baissée si on a versé plus que le salaire moins la retenue).
   const stopMonth: StoreContextType['stopMonth'] = (empId, period, newBase, basisLabel, surplus) => {
     const emp = persons.find(p => p.id === empId)
-    if (!emp || period !== currentPeriod()) return
+    if (!emp || period !== currentPeriod(empId)) return
     const { next, states } = planStopMonth(empId, movements, monthStates, period, newBase, basisLabel, todayStr())
     commitEmployee(empId, settleSurplus(emp, period, next, states, surplus), states)
   }
 
   const cancelMonth: StoreContextType['cancelMonth'] = (empId, period, reason, surplus) => {
     const emp = persons.find(p => p.id === empId)
-    if (!emp || period !== currentPeriod()) return
+    if (!emp || period !== currentPeriod(empId)) return
     const { next, states } = planCancelMonth(empId, movements, monthStates, period, reason, todayStr())
     commitEmployee(empId, settleSurplus(emp, period, next, states, surplus), states)
   }
@@ -674,7 +674,7 @@ export const StoreProvider: React.FC<{
   // ni de nouvelle ligne), sans dépasser ce qui reste à rendre. 0 = pas de retenue ce mois-ci.
   const replaceCurrentRetenue = (empId: string, perMonth: number, base: Movement[] = movements, usualOverride?: number): Movement[] => {
     const emp = persons.find(p => p.id === empId)
-    const cur = currentPeriod()
+    const cur = currentPeriod(empId)
     if (!emp || monthStates[monthKey(empId, cur)]) return base
     const planned = base.find(m => m.personId === empId && m.type === 'retenue_salaire' && m.period === cur)
     const amount = Math.min(perMonth, payrollOf(empId, base, monthStates).advanceReste)
@@ -698,8 +698,8 @@ export const StoreProvider: React.FC<{
         type: 'retenue_salaire' as const,
         label: "Retenue pour l'avance",
         amount,
-        // datée du 1er du mois, comme les autres retenues automatiques
-        date: `01/${cur.slice(5)}/${cur.slice(0, 4)}`,
+        // datée du début de la période, comme les autres retenues automatiques
+        date: periodStartStr(cur, empId),
         period: cur,
         note,
       },
@@ -773,7 +773,7 @@ export const StoreProvider: React.FC<{
     const date = todayStr()
     const stamp = Date.now()
     const sim = simulateDeparture(employeeId, movements, monthStates, newBase, basisLabel, date, stamp)
-    let next = sim.stopped ? settleSurplus(emp, currentPeriod(), sim.next, sim.states, 'avance') : sim.next
+    let next = sim.stopped ? settleSurplus(emp, currentPeriod(employeeId), sim.next, sim.states, 'avance') : sim.next
     const pr = payrollOf(employeeId, next, sim.states)
     let left = pr.advanceReste
     const extra: Movement[] = []
@@ -863,7 +863,7 @@ export const StoreProvider: React.FC<{
             salary: data.salary,
             dueDay: data.dueDay,
             frequency: 'mensuel',
-            startDate: data.start ? `${String(data.start.day).padStart(2, '0')}/${startDate.slice(3)}` : startDate,
+            startDate: data.start?.date ?? startDate,
             status: 'actif',
             currentSalaryDue: 0,
             advanceBalance: 0,
@@ -874,8 +874,9 @@ export const StoreProvider: React.FC<{
       setPersons(prev => [...prev, person])
       return id
     }
-    // Employé : son premier mois, et ce qu'il apporte d'avant (ancien compte, avance)
-    const cur = currentPeriod()
+    // Employé : sa première période de paie (selon son jour de paie), et ce qu'il apporte d'avant
+    setDueDay(id, data.dueDay)
+    const cur = currentPeriod(id)
     const base = { personId: id, personName: data.name, date: startDate }
     const extra: Movement[] = [
       {

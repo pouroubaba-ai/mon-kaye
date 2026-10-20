@@ -43,7 +43,7 @@ export const MovementDetailModal: React.FC = () => {
   if (!selectedMovement) return null
   const mov = movements.find(m => m.id === selectedMovement.id) ?? selectedMovement
   // Paie : une ligne d'un mois scellé (passé, arrêté, annulé) ne peut plus être annulée.
-  const sealed = !!mov.period && (mov.period !== currentPeriod() || !!monthStates[`${mov.personId}|${mov.period}`])
+  const sealed = !!mov.period && (mov.period !== currentPeriod(mov.personId) || !!monthStates[`${mov.personId}|${mov.period}`])
   const isCredit = mov.type === 'il_a_pris_credit' || mov.type === 'j_ai_pris_credit'
   const side: 'lui' | 'moi' = mov.type === 'il_a_pris_credit' || mov.type === 'il_a_retourne' ? 'lui' : 'moi'
   const returns = isCredit ? movements.filter(m => m.linkedMovementId === mov.id && (m.type === 'il_a_retourne' || m.type === 'j_ai_retourne')) : []
