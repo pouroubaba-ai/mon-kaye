@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { cn, formatFCFA, formatPhone } from '@/lib/utils'
+import { cn, formatFCFA, formatPhone, nameTaken } from '@/lib/utils'
 
 // Nouvel employé, un écran court par question :
 //   Qui ?  →  Son salaire  →  Ce mois-ci  →  Ancien compte  →  Anciennes avances  →  Résumé
@@ -61,7 +61,7 @@ function Choice({ on, title, onPick, children }: { on: boolean; title: string; o
 }
 
 export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpenChange: (o: boolean) => void; onCreated?: (id: string) => void }) {
-  const { addPerson } = useStore()
+  const { addPerson, persons } = useStore()
   const cur = currentPeriod()
   const dim = daysInPeriod(cur)
   const monthName = periodLong(cur).split(' ')[0]
@@ -108,7 +108,7 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
   const toPay = Math.max(0, firstMonth + debt - per)
 
   const okStep: Record<Step, boolean> = {
-    qui: name.trim().length > 0,
+    qui: name.trim().length > 0 && !nameTaken(persons, name),
     salaire: sal > 0,
     mois: fromStart || (how === 'jours' ? num(dayStr) >= 1 && num(dayStr) <= dim : num(fixed) > 0),
     ancien: true,
@@ -173,7 +173,8 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
             <div className="flex flex-col gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="ne-name">Nom</Label>
-                <Input id="ne-name" autoFocus value={name} onChange={e => setName(e.target.value)} />
+                <Input id="ne-name" autoFocus value={name} onChange={e => setName(e.target.value)} aria-invalid={!!nameTaken(persons, name)} />
+                {nameTaken(persons, name) && <p className="text-xs text-destructive">{nameTaken(persons, name)}</p>}
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="ne-phone">Numéro</Label>

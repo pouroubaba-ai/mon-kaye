@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { formatPhone } from '@/lib/utils'
+import { formatPhone, nameTaken } from '@/lib/utils'
 import { Pencil, Phone } from 'lucide-react'
 
 import { useStore } from '@/data/store'
@@ -71,7 +71,7 @@ export function PersonFormDialog({
   onOpenChange: (o: boolean) => void
   onCreated?: (id: string) => void
 }) {
-  const { updatePerson, addPerson } = useStore()
+  const { updatePerson, addPerson, persons } = useStore()
   const kind = person?.type ?? type ?? 'partner'
   const isEmployee = kind === 'employee'
   const [name, setName] = React.useState('')
@@ -93,7 +93,8 @@ export function PersonFormDialog({
     phone !== (person?.phone ?? '') ||
     role !== (person?.role ?? '') ||
     (isEmployee && salary !== (person?.salary ? String(person.salary) : ''))
-  const valid = name.trim().length > 0 && (!isEmployee || parseInt(salary, 10) > 0)
+  const taken = nameTaken(persons, name, person?.id)
+  const valid = name.trim().length > 0 && !taken && (!isEmployee || parseInt(salary, 10) > 0)
 
   const save = () => {
     if (!valid) return
@@ -130,7 +131,8 @@ export function PersonFormDialog({
         >
           <div className="grid gap-2">
             <Label htmlFor="edit-name">Nom</Label>
-            <Input id="edit-name" value={name} onChange={e => setName(e.target.value)} autoFocus={!person} />
+            <Input id="edit-name" value={name} onChange={e => setName(e.target.value)} autoFocus={!person} aria-invalid={!!taken} />
+            {taken && <p className="text-xs text-destructive">{taken}</p>}
           </div>
           <div className="grid gap-2">
             <Label htmlFor="edit-phone">Numéro</Label>

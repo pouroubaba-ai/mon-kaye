@@ -22,6 +22,16 @@ export function formatDateJJMMYYYY(dateInput: string | Date): string {
 // ——— Recherche ———
 // Sans accents ni majuscules : « epicerie » trouve « Épicerie ».
 export const plain = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+// Deux noms « pareils » : sans tenir compte des majuscules, des accents ni des espaces en trop.
+const nameKey = (s: string) => plain(s).replace(/\s+/g, ' ').trim()
+// Quelqu'un porte déjà ce nom (dans Personnes ou dans Employés) ? Le message à afficher, sinon rien.
+export function nameTaken(persons: { id: string; name: string; type: string }[], name: string, exceptId?: string): string {
+  const k = nameKey(name)
+  if (!k) return ''
+  const same = persons.find(p => p.id !== exceptId && nameKey(p.name) === k)
+  if (!same) return ''
+  return `« ${same.name} » existe déjà dans ${same.type === 'employee' ? 'Employés' : 'Personnes'}. Choisissez un autre nom.`
+}
 const digitsOf = (s: string) => s.replace(/\D/g, '')
 // Numéro sans espaces ni indicatif : « 06 444 », « 064445566 » et « +242 06 444 55 66 » se trouvent l'un l'autre.
 const localDigits = (s: string) => {
