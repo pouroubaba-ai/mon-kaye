@@ -268,3 +268,9 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 ## 2026-10-19 — Icônes Google et Apple dans les boutons de connexion (paquet react-icons ; sur cet ordinateur, lancer npm install avant de démarrer)
 
 ## 2026-10-19 — Réglages : bouton « Se déconnecter » (avec confirmation) ; carte « Données » retirée. npm install lancé sur cet ordinateur (react-icons).
+
+## 2026-10-20 — Firebase branché
+- Connexion : Google, Apple (à activer chez Apple), e-mail + mot de passe, mot de passe oublié. Premier réglage : nom du commerce + code PIN. PIN à chaque ouverture ; « Changer de compte » et « Se déconnecter » ferment le compte.
+- Données : shops/{uid} (boutique), persons, movements, meta/months ; gardées sur le téléphone (hors ligne) et envoyées en ligne. Règles : firestore.rules (publiées). Base Firestore en africa-south1.
+- Démonstration sans compte : ?demo (exemples) ou ?demo=vide (compte neuf).
+- firebase.json : hébergement (dist, toutes les adresses vers index.html).

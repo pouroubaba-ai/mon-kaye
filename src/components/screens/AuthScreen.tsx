@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
-// Connexion et inscription (aperçu de l'écran ; le branchement à Firebase vient ensuite).
+// Connexion et inscription, branchées à Firebase (src/lib/firebase.ts).
 // Toujours en sombre, aux couleurs du logo. Trois façons d'entrer : Google, Apple, ou e-mail + mot de passe.
 
 export type AuthMode = 'connexion' | 'inscription'
@@ -22,7 +22,35 @@ export function Wordmark({ size = 'text-6xl' }: { size?: string }) {
   )
 }
 
-export function AuthScreen({ mode, onSwitch }: { mode: AuthMode; onSwitch: (m: AuthMode) => void }) {
+export type AuthActions = {
+  google: () => Promise<unknown>
+  apple: () => Promise<unknown>
+  email: (mode: AuthMode, email: string, pwd: string, shop: string) => Promise<unknown>
+  reset: (email: string) => Promise<unknown>
+  error: (e: unknown) => string
+}
+
+export function AuthScreen({ mode, onSwitch, actions }: { mode: AuthMode; onSwitch: (m: AuthMode) => void; actions: AuthActions }) {
+  const [busy, setBusy] = React.useState(false)
+  const [error, setError] = React.useState('')
+  const [info, setInfo] = React.useState('')
+  // Lance une action ; montre l'erreur en mots simples si ça échoue
+  const run = async (f: () => Promise<unknown>) => {
+    setBusy(true)
+    setError('')
+    setInfo('')
+    try {
+      await f()
+    } catch (e) {
+      setError(actions.error(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+  React.useEffect(() => {
+    setError('')
+    setInfo('')
+  }, [mode])
   const signup = mode === 'inscription'
   // Toujours en sombre, aux couleurs du logo (le thème choisi s'applique une fois dans l'app)
   React.useLayoutEffect(() => {
@@ -54,10 +82,10 @@ export function AuthScreen({ mode, onSwitch }: { mode: AuthMode; onSwitch: (m: A
 
         {/* Le plus simple d'abord : un seul toucher */}
         <div className="flex flex-col gap-3">
-          <Button type="button" size="lg" className="h-12 bg-white text-base text-neutral-900 hover:bg-neutral-100">
+          <Button type="button" size="lg" disabled={busy} onClick={() => run(actions.google)} className="h-12 bg-white text-base text-neutral-900 hover:bg-neutral-100">
             <FcGoogle className="size-5" aria-hidden="true" /> Continuer avec Google
           </Button>
-          <Button type="button" size="lg" variant="outline" className="h-12 text-base">
+          <Button type="button" size="lg" variant="outline" disabled={busy} onClick={() => run(actions.apple)} className="h-12 text-base">
             <FaApple className="size-5" aria-hidden="true" /> Continuer avec Apple
           </Button>
         </div>
@@ -68,7 +96,13 @@ export function AuthScreen({ mode, onSwitch }: { mode: AuthMode; onSwitch: (m: A
           <span className="h-px flex-1 bg-border" />
         </div>
 
-        <form className="flex flex-col gap-4" onSubmit={e => e.preventDefault()}>
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={e => {
+            e.preventDefault()
+            if (ok && !busy) run(() => actions.email(mode, email, pwd, shop.trim()))
+          }}
+        >
           {signup && (
             <div className="grid gap-2">
               <Label htmlFor="auth-shop">Nom de votre commerce</Label>
@@ -83,7 +117,18 @@ export function AuthScreen({ mode, onSwitch }: { mode: AuthMode; onSwitch: (m: A
             <div className="flex items-baseline justify-between">
               <Label htmlFor="auth-pwd">Mot de passe</Label>
               {!signup && (
-                <button type="button" className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+                <button
+                  type="button"
+                  onClick={() =>
+                    emailOk
+                      ? run(async () => {
+                          await actions.reset(email)
+                          setInfo('Un e-mail vous a été envoyé pour choisir un nouveau mot de passe.')
+                        })
+                      : setError('Écrivez d’abord votre e-mail ci-dessus.')
+                  }
+                  className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                >
                   Mot de passe oublié ?
                 </button>
               )}
@@ -108,8 +153,10 @@ export function AuthScreen({ mode, onSwitch }: { mode: AuthMode; onSwitch: (m: A
             </div>
             {signup && <p className="text-xs text-muted-foreground">Au moins 6 caractères.</p>}
           </div>
-          <Button type="submit" size="lg" className="h-12 text-base" disabled={!ok}>
-            {signup ? 'Créer mon compte' : 'Se connecter'}
+          {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+          {info && <p className="text-sm text-credit">{info}</p>}
+          <Button type="submit" size="lg" className="h-12 text-base" disabled={!ok || busy}>
+            {busy ? 'Un instant…' : signup ? 'Créer mon compte' : 'Se connecter'}
           </Button>
         </form>
 

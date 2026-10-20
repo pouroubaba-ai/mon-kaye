@@ -110,6 +110,8 @@ interface StoreContextType {
   }
   
   exportCSV: () => void
+  logout: () => void
+  isDemo: boolean
   // Modifier les informations d'une personne (nom, numéro, rôle, salaire…)
   updatePerson: (id: string, changes: Partial<Pick<Person, 'name' | 'phone' | 'role' | 'salary' | 'dueDay'>>) => void
   // Ajouter une personne ou un employé ; renvoie son identifiant
@@ -177,14 +179,13 @@ export function buildPath(s: Screen, persons: Person[]): string {
   if (s.tab === 'reglages') return s.settings === 'modules' ? '/reglages/modules' : '/reglages'
   return `/${s.tab}`
 }
-// Écran au démarrage : celui de l'adresse (actualiser garde l'écran)
-const startScreen = (() => {
-  let cache: Screen | null = null
-  return () => {
-    if (!cache) cache = parsePath(window.location.pathname, loadModules(), INITIAL_PERSONS)
-    return cache
-  }
-})()
+// Données d'un vrai compte (venues de Firebase) ; sans elles : la démonstration
+export type StoreData = {
+  shop: { name: string; pin: string }
+  persons: Person[]
+  movements: Movement[]
+  monthStates: Record<string, 'arrete' | 'annule'>
+}
 // Par défaut : Personnes seulement. Le choix est gardé sur l'appareil.
 const DEFAULT_MODULES: Modules = { personnes: true, employes: false }
 const MODULES_KEY = 'kaye.modules'
@@ -200,9 +201,18 @@ const loadModules = (): Modules => {
   }
 }
 
-export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [shop, setShop] = useState(INITIAL_SHOP)
-  const [isLocked, setIsLocked] = useState(false)
+export const StoreProvider: React.FC<{
+  children: React.ReactNode
+  data?: StoreData // vrai compte ; absent : démonstration
+  persist?: (d: StoreData) => void // enregistre chaque changement (Firebase)
+  startLocked?: boolean // demander le code PIN à l'ouverture
+  onLogout?: () => void
+}> = ({ children, data, persist, startLocked = false, onLogout }) => {
+  const [shop, setShop] = useState(() => (data ? { ...INITIAL_SHOP, owner: '', phone: '', address: '', name: data.shop.name, pin: data.shop.pin } : INITIAL_SHOP))
+  const [isLocked, setIsLocked] = useState(startLocked)
+  // Écran au démarrage : celui de l'adresse (actualiser garde l'écran)
+  const startRef = React.useRef<Screen | null>(null)
+  const startScreen = () => (startRef.current ??= parsePath(window.location.pathname, loadModules(), data ? data.persons : INITIAL_PERSONS))
   // Thème gardé sur l'appareil ; la première fois, celui du téléphone (sombre par défaut)
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     try {
@@ -253,15 +263,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   
   // Démonstration : la paie des employés est reconstituée en opérations (mois, versements, avances),
   // puis les compteurs de chaque employé sont recalculés à partir d'elles.
-  const [movements, setMovements] = useState<Movement[]>(() => [
-    ...INITIAL_MOVEMENTS,
-    ...buildPayrollSeed(INITIAL_PERSONS, INITIAL_MOVEMENTS),
-  ])
-  const [monthStates, setMonthStates] = useState<Record<string, 'arrete' | 'annule'>>({})
+  const [movements, setMovements] = useState<Movement[]>(() =>
+    data ? data.movements : [...INITIAL_MOVEMENTS, ...buildPayrollSeed(INITIAL_PERSONS, INITIAL_MOVEMENTS)]
+  )
+  const [monthStates, setMonthStates] = useState<Record<string, 'arrete' | 'annule'>>(() => (data ? data.monthStates : {}))
   const [persons, setPersons] = useState<Person[]>(() => {
+    if (data) return data.persons.map(p => syncEmployee(p, data.movements, data.monthStates))
     const all = [...INITIAL_MOVEMENTS, ...buildPayrollSeed(INITIAL_PERSONS, INITIAL_MOVEMENTS)]
     return INITIAL_PERSONS.map(p => syncEmployee(p, all, {}))
   })
+  // Vrai compte : chaque changement est enregistré (sur le téléphone, puis en ligne)
+  React.useEffect(() => {
+    persist?.({ shop: { name: shop.name, pin: shop.pin }, persons, movements, monthStates })
+  }, [shop.name, shop.pin, persons, movements, monthStates])
   // Nouveau mois : chaque employé actif commence le mois avec son salaire entier
   React.useEffect(() => {
     const extra = missingMonths(persons, movements, monthStates)
@@ -922,15 +936,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   React.useEffect(() => {
     if (fromHistory.current) {
       fromHistory.current = false
-      if (window.location.pathname !== path) window.history.replaceState(null, '', path)
+      if (window.location.pathname !== path) window.history.replaceState(null, '', path + window.location.search)
       return
     }
     const here = window.location.pathname
     if (here === path) return
     // Onglet Personnes / Employés de « Leurs/Mes comptes » : même écran, l'adresse change sans ajouter de retour
     const sameScreen = (x: string) => x.match(/^\/comptes\/(leurs|mes)/)?.[1]
-    if (sameScreen(here) && sameScreen(here) === sameScreen(path)) window.history.replaceState(null, '', path)
-    else window.history.pushState(null, '', path)
+    if (sameScreen(here) && sameScreen(here) === sameScreen(path)) window.history.replaceState(null, '', path + window.location.search)
+    else window.history.pushState(null, '', path + window.location.search)
   }, [path])
   const pathRef = React.useRef(path)
   pathRef.current = path
@@ -945,14 +959,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // Fenêtre ouverte ou app verrouillée : le retour ferme la fenêtre (comme Échap), l'écran ne bouge pas
       if (lockedRef.current || document.querySelector('[role="dialog"]')) {
         if (!lockedRef.current) document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-        window.history.pushState(null, '', pathRef.current)
+        window.history.pushState(null, '', pathRef.current + window.location.search)
         return
       }
       const next = parsePath(window.location.pathname, modulesRef.current, personsRef.current)
       const nextPath = buildPath(next, personsRef.current)
       if (nextPath === pathRef.current) {
         // Adresse inconnue ou même écran : on corrige seulement l'adresse
-        if (window.location.pathname !== nextPath) window.history.replaceState(null, '', nextPath)
+        if (window.location.pathname !== nextPath) window.history.replaceState(null, '', nextPath + window.location.search)
         return
       }
       fromHistory.current = true
@@ -1028,6 +1042,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           latePartnersCount,
         },
         exportCSV,
+        logout: () => (onLogout ? onLogout() : window.location.assign('/connexion')),
+        isDemo: !data,
         updatePerson,
         addPerson,
       }}

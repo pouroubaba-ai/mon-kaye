@@ -13,7 +13,12 @@ import { DepartureModal } from '@/components/modals/DepartureModal'
 import { CompensationModal } from '@/components/modals/CompensationModal'
 import { MovementDetailModal } from '@/components/modals/MovementDetailModal'
 import { slideIn } from '@/lib/utils'
-import { AuthScreen, type AuthMode } from '@/components/screens/AuthScreen'
+import { AuthScreen, Wordmark, type AuthActions, type AuthMode } from '@/components/screens/AuthScreen'
+import { SetupScreen } from '@/components/screens/SetupScreen'
+import { Button } from '@/components/ui/button'
+import { onAuthStateChanged } from 'firebase/auth'
+import { auth, authError, createShop, loadShop, logOut, makePersister, resetPassword, signInApple, signInEmail, signInGoogle, signUpEmail } from '@/lib/firebase'
+import type { StoreData } from '@/data/store'
 import { SplashScreen } from '@/components/splash-screen'
 import { EmployeesMonthScreen } from '@/components/screens/EmployeesMonthScreen'
 
@@ -89,32 +94,146 @@ const AppContent: React.FC = () => {
   )
 }
 
-// Connexion / inscription : /connexion et /inscription (aperçu, pas encore branché à Firebase)
+// ——— Entrée dans l'app ———
+// Pas connecté : écran de connexion (/connexion) ou d'inscription (/inscription).
+// Connecté pour la première fois : premier réglage (nom du commerce, code PIN).
+// Ensuite : l'app avec SES données (gardées sur le téléphone et en ligne). Code PIN à chaque ouverture.
+// Démonstration sans compte : ajouter ?demo à l'adresse (données d'exemple, rien n'est enregistré).
 const authModeOf = (path: string): AuthMode | null => (path === '/connexion' ? 'connexion' : path === '/inscription' ? 'inscription' : null)
+const DEMO = new URLSearchParams(window.location.search).has('demo')
+const EMPTY_DEMO: StoreData = { shop: { name: 'Ma boutique', pin: '1234' }, persons: [], movements: [], monthStates: {} }
+
+type Phase =
+  | { k: 'loading' }
+  | { k: 'out'; mode: AuthMode }
+  | { k: 'setup'; uid: string; name: string }
+  | { k: 'ready'; uid: string; data: StoreData; persist: (d: StoreData) => void; locked: boolean }
+  | { k: 'error' }
+
+function Loading() {
+  return (
+    <div className="dark flex min-h-dvh items-center justify-center bg-[#0B0C0F]">
+      <Wordmark size="text-5xl" />
+    </div>
+  )
+}
 
 export function App() {
-  const [auth, setAuth] = React.useState<AuthMode | null>(() => authModeOf(window.location.pathname))
+  const [phase, setPhase] = React.useState<Phase>({ k: 'loading' })
+  // Connexion faite à l'instant sur cet écran : pas besoin du code PIN tout de suite
+  const fresh = React.useRef(false)
+  const pendingName = React.useRef('')
+  const [retry, setRetry] = React.useState(0)
+
   React.useEffect(() => {
-    const onPop = () => setAuth(authModeOf(window.location.pathname))
+    if (DEMO) return
+    return onAuthStateChanged(auth, async user => {
+      const path = window.location.pathname
+      if (!user) {
+        const mode = authModeOf(path) ?? 'connexion'
+        if (path !== `/${mode}`) window.history.replaceState(null, '', `/${mode}`)
+        setPhase({ k: 'out', mode })
+        return
+      }
+      setPhase({ k: 'loading' })
+      try {
+        const d = await loadShop(user.uid)
+        if (!d) {
+          setPhase({ k: 'setup', uid: user.uid, name: pendingName.current || user.displayName || '' })
+          return
+        }
+        if (authModeOf(path)) window.history.replaceState(null, '', '/')
+        const data: StoreData = { shop: { name: d.shop.name, pin: d.shop.pin }, persons: d.persons, movements: d.movements, monthStates: d.monthStates }
+        const persist = makePersister(user.uid, d)
+        setPhase({ k: 'ready', uid: user.uid, data, persist: (x: StoreData) => persist({ ...x, shop: { ...d.shop, ...x.shop } }), locked: !fresh.current })
+        fresh.current = false
+      } catch (e) {
+        console.error('[Kayé] Chargement du compte', e)
+        setPhase({ k: 'error' })
+      }
+    })
+  }, [retry])
+
+  // Retour du navigateur entre /connexion et /inscription
+  React.useEffect(() => {
+    const onPop = () => setPhase(p => (p.k === 'out' ? { k: 'out', mode: authModeOf(window.location.pathname) ?? 'connexion' } : p))
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
   }, [])
-  if (auth) {
-    return (
+
+  const actions: AuthActions = {
+    google: () => ((fresh.current = true), signInGoogle()),
+    apple: () => ((fresh.current = true), signInApple()),
+    email: (mode, email, pwd, shop) => {
+      fresh.current = true
+      pendingName.current = shop
+      return mode === 'inscription' ? signUpEmail(email, pwd) : signInEmail(email, pwd)
+    },
+    reset: email => resetPassword(email),
+    error: authError,
+  }
+
+  let body: React.ReactNode
+  if (DEMO) {
+    body = (
+      // ?demo=vide : un compte neuf, sans aucune donnée (pour essayer comme un nouveau commerçant)
+      <StoreProvider data={new URLSearchParams(window.location.search).get('demo') === 'vide' ? EMPTY_DEMO : undefined}>
+        <AppContent />
+      </StoreProvider>
+    )
+  } else if (phase.k === 'loading') {
+    body = <Loading />
+  } else if (phase.k === 'out') {
+    body = (
       <AuthScreen
-        mode={auth}
+        mode={phase.mode}
+        actions={actions}
         onSwitch={m => {
           window.history.pushState(null, '', `/${m}`)
-          setAuth(m)
+          setPhase({ k: 'out', mode: m })
         }}
       />
     )
+  } else if (phase.k === 'setup') {
+    const { uid } = phase
+    body = (
+      <SetupScreen
+        defaultName={phase.name}
+        onLogout={() => void logOut()}
+        onDone={async (name, pin) => {
+          // Enregistré tout de suite sur le téléphone ; part en ligne dès que possible (on n'attend pas le réseau)
+          createShop(uid, name, pin).catch(e => console.error('[Kayé] Création de la boutique', e))
+          const empty = { shop: { name, pin }, persons: [], movements: [], monthStates: {} }
+          const persist = makePersister(uid, { ...empty, shop: { name, pin } })
+          window.history.replaceState(null, '', '/')
+          setPhase({ k: 'ready', uid, data: empty, persist: (x: StoreData) => persist({ ...x, shop: { ...x.shop } }), locked: false })
+        }}
+      />
+    )
+  } else if (phase.k === 'error') {
+    body = (
+      <div className="dark flex min-h-dvh flex-col items-center justify-center gap-4 bg-background p-6 text-center text-foreground">
+        <Wordmark size="text-4xl" />
+        <p className="max-w-xs text-sm text-muted-foreground">Impossible d'ouvrir vos comptes pour l'instant. Vérifiez la connexion internet.</p>
+        <Button onClick={() => setRetry(r => r + 1)}>Réessayer</Button>
+        <button type="button" className="text-sm text-muted-foreground underline-offset-4 hover:underline" onClick={() => void logOut()}>
+          Se déconnecter
+        </button>
+      </div>
+    )
+  } else {
+    body = (
+      <StoreProvider key={phase.uid} data={phase.data} persist={phase.persist} startLocked={phase.locked} onLogout={() => void logOut()}>
+        <AppContent />
+      </StoreProvider>
+    )
   }
+
   return (
-    <StoreProvider>
-      <AppContent />
+    <>
+      {body}
       <SplashScreen />
-    </StoreProvider>
+    </>
   )
 }
 

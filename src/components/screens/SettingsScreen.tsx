@@ -24,7 +24,7 @@ import { Switch } from '@/components/ui/switch'
 // Le verrouillage reste dans l'en-tête et la barre latérale : pas de doublon ici.
 
 export const SettingsScreen: React.FC = () => {
-  const { shop, setShopName, setShopPin, theme, toggleTheme, modules, setModule, settingsView: view, setSettingsView: setView } = useStore()
+  const { shop, setShopName, setShopPin, theme, toggleTheme, modules, setModule, logout, settingsView: view, setSettingsView: setView } = useStore()
   const [shopNameInput, setShopNameInput] = useState(shop.name)
   const [pinInput, setPinInput] = useState(shop.pin)
   const [saved, setSaved] = useState(false)
@@ -169,7 +169,7 @@ export const SettingsScreen: React.FC = () => {
               <DialogTitle className="text-left">Se déconnecter ?</DialogTitle>
               <DialogDescription className="text-left">Vos comptes restent gardés. Vous les retrouverez en vous reconnectant.</DialogDescription>
             </DialogHeader>
-            <Button variant="destructive" size="lg" className="h-12" onClick={() => window.location.assign('/connexion')}>
+            <Button variant="destructive" size="lg" className="h-12" onClick={() => logout()}>
               Se déconnecter
             </Button>
             <Button variant="outline" size="lg" className="h-12" onClick={() => setAskLogout(false)}>
