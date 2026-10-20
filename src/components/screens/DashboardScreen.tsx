@@ -60,15 +60,26 @@ function StatCard({
         >
           <Icon className="size-5" />
         </div>
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1 [container-type:inline-size]">
           <span className="text-sm text-muted-foreground">{label}</span>
           <span className="whitespace-nowrap text-xl font-semibold tabular-nums leading-none sm:text-2xl">
             {amount(value)} <span className="text-xs font-normal text-muted-foreground sm:text-sm">FCFA</span>
           </span>
           {value > 0 && (
-            <span className="mt-1 flex flex-col text-xs leading-snug text-muted-foreground tabular-nums">
-              <span>Total {amount(value + paid)}</span>
-              <span>Versé {amount(paid)}</span>
+            // Une seule ligne, petite et en gras : une pastille de couleur devant chaque libellé
+            // La taille s'ajuste à la largeur de la carte pour que tout tienne, même avec de gros montants
+            <span
+              className="mt-1.5 flex items-center gap-[0.8em] whitespace-nowrap font-semibold leading-none text-muted-foreground tabular-nums"
+              style={{ fontSize: `min(11px, calc(100cqi / ${((`Total ${amount(value + paid)}Versé ${amount(paid)}`).length + 5) * 0.5}))` }}
+            >
+              <span className="flex items-center gap-[0.4em]">
+                <span className="size-[0.6em] shrink-0 rounded-full" style={{ background: `color-mix(in srgb, ${base} 45%, transparent)` }} />
+                Total {amount(value + paid)}
+              </span>
+              <span className="flex items-center gap-[0.4em]">
+                <span className="size-[0.6em] shrink-0 rounded-full" style={{ background: base }} />
+                Versé {amount(paid)}
+              </span>
             </span>
           )}
         </div>
