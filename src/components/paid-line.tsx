@@ -19,3 +19,20 @@ export function PaidLine({ remaining, paid, tone, className = '' }: { remaining:
     </span>
   )
 }
+
+// Même style pour la prochaine paie d'un employé : « ● Échéance 25 oct. (dans 5 j) ● Montant 50 000 »
+export function DueLine({ date, inDays, amount: value, className = '' }: { date: string; inDays: number; amount: number; className?: string }) {
+  const when = inDays === 0 ? "aujourd'hui" : inDays === 1 ? 'demain' : `dans ${inDays} j`
+  return (
+    <span className={`flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[10px] font-semibold leading-none whitespace-nowrap text-muted-foreground tabular-nums ${className}`}>
+      <span className="flex items-center gap-1">
+        <span className="size-1.5 shrink-0 rounded-full bg-muted-foreground/50" />
+        Échéance {date} ({when})
+      </span>
+      <span className="flex items-center gap-1">
+        <span className="size-1.5 shrink-0 rounded-full" style={{ background: 'var(--color-debt)' }} />
+        Montant {amount(value)}
+      </span>
+    </span>
+  )
+}

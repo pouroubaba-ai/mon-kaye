@@ -3,7 +3,7 @@ import { Coins, HandCoins, Pencil, Plus, UserMinus } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 
 import { useStore } from '@/data/store'
-import { dayMonth, daysUntil, dueDateOf, dueDayLabel, payrollOf, type AdvanceRow, type PayMonthRow } from '@/data/payroll'
+import { dayMonth, daysUntil, dueDateOf, payrollOf, type AdvanceRow, type PayMonthRow } from '@/data/payroll'
 import { daysSince } from '@/data/payHistory'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -12,6 +12,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { MovementHistory } from '@/components/movement-history'
 import { PersonHeader } from '@/components/person-header'
 import { BalanceCard } from '@/components/balance-card'
+import { DueLine } from '@/components/paid-line'
 import { ColumnTable, type Column } from '@/components/column-table'
 import { MonthDialog } from '@/components/modals/MonthDialog'
 import { DeletePerson } from '@/components/delete-person'
@@ -84,7 +85,7 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
   const salaryReste = pr.dueReste
   const nextDue = dueDateOf(pr.currentPeriod, emp.id)
   const inDays = daysUntil(nextDue)
-  const nextText = `Prochaine échéance : ${dayMonth(nextDue)}${inDays === 0 ? " (aujourd'hui)" : inDays === 1 ? ' (demain)' : ` (dans ${inDays} jours)`} · ${formatFCFA(pr.upcoming)}`
+  const nextLine = <DueLine date={dayMonth(nextDue)} inDays={inDays} amount={pr.upcoming} className="mt-1" />
   // Façon de rendre : court, la valeur seule (« 15 000 FCFA / mois » ou « Direct »)
   const plan = emp.advanceDeductionPerPeriod && emp.advanceDeductionPerPeriod > 0
     ? `${formatFCFA(emp.advanceDeductionPerPeriod)} / mois`
@@ -121,7 +122,7 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
               remaining={salaryReste}
               paid={salaryPaid}
               onClick={() => setView('salaire')}
-              note={active ? nextText : undefined}
+              note={active ? nextLine : undefined}
             />
             <BalanceCard
               title="Avance à rendre"
@@ -156,8 +157,7 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
               <div>
                 <p className="text-xs text-muted-foreground">Reste à payer</p>
                 <p className="text-2xl font-semibold text-debt tabular-nums">{formatFCFA(salaryReste)}</p>
-                <p className="text-xs text-muted-foreground">Payé {dueDayLabel(emp.dueDay)}</p>
-                {active && <p className="text-xs text-muted-foreground tabular-nums">{nextText}</p>}
+                {active && nextLine}
               </div>
               <div className="text-right">
                 <p className="text-xs text-muted-foreground">Dernier versement</p>
