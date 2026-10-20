@@ -96,7 +96,6 @@ function DonutCard({
   people,
   tone,
   delay = 0,
-  onOpen,
   unit = ['personne', 'personnes'],
 }: {
   title: string
@@ -104,7 +103,6 @@ function DonutCard({
   people: number
   tone: 'credit' | 'debt'
   delay?: number
-  onOpen: (group: 'partner' | 'employee') => void
   unit?: [string, string]
 }) {
   const total = slices.reduce((a, s) => a + s.value, 0)
@@ -186,13 +184,8 @@ function DonutCard({
           {shown.map(s => {
             const pct = total > 0 ? Math.round((s.value / total) * 100) : 0
             return (
-              // Toucher une ligne ouvre directement ce côté (Personnes ou Employés).
-              <button
-                type="button"
-                key={s.key}
-                onClick={() => onOpen(s.key === 'partenaires' ? 'partner' : 'employee')}
-                className="-mx-2 flex flex-col gap-1.5 rounded-lg px-2 py-1 text-left transition-colors hover:bg-muted/50"
-              >
+              // Simple lecture : la carte ne s'ouvre pas (on passe par les cartes du haut)
+              <div key={s.key} className="-mx-2 flex flex-col gap-1.5 px-2 py-1 text-left">
                 <div className="flex items-baseline gap-2 text-sm">
                   <span className="size-2.5 shrink-0 translate-y-px rounded-full" style={{ background: s.color }} />
                   <span className="flex-1 text-muted-foreground">{s.label}</span>
@@ -207,7 +200,7 @@ function DonutCard({
                   </div>
                   <span className="w-9 shrink-0 text-right text-xs tabular-nums text-muted-foreground">{pct} %</span>
                 </div>
-              </button>
+              </div>
             )
           })}
         </div>
@@ -263,7 +256,6 @@ export const DashboardScreen: React.FC = () => {
           title="Leurs comptes"
           tone="credit"
           delay={0}
-          onOpen={group => setAccountsView({ dir: 'leurs', group })}
           unit={modules.personnes ? PEOPLE : STAFF}
           people={owesMePeople}
           slices={[
@@ -275,7 +267,6 @@ export const DashboardScreen: React.FC = () => {
           title="Mes comptes"
           tone="debt"
           delay={100}
-          onOpen={group => setAccountsView({ dir: 'mes', group })}
           unit={modules.personnes ? PEOPLE : STAFF}
           people={iOwePeople}
           slices={[
