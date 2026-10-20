@@ -27,6 +27,11 @@ export function StatementDialog({ person, open, onOpenChange }: { person: Person
     { title: 'Son compte', hint: 'ce qu’il a pris chez moi', credit: 'il_a_pris_credit', pay: 'il_m_a_verse', ret: 'il_a_retourne', reste: person.owesMe || 0 },
     { title: 'Mon compte', hint: 'ce que j’ai pris chez lui', credit: 'j_ai_pris_credit', pay: 'je_lui_ai_verse', ret: 'j_ai_retourne', reste: person.iOweHim || 0 },
   ]
+  // Retour : on rappelle le crédit concerné, sa date et sa valeur → « Retour (08/10/26 · 65 000 FCFA) »
+  const retourLabel = (m: Movement) => {
+    const c = movements.find(x => x.id === m.linkedMovementId)
+    return c ? `Retour (${shortDate(c.date)} · ${formatFCFA(c.amount)})` : 'Retour'
+  }
   // Lignes d'un côté, de la plus ancienne à la plus récente
   const linesOf = (s: Side) =>
     mine
@@ -39,7 +44,7 @@ export function StatementDialog({ person, open, onOpenChange }: { person: Person
           m.type === s.credit
             ? (m.label || 'Crédit').replace(/^.*? — /, '') // « A pris à crédit — 2 sacs » → « 2 sacs »
             : m.type === s.ret
-              ? 'Retour'
+              ? retourLabel(m)
               : m.paymentMethod === 'compensation'
                 ? 'Compensation'
                 : `Versement · ${PAYMENT_LABELS[m.paymentMethod || 'especes']}`,
