@@ -92,7 +92,6 @@ export const EmployeesMonthScreen: React.FC = () => {
   // Reste : ce qui est à verser maintenant (échéances passées), comme sur les fiches et le tableau de bord
   const reste = lines.reduce((a, l) => a + l.owed, 0)
   const before = lines.reduce((a, l) => a + l.before, 0)
-  const upcoming = lines.reduce((a, l) => a + l.upcoming, 0)
 
   return (
     <div className="flex flex-col gap-4">
@@ -109,7 +108,6 @@ export const EmployeesMonthScreen: React.FC = () => {
             <p className="text-xs text-muted-foreground">Reste à verser</p>
             <p className="text-xl font-semibold text-debt tabular-nums">{formatFCFA(reste)}</p>
             {before > 0 && <p className="text-xs text-muted-foreground tabular-nums">dont {formatFCFA(before)} des mois d'avant</p>}
-            {upcoming > 0 && <p className="text-xs text-muted-foreground tabular-nums">+ {formatFCFA(upcoming)} à venir</p>}
           </CardContent>
         </Card>
       </div>
