@@ -280,3 +280,5 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 ## 2026-10-20 — « Nom de l'activité » au lieu de « Nom de votre commerce » (inscription, bienvenue, réglages)
 
 ## 2026-10-20 — Installation sur l'écran d'accueil : nom « Kayé », icône « é » doré (manifest.webmanifest, icônes Android/iPhone, favicon, titre de la page)
+
+## 2026-10-20 — Icône de l'app : le nom complet « kayé » (au lieu du « é » seul)
