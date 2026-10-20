@@ -33,9 +33,9 @@ export function monthLines(persons: Person[], movements: Parameters<typeof payro
     .filter((l): l is MonthLine => l !== null)
     .sort((a, b) => a.emp.name.localeCompare(b.emp.name, 'fr'))
 }
-// Employés à qui il reste quelque chose à verser maintenant (la pastille rouge) : échéance passée et
-// pas tout payé (une paie à venir ne compte pas encore)
-export const stillToPay = (l: MonthLine) => (l.row.state !== 'en_cours' && l.row.reste > 0) || l.before > 0
+// La pastille rouge : le nombre d'employés en cours, c'est-à-dire dont la paie du mois n'est pas
+// entièrement versée (à venir ou déjà échue), ou à qui il reste quelque chose d'avant
+export const stillToPay = (l: MonthLine) => l.row.reste > 0 || l.before > 0
 
 const ETAT_STYLE: Record<string, string> = {
   Payé: 'text-credit',
