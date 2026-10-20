@@ -137,7 +137,7 @@ export function makePersister(uid: string, start: CloudData) {
     const snap = pending
     pending = null
     if (!snap) return
-    type Op = { kind: 'set'; path: string[]; data: object }
+    type Op = { kind: 'set'; path: string[]; data: object } | { kind: 'delete'; path: string[] }
     const ops: Op[] = []
     if (key(snap.shop) !== last.shop) {
       ops.push({ kind: 'set', path: ['shops', uid], data: snap.shop })
@@ -161,12 +161,26 @@ export function makePersister(uid: string, start: CloudData) {
         last.movements.set(m.id, k)
       }
     }
+    // Ce qui a été supprimé dans l'app est effacé en ligne aussi
+    const personIds = new Set(snap.persons.map(p => p.id))
+    for (const id of [...last.persons.keys()])
+      if (!personIds.has(id)) {
+        ops.push({ kind: 'delete', path: ['shops', uid, 'persons', id] })
+        last.persons.delete(id)
+      }
+    const movementIds = new Set(snap.movements.map(m => m.id))
+    for (const id of [...last.movements.keys()])
+      if (!movementIds.has(id)) {
+        ops.push({ kind: 'delete', path: ['shops', uid, 'movements', id] })
+        last.movements.delete(id)
+      }
     // Firestore : 500 écritures au plus par paquet
     for (let i = 0; i < ops.length; i += 450) {
       const batch = writeBatch(db)
       for (const op of ops.slice(i, i + 450)) {
         const [first, ...rest] = op.path
-        batch.set(doc(db, first, ...rest), op.data)
+        if (op.kind === 'delete') batch.delete(doc(db, first, ...rest))
+        else batch.set(doc(db, first, ...rest), op.data)
       }
       batch.commit().catch(err => console.error('[Kayé] Enregistrement en ligne', err))
     }

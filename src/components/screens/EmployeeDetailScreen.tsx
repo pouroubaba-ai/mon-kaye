@@ -14,6 +14,7 @@ import { PersonHeader } from '@/components/person-header'
 import { BalanceCard } from '@/components/balance-card'
 import { ColumnTable, type Column } from '@/components/column-table'
 import { MonthDialog } from '@/components/modals/MonthDialog'
+import { DeletePerson } from '@/components/delete-person'
 import { cn, formatFCFA } from '@/lib/utils'
 
 // Fiche employé : trois onglets au même niveau, comme la fiche d'une personne.
@@ -258,6 +259,7 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
         </>
       )}
 
+      {view === 'ensemble' && <DeletePerson personId={emp.id} />}
       <MonthDialog empId={emp.id} period={month} open={month !== null} onOpenChange={o => !o && setMonth(null)} />
     </div>
   )

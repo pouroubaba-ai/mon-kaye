@@ -10,6 +10,7 @@ import { PersonHeader } from '@/components/person-header'
 import { BalanceCard } from '@/components/balance-card'
 import { formatFCFA } from '@/lib/utils'
 import { daysSince } from '@/data/payHistory'
+import { DeletePerson } from '@/components/delete-person'
 
 // Fiche d'une personne, inspirée des cartes « Payroll » :
 // - bandeau en haut, seulement si chacun doit quelque chose à l'autre : qui doit à qui, au net ;
@@ -178,6 +179,7 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
           <Plus /> Enregistrer une opération
         </Button>
       )}
+      {view === 'ensemble' && <DeletePerson personId={partner.id} />}
     </div>
   )
 }

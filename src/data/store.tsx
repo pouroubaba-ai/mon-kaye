@@ -113,6 +113,8 @@ interface StoreContextType {
   logout: () => void
   isDemo: boolean
   // Modifier les informations d'une personne (nom, numéro, rôle, salaire…)
+  // Supprimer une personne ou un employé : sa fiche et tout son historique, pour toujours
+  deletePerson: (id: string) => void
   updatePerson: (id: string, changes: Partial<Pick<Person, 'name' | 'phone' | 'role' | 'salary' | 'dueDay'>>) => void
   // Ajouter une personne ou un employé ; renvoie son identifiant
   addPerson: (data: {
@@ -861,6 +863,13 @@ export const StoreProvider: React.FC<{
     }
   }
 
+  const deletePerson: StoreContextType['deletePerson'] = id => {
+    setSelectedPersonId(null)
+    setPersons(prev => prev.filter(p => p.id !== id))
+    setMovements(prev => prev.filter(m => m.personId !== id))
+    setMonthStates(prev => Object.fromEntries(Object.entries(prev).filter(([k]) => !k.startsWith(`${id}|`))))
+  }
+
   const addPerson: StoreContextType['addPerson'] = data => {
     const id = `${data.type === 'employee' ? 'emp' : 'part'}-${Date.now()}`
     const today = new Date()
@@ -1045,6 +1054,7 @@ export const StoreProvider: React.FC<{
         logout: () => (onLogout ? onLogout() : window.location.assign('/connexion')),
         isDemo: !data,
         updatePerson,
+        deletePerson,
         addPerson,
       }}
     >
