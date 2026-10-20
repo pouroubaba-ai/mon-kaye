@@ -18,7 +18,8 @@ export type PayMonthRow = {
   base: number
   ajouts: number
   retenues: number // retenue d'avance + retenues manuelles
-  aPayer: number
+  brut: number // À payer affiché : salaire de base + ajouts. Il ne change jamais avec une retenue.
+  aPayer: number // ce qui reste vraiment à verser au total : brut − retenues
   verse: number
   // Part de chaque versement qui revient à ce mois (un versement peut se partager entre deux mois)
   paymentParts: { mov: Movement; amount: number }[]
@@ -201,6 +202,7 @@ export function payrollOf(
       base,
       ajouts,
       retenues,
+      brut: base + ajouts,
       aPayer: Math.max(0, base + ajouts - retenues),
       verse: 0,
       paymentParts: [],

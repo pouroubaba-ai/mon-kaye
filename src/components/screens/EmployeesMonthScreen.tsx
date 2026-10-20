@@ -1,7 +1,7 @@
 import React from 'react'
 
 import { useStore } from '@/data/store'
-import { currentPeriod, dayMonth, daysUntil, dueDateOf, ofMonth, payrollOf, type PayMonthRow } from '@/data/payroll'
+import { dayMonth, daysUntil, dueDateOf, payrollOf, type PayMonthRow } from '@/data/payroll'
 import type { Person } from '@/data/mockData'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -9,33 +9,22 @@ import { ColumnTable, type Column } from '@/components/column-table'
 import { MonthDialog } from '@/components/modals/MonthDialog'
 import { cn, formatFCFA } from '@/lib/utils'
 
-// Les paies du mois de tous les employés : chaque employé a son jour de paie (échéance) ; la paie
-// d'octobre est celle dont l'échéance tombe en octobre. Deux cartes (salaires du mois, reste à verser)
-// et le même tableau que sur la fiche, avec les colonnes « Employé » et « Échéance » en plus.
-// Une paie dont l'échéance n'est pas encore arrivée est « à venir » : elle n'est pas encore à verser.
+// Les salaires de tous les employés : chaque employé a son jour de paie (échéance) ; une période va
+// d'une échéance à la suivante. On montre la période en cours de chacun (« à venir » tant que
+// l'échéance n'est pas arrivée) et les périodes échues pas encore entièrement payées.
+// « À payer » ne change jamais : c'est le salaire (base + ajouts). Les retenues baissent le reste.
 
-export type MonthLine = { emp: Person; row: PayMonthRow; planned: number; owed: number; before: number; upcoming: number }
+export type MonthLine = { emp: Person; row: PayMonthRow }
 
-// Une ligne par employé qui a un salaire ce mois-ci (actif, ou parti en cours de mois)
 export function monthLines(persons: Person[], movements: Parameters<typeof payrollOf>[1], monthStates: Parameters<typeof payrollOf>[2]): MonthLine[] {
-  const cur = currentPeriod()
-  return persons
-    .filter(p => p.type === 'employee')
-    .map(emp => {
-      const pr = payrollOf(emp.id, movements, monthStates)
-      const row = pr.months.find(m => m.period === cur)
-      // owed : tout ce qu'on lui doit (comme sur sa fiche) ; before : ce qui reste des mois d'avant
-      const before = pr.months.filter(m => m.period < cur).reduce((a, m) => a + m.reste, 0)
-      // owed : ce qui est à verser maintenant (échéances passées) ; upcoming : la paie du mois pas encore échue
-      const upcoming = row?.state === 'en_cours' ? row.reste + pr.plannedRetenue : 0
-      return row ? { emp, row, planned: row.state === 'en_cours' ? pr.plannedRetenue : 0, owed: pr.dueReste, before, upcoming } : null
-    })
-    .filter((l): l is MonthLine => l !== null)
-    .sort((a, b) => a.emp.name.localeCompare(b.emp.name, 'fr'))
+  const out: MonthLine[] = []
+  for (const emp of persons.filter(p => p.type === 'employee')) {
+    const pr = payrollOf(emp.id, movements, monthStates)
+    for (const row of [...pr.months].reverse())
+      if (row.state !== 'annule' && (row.state === 'en_cours' || row.reste > 0)) out.push({ emp, row })
+  }
+  return out.sort((a, b) => a.emp.name.localeCompare(b.emp.name, 'fr') || a.row.period.localeCompare(b.row.period))
 }
-// La pastille rouge : le nombre d'employés en cours, c'est-à-dire dont la paie du mois n'est pas
-// entièrement versée (à venir ou déjà échue), ou à qui il reste quelque chose d'avant
-export const stillToPay = (l: MonthLine) => l.row.reste > 0 || l.before > 0
 
 const ETAT_STYLE: Record<string, string> = {
   Payé: 'text-credit',
@@ -65,7 +54,7 @@ const COLUMNS: Column<MonthLine>[] = [
   { key: 'base', label: 'Salaire de base', align: 'right', render: l => money(l.row.base) },
   { key: 'ajouts', label: 'Ajouts', align: 'right', render: l => (l.row.ajouts ? `+ ${money(l.row.ajouts)}` : '—') },
   { key: 'retenues', label: 'Retenues', align: 'right', render: l => (l.row.retenues ? `− ${money(l.row.retenues)}` : '—') },
-  { key: 'apayer', label: 'À payer', align: 'right', defaultOn: true, render: l => money(l.row.aPayer) },
+  { key: 'apayer', label: 'À payer', align: 'right', defaultOn: true, render: l => money(l.row.brut) },
   { key: 'verse', label: 'Versé', align: 'right', render: l => money(l.row.verse) },
   { key: 'reste', label: 'Reste', align: 'right', defaultOn: true, render: l => <span className={l.row.reste ? 'text-debt' : ''}>{money(l.row.reste)}</span> },
   {
@@ -83,15 +72,14 @@ const COLUMNS: Column<MonthLine>[] = [
 
 export const EmployeesMonthScreen: React.FC = () => {
   const { persons, movements, monthStates } = useStore()
-  const [open, setOpen] = React.useState<string | null>(null) // employé dont on ouvre le mois
-  const cur = currentPeriod()
+  const [open, setOpen] = React.useState<MonthLine | null>(null) // ligne dont on ouvre la période
   const lines = monthLines(persons, movements, monthStates)
+  const current = lines.filter(l => l.row.state === 'en_cours')
 
-  // Comme sur la fiche : la retenue d'avance prévue fait partie du salaire tant que le mois n'est pas clos
-  const total = lines.reduce((a, l) => a + l.row.aPayer + l.planned, 0)
+  // Salaires des périodes en cours (le salaire, sans les retenues)
+  const total = current.reduce((a, l) => a + l.row.brut, 0)
   // Reste : ce qui est à verser maintenant (échéances passées), comme sur les fiches et le tableau de bord
-  const reste = lines.reduce((a, l) => a + l.owed, 0)
-  const before = lines.reduce((a, l) => a + l.before, 0)
+  const reste = lines.filter(l => l.row.state !== 'en_cours').reduce((a, l) => a + l.row.reste, 0)
 
   return (
     <div className="flex flex-col gap-4">
@@ -100,28 +88,26 @@ export const EmployeesMonthScreen: React.FC = () => {
           <CardContent className="flex flex-col gap-1 px-4">
             <p className="text-xs text-muted-foreground">Salaires du mois</p>
             <p className="text-xl font-semibold tabular-nums">{formatFCFA(total)}</p>
-            <Badge variant="outline" className="self-start tabular-nums">{lines.length} employé{lines.length > 1 ? 's' : ''}</Badge>
+            <Badge variant="outline" className="self-start tabular-nums">{current.length} employé{current.length > 1 ? 's' : ''}</Badge>
           </CardContent>
         </Card>
         <Card className="gap-1 py-4">
           <CardContent className="flex flex-col gap-1 px-4">
             <p className="text-xs text-muted-foreground">Reste à verser</p>
             <p className="text-xl font-semibold text-debt tabular-nums">{formatFCFA(reste)}</p>
-            {before > 0 && <p className="text-xs text-muted-foreground tabular-nums">dont {formatFCFA(before)} des mois d'avant</p>}
           </CardContent>
         </Card>
       </div>
 
-      <p className="text-sm text-muted-foreground">Salaires {ofMonth(cur)}</p>
       <ColumnTable
         columns={COLUMNS}
         rows={lines}
-        rowKey={l => l.emp.id}
-        onRowClick={l => setOpen(l.emp.id)}
+        rowKey={l => `${l.emp.id}|${l.row.period}`}
+        onRowClick={l => setOpen(l)}
         empty="Aucun salaire ce mois-ci."
       />
 
-      <MonthDialog empId={open ?? ''} period={open ? (lines.find(l => l.emp.id === open)?.row.period ?? cur) : null} open={open !== null} onOpenChange={o => !o && setOpen(null)} />
+      <MonthDialog empId={open?.emp.id ?? ''} period={open?.row.period ?? null} open={open !== null} onOpenChange={o => !o && setOpen(null)} />
     </div>
   )
 }
@@ -130,5 +116,6 @@ export const EmployeesMonthScreen: React.FC = () => {
 // Nombre d'employés pas encore payés en entier ce mois-ci : la pastille rouge du menu
 export function useToPayCount() {
   const { persons, movements, monthStates } = useStore()
-  return monthLines(persons, movements, monthStates).filter(stillToPay).length
+  // Employés en cours : ceux dont un salaire n'est pas entièrement versé (à venir ou déjà échu)
+  return new Set(monthLines(persons, movements, monthStates).filter(l => l.row.reste > 0).map(l => l.emp.id)).size
 }

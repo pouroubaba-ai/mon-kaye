@@ -48,7 +48,7 @@ const MONTH_COLUMNS: Column<PayMonthRow>[] = [
   { key: 'base', label: 'Salaire de base', align: 'right', render: r => money(r.base) },
   { key: 'ajouts', label: 'Ajouts', align: 'right', render: r => (r.ajouts ? `+ ${money(r.ajouts)}` : '—') },
   { key: 'retenues', label: 'Retenues', align: 'right', render: r => (r.retenues ? `− ${money(r.retenues)}` : '—') },
-  { key: 'apayer', label: 'À payer', align: 'right', defaultOn: true, render: r => money(r.aPayer) },
+  { key: 'apayer', label: 'À payer', align: 'right', defaultOn: true, render: r => money(r.brut) },
   { key: 'verse', label: 'Versé', align: 'right', render: r => money(r.verse) },
   { key: 'reste', label: 'Reste', align: 'right', defaultOn: true, render: r => <span className={r.reste ? 'text-debt' : ''}>{money(r.reste)}</span> },
   // Période pas encore échue : « À venir » (pas encore à payer)
