@@ -3,7 +3,6 @@ import { ArrowLeft } from 'lucide-react'
 
 import { useStore } from '@/data/store'
 import { LAST_DAY, dayMonth, dueDayLabel, ofMonth, periodBounds, periodFor } from '@/data/payroll'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/responsive-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -186,20 +185,37 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
           {step === 'mois' && (
             <div className="flex flex-col gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="ne-dueday">Vous le payez le combien du mois ?</Label>
-                <Select value={dueDay === null ? '' : String(dueDay)} onValueChange={v => setDueDay(Number(v))}>
-                  <SelectTrigger id="ne-dueday" className="h-12 w-full text-base">
-                    <SelectValue placeholder="Choisir un jour" />
-                  </SelectTrigger>
-                  <SelectContent position="popper" className="max-h-64">
-                    {Array.from({ length: 28 }, (_, k) => k + 1).map(d => (
-                      <SelectItem key={d} value={String(d)}>
-                        Le {d}
-                      </SelectItem>
-                    ))}
-                    <SelectItem value={String(LAST_DAY)}>Le dernier jour du mois</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Vous le payez le combien du mois ?</Label>
+                {/* Tous les jours visibles d'un coup : on touche le jour, sans rien faire défiler */}
+                <div id="ne-dueday" role="radiogroup" aria-label="Jour de paie" className="grid grid-cols-7 gap-1.5">
+                  {Array.from({ length: 28 }, (_, k) => k + 1).map(d => (
+                    <button
+                      key={d}
+                      type="button"
+                      role="radio"
+                      aria-checked={dueDay === d}
+                      onClick={() => setDueDay(d)}
+                      className={cn(
+                        'flex h-10 items-center justify-center rounded-lg border text-sm font-medium tabular-nums transition-colors',
+                        dueDay === d ? 'border-primary bg-primary text-primary-foreground' : 'hover:bg-muted'
+                      )}
+                    >
+                      {d}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={dueDay === LAST_DAY}
+                    onClick={() => setDueDay(LAST_DAY)}
+                    className={cn(
+                      'col-span-7 flex h-10 items-center justify-center rounded-lg border text-sm font-medium transition-colors',
+                      dueDay === LAST_DAY ? 'border-primary bg-primary text-primary-foreground' : 'hover:bg-muted'
+                    )}
+                  >
+                    Le dernier jour du mois
+                  </button>
+                </div>
               </div>
             </div>
           )}

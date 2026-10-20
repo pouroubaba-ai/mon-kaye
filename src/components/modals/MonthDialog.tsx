@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Ban, CircleMinus, CirclePlus, Eye, FileText, Lock, Pause, Pencil } from 'lucide-react'
+import { Ban, CircleMinus, CirclePlus, Eye, FileText, HandCoins, Lock, Pause, Pencil } from 'lucide-react'
 
 import { useStore } from '@/data/store'
 import { PAYMENT_LABELS } from '@/components/movement-history'
@@ -49,6 +49,10 @@ export function MonthDialog({
   const keptCancelling = useKept(cancelling)
   const [lineReason, setLineReason] = React.useState('')
   const [retStr, setRetStr] = React.useState('')
+  // Retenue faite à la main : d'abord le genre (pour son avance / autre), puis le montant pour l'avance
+  const [retKind, setRetKind] = React.useState<'choix' | 'avance' | null>(null)
+  const [advStr, setAdvStr] = React.useState('')
+  const retShown = useKept(retKind)
   const [askSurplus, setAskSurplus] = React.useState<{ amount: number; apply: (c: 'avance' | 'rendu') => void } | null>(null)
 
   React.useEffect(() => {
@@ -63,6 +67,7 @@ export function MonthDialog({
     setCancelling(null)
     setLineReason('')
     setAskSurplus(null)
+    setRetKind(null)
   }, [open, period])
 
   const emp = persons.find(p => p.id === empId)
@@ -185,6 +190,17 @@ export function MonthDialog({
 
   // La fenêtre d'ajout s'ouvre par-dessus ; en se fermant, on retrouve la fiche du mois.
   const goAdd = (type: 'ajout_salaire' | 'retenue_manuelle') => openNewMovement(empId, type)
+  // Retenue pour l'avance, faite à la main : seulement s'il doit une avance et qu'aucune retenue
+  // automatique n'est active. Jamais plus que son salaire de base, ce qui reste à lui verser
+  // sur la période, ni ce qu'il doit encore sur l'avance.
+  const canAdvRetenue = pr.advanceReste > 0 && pr.plannedSet === 0
+  const maxAdv = Math.max(0, Math.min(emp.salary || 0, row.reste, pr.advanceReste))
+  const advAmount = parseInt(advStr, 10) || 0
+  const onRetenue = () => {
+    if (!canAdvRetenue) return goAdd('retenue_manuelle')
+    setAdvStr('')
+    setRetKind('choix')
+  }
 
   // Ligne en cours de modification (petite fenêtre à part)
   const editing = keptCancelling ? row.items.find(m => m.id === keptCancelling) : undefined
@@ -292,7 +308,7 @@ export function MonthDialog({
               <Button variant="outline" className="h-11" onClick={() => goAdd('ajout_salaire')}>
                 <CirclePlus className="text-credit" /> Ajout
               </Button>
-              <Button variant="outline" className="h-11" onClick={() => goAdd('retenue_manuelle')}>
+              <Button variant="outline" className="h-11" onClick={onRetenue}>
                 <CircleMinus className="text-debt" /> Retenue
               </Button>
             </div>
@@ -494,6 +510,59 @@ export function MonthDialog({
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+      {/* Retenue à la main : pour son avance, ou une autre retenue */}
+      <Dialog open={retKind !== null} onOpenChange={o => !o && setRetKind(null)}>
+        <DialogContent>
+          <div className="flex flex-col gap-4">
+            <DialogHeader className="gap-1 p-0">
+              <DialogTitle className="text-left">{retShown === 'avance' ? 'Retenue pour son avance' : 'Quelle retenue ?'}</DialogTitle>
+              <DialogDescription className="text-left">
+                {retShown === 'avance' ? `Il doit ${formatFCFA(pr.advanceReste)} sur son avance` : emp.name}
+              </DialogDescription>
+            </DialogHeader>
+            {retShown === 'avance' ? (
+              <form
+                className="flex flex-col gap-3"
+                onSubmit={e => {
+                  e.preventDefault()
+                  if (advAmount <= 0 || advAmount > maxAdv) return
+                  setMonthRetenue(empId, advAmount)
+                  setRetKind(null)
+                }}
+              >
+                <Input
+                  inputMode="numeric"
+                  aria-label="Montant de la retenue pour l'avance"
+                  value={thousands(advStr)}
+                  onChange={e => setAdvStr(digits(e.target.value))}
+                  className={cn('h-12 text-right text-lg', advAmount > maxAdv && 'border-destructive')}
+                />
+                {advAmount > maxAdv && <p className="text-xs text-destructive">Pas plus de {formatFCFA(maxAdv)}.</p>}
+                <Button type="submit" size="lg" className="h-12" disabled={advAmount <= 0 || advAmount > maxAdv}>
+                  Enregistrer
+                </Button>
+              </form>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <Button variant="outline" size="lg" className="h-12 justify-start" disabled={maxAdv <= 0} onClick={() => setRetKind('avance')}>
+                  <HandCoins className="text-credit" /> Pour son avance
+                </Button>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="h-12 justify-start"
+                  onClick={() => {
+                    setRetKind(null)
+                    goAdd('retenue_manuelle')
+                  }}
+                >
+                  <CircleMinus className="text-debt" /> Autre retenue
+                </Button>
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
       <PayslipDialog empId={empId} period={period} open={slip} onOpenChange={setSlip} />
