@@ -47,7 +47,8 @@ function Dialog({ open, onOpenChange, children, dirty = false, dirtyKind = "modi
   return (
     <IsMobileContext.Provider value={isMobile}>
       {isMobile ? (
-        <Drawer key={drawerKey} open={open} onOpenChange={requestChange}>
+        // iPhone : le panneau ne bouge plus quand le clavier s'ouvre (sinon le clavier s'ouvre puis se referme)
+        <Drawer key={drawerKey} open={open} onOpenChange={requestChange} repositionInputs={false}>
           {children}
         </Drawer>
       ) : (
@@ -110,6 +111,8 @@ function DialogContent({
   if (isMobile) {
     return (
       <DrawerContent
+        // Pas de clavier qui s'ouvre tout seul pendant que le panneau monte : on touche le champ pour écrire
+        onOpenAutoFocus={e => e.preventDefault()}
         className={
           fixedHeight
             ? "data-[vaul-drawer-direction=bottom]:h-[85dvh] data-[vaul-drawer-direction=bottom]:max-h-[85dvh]"
