@@ -375,7 +375,7 @@ export const StoreProvider: React.FC<{
   const addMovement = (movementData: Omit<Movement, 'id' | 'date'> & { date?: string }) => {
     const today = new Date()
     const dateStr = movementData.date || `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`
-    const newId = `mov-${Date.now()}`
+    const newId = `mov-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
     
     const newMov: Movement = {
       ...movementData,
@@ -386,7 +386,13 @@ export const StoreProvider: React.FC<{
     // Employé : ajout ou retenue rattachés au mois en cours ; compteurs recalculés.
     if (persons.find(p => p.id === newMov.personId)?.type === 'employee') {
       if ((newMov.type === 'ajout_salaire' || newMov.type === 'retenue_manuelle') && !newMov.period) newMov.period = currentPeriod(newMov.personId)
-      commitEmployee(newMov.personId, [newMov, ...movements])
+      // Mise à jour à partir de la dernière liste : deux opérations enregistrées d'un coup
+      // (versement + avance) ne s'effacent pas l'une l'autre
+      setMovements(prev => {
+        const next = [newMov, ...prev]
+        setPersons(ps => ps.map(p => (p.id === newMov.personId ? syncEmployee(p, next, monthStates) : p)))
+        return next
+      })
       return
     }
 

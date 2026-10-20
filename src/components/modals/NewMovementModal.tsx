@@ -25,7 +25,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { cn, formatFCFA, matchesPerson } from '@/lib/utils'
+import { cn, formatFCFA, matchesPerson, useKept } from '@/lib/utils'
 
 // Saisie d'une opération en 3 écrans courts, une seule question par écran :
 //   Qui ?  →  Quoi ?  →  Combien ?
@@ -203,9 +203,10 @@ export const NewMovementModal: React.FC = () => {
       return { label: 'Mon compte', value: person.iOweHim || 0, tone: 'debt', isPayment: t === 'je_lui_ai_verse' }
     }
     if (t === 'je_lui_ai_verse') {
-      // Salaire dû, retenue d'avance prévue comprise : on peut verser jusqu'au salaire entier.
+      // Salaire dû : seulement les périodes arrivées à échéance. La période en cours ne se paie pas
+      // encore : ce qui dépasse devient une avance (on le demande avant d'enregistrer).
       const pr = payrollOf(person.id, movements, monthStates)
-      return { label: 'Salaire dû', value: pr.totalReste + pr.plannedRetenue, tone: 'debt', isPayment: true }
+      return { label: 'Salaire dû', value: pr.dueReste, tone: 'debt', isPayment: true }
     }
     if (PAY_ADJUST.has(t)) {
       // Ajout ou retenue du mois en cours : on montre ce qu'il reste à payer ce mois-ci ; une retenue ne peut pas le dépasser.
@@ -216,13 +217,21 @@ export const NewMovementModal: React.FC = () => {
     return { label: 'Avance en cours', value: person.advanceBalance || 0, tone: 'credit', isPayment: false }
   }
   const balance = balanceFor(type)
-  const tooMuch = !!balance?.isPayment && amount > balance.value
+  // Versement de salaire : ce qui dépasse le salaire dû part en avance (pas de blocage)
+  const salaryPay = person?.type === 'employee' && type === 'je_lui_ai_verse'
+  const toAdvance = salaryPay && balance ? Math.max(0, amount - balance.value) : 0
+  const tooMuch = !salaryPay && !!balance?.isPayment && amount > balance.value
+  // Question « pas encore dû → avance ? » : ce qui est versé sur le salaire dû, et ce qui part en avance
+  const [askAdvance, setAskAdvance] = useState<{ due: number; adv: number } | null>(null)
+  const advShown = useKept(askAdvance)
   // Versement de salaire qui dépasse « salaire moins retenue » : il prend sur la retenue d'avance du mois.
   const planned = person?.type === 'employee' && type === 'je_lui_ai_verse' ? payrollOf(person.id, movements, monthStates) : null
-  const eatsRetenue = planned && planned.plannedRetenue > 0 && !tooMuch ? Math.min(planned.plannedRetenue, Math.max(0, amount - planned.totalReste)) : 0
+  // La période en cours ne se paie plus avant l'échéance : un versement ne touche jamais la retenue prévue
+  const eatsRetenue = 0
   // Versement impossible quand rien n'est dû : le bouton est grisé à l'étape « Quelle opération ? ».
   const blocked = (t: MType) => {
     const b = balanceFor(t)
+    if (person?.type === 'employee' && t === 'je_lui_ai_verse') return false // rien de dû : il partira en avance
     return !!b?.isPayment && b.value <= 0
   }
 
@@ -268,6 +277,23 @@ export const NewMovementModal: React.FC = () => {
 
   const save = () => {
     if (!person || amount <= 0 || tooMuch) return
+    if (toAdvance > 0) {
+      // Pas encore dû : la part du salaire dû est versée, le reste est enregistré comme une avance
+      const due = amount - toAdvance
+      if (due > 0)
+        addMovement({ personId: person.id, personName: person.name, type: 'je_lui_ai_verse', label: LABELS.je_lui_ai_verse ?? 'Salaire versé', amount: due, paymentMethod: payment, note: note.trim() || undefined })
+      addMovement({
+        personId: person.id,
+        personName: person.name,
+        type: 'avance_salaire',
+        label: 'Avance sur salaire',
+        amount: toAdvance,
+        paymentMethod: payment,
+        note: 'Versé avant l’échéance du salaire : enregistré comme une avance',
+      })
+      closeNewMovement()
+      return
+    }
     addMovement({
       personId: person.id,
       personName: person.name,
@@ -589,7 +615,8 @@ export const NewMovementModal: React.FC = () => {
               )}
 
               <Button size="lg" className="h-12 text-base" disabled={amount <= 0 || tooMuch} onClick={() => {
-                if (eatsRetenue > 0) {
+                if (toAdvance > 0) setAskAdvance({ due: amount - toAdvance, adv: toAdvance })
+                else if (eatsRetenue > 0) {
                   const v = { from: planned?.plannedRetenue ?? 0, to: (planned?.plannedRetenue ?? 0) - eatsRetenue }
                   setConfirmShown(v)
                   setConfirmRetenue(v)
@@ -726,6 +753,29 @@ export const NewMovementModal: React.FC = () => {
               Continuer
             </Button>
             <Button variant="outline" size="lg" className="h-12" onClick={() => setConfirmRetenue(null)}>
+              Revenir
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Salaire pas encore dû : on ne peut pas payer une période avant son échéance. Ce qui dépasse devient une avance. */}
+      <Dialog open={askAdvance !== null} onOpenChange={o => !o && setAskAdvance(null)}>
+        <DialogContent>
+          <div className="flex flex-col gap-4">
+            <DialogHeader className="gap-1 p-0">
+              <DialogTitle className="text-left">{advShown && advShown.due > 0 ? `Vous lui devez seulement ${formatFCFA(advShown.due)}` : 'Vous ne lui devez encore rien'}</DialogTitle>
+              <DialogDescription className="text-left">
+                Le salaire de la période en cours n'est dû qu'à son échéance.{' '}
+                {advShown && advShown.due > 0
+                  ? `${formatFCFA(advShown.due)} iront sur son salaire dû, et ${formatFCFA(advShown.adv)} seront enregistrés comme une avance.`
+                  : `Ces ${formatFCFA(advShown?.adv ?? 0)} seront enregistrés comme une avance.`}
+              </DialogDescription>
+            </DialogHeader>
+            <Button size="lg" className="h-12" onClick={() => { setAskAdvance(null); save() }}>
+              Continuer
+            </Button>
+            <Button variant="outline" size="lg" className="h-12" onClick={() => setAskAdvance(null)}>
               Revenir
             </Button>
           </div>
