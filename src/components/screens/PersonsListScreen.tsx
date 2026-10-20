@@ -13,6 +13,14 @@ export const PersonsListScreen: React.FC = () => {
   const { persons, setSelectedPersonId, activeTab } = useStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [adding, setAdding] = useState(false)
+  // Juste ajouté : on reste sur la liste, la nouvelle ligne s'éclaire un instant (pas de fiche qui s'ouvre toute seule)
+  const [justAdded, setJustAdded] = useState<string | null>(null)
+  const onCreated = (id: string) => {
+    setSearchQuery('')
+    setJustAdded(id)
+    window.setTimeout(() => document.getElementById(`row-${id}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 350)
+    window.setTimeout(() => setJustAdded(cur => (cur === id ? null : cur)), 2500)
+  }
 
   // Filter list
   const filteredPersons = persons.filter(p => {
@@ -72,9 +80,9 @@ export const PersonsListScreen: React.FC = () => {
       </div>
       {activeTab === 'employes' ? (
         // Nouvel employé : écrans courts (salaire, ce mois-ci, ancien compte, avance)
-        <NewEmployeeDialog open={adding} onOpenChange={setAdding} onCreated={id => setSelectedPersonId(id)} />
+        <NewEmployeeDialog open={adding} onOpenChange={setAdding} onCreated={onCreated} />
       ) : (
-        <PersonFormDialog type="partner" open={adding} onOpenChange={setAdding} onCreated={id => setSelectedPersonId(id)} />
+        <PersonFormDialog type="partner" open={adding} onOpenChange={setAdding} onCreated={onCreated} />
       )}
 
       {/* Liste des personnes triée */}
@@ -97,13 +105,14 @@ export const PersonsListScreen: React.FC = () => {
               // (au plus 0,4 s d'attente), pour que la liste ne tombe pas d'un bloc.
               <Card
                 key={p.id}
+                id={`row-${p.id}`}
                 onClick={() => setSelectedPersonId(p.id)}
                 // Clavier : la ligne se choisit avec Tab et s'ouvre avec Entrée
                 role="button"
                 tabIndex={0}
                 aria-label={p.name}
                 onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), setSelectedPersonId(p.id))}
-                className="focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-3 animate-in fade-in slide-in-from-bottom-2 fill-mode-both cursor-pointer gap-0 p-3 duration-300 transition-colors hover:bg-muted/40 motion-reduce:animate-none"
+                className={`focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-3 animate-in fade-in slide-in-from-bottom-2 fill-mode-both cursor-pointer gap-0 p-3 duration-300 transition-colors hover:bg-muted/40 motion-reduce:animate-none ${justAdded === p.id ? 'bg-primary/10 ring-2 ring-primary/40 duration-700' : ''}`}
                 style={{ animationDelay: `${Math.min(index, 10) * 40}ms` }}
               >
                 <div className="flex items-center justify-between gap-3">
