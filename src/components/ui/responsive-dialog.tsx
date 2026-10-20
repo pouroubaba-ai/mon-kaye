@@ -1,4 +1,5 @@
 import * as React from "react"
+import { XIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -10,7 +11,7 @@ import {
   DialogHeader as BaseDialogHeader,
   DialogTitle as BaseDialogTitle,
 } from "@/components/ui/dialog"
-import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer"
+import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer"
 
 // Modèle « responsive dialog » de la documentation shadcn/ui :
 // panneau qui monte du bas (Drawer) sur téléphone, fenêtre (Dialog) sur ordinateur.
@@ -47,8 +48,10 @@ function Dialog({ open, onOpenChange, children, dirty = false, dirtyKind = "modi
   return (
     <IsMobileContext.Provider value={isMobile}>
       {isMobile ? (
-        // iPhone : le panneau ne bouge plus quand le clavier s'ouvre (sinon le clavier s'ouvre puis se referme)
-        <Drawer key={drawerKey} open={open} onOpenChange={requestChange} repositionInputs={false}>
+        // iPhone : le panneau ne bouge plus quand le clavier s'ouvre (sinon le clavier s'ouvre puis se referme).
+        // Pas de fermeture en glissant (trop instable) : on ferme avec la croix en haut à droite.
+        // handleOnly sans poignée affichée = le panneau ne se tire plus du tout.
+        <Drawer key={drawerKey} open={open} onOpenChange={requestChange} repositionInputs={false} handleOnly>
           {children}
         </Drawer>
       ) : (
@@ -113,13 +116,20 @@ function DialogContent({
       <DrawerContent
         // Pas de clavier qui s'ouvre tout seul pendant que le panneau monte : on touche le champ pour écrire
         onOpenAutoFocus={e => e.preventDefault()}
+        showHandle={false}
         className={
           fixedHeight
             ? "data-[vaul-drawer-direction=bottom]:h-[85dvh] data-[vaul-drawer-direction=bottom]:max-h-[85dvh]"
             : "data-[vaul-drawer-direction=bottom]:max-h-[92dvh]"
         }
       >
-        <div className={cn("px-4 pb-6", fixedHeight ? "flex min-h-0 flex-1 flex-col" : "overflow-y-auto")}>{children}</div>
+        <DrawerClose
+          aria-label="Fermer"
+          className="absolute top-3 right-3 z-10 flex size-9 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+        >
+          <XIcon className="size-5" />
+        </DrawerClose>
+        <div className={cn("px-4 pt-3 pb-6", fixedHeight ? "flex min-h-0 flex-1 flex-col" : "overflow-y-auto")}>{children}</div>
       </DrawerContent>
     )
   }
@@ -138,7 +148,8 @@ function DialogContent({
 
 function DialogHeader({ className, children }: { className?: string; children?: React.ReactNode }) {
   const isMobile = React.useContext(IsMobileContext)
-  if (isMobile) return <DrawerHeader className={cn("px-0 text-left", className)}>{children}</DrawerHeader>
+  // Place laissée à droite pour la croix
+  if (isMobile) return <DrawerHeader className={cn("px-0 text-left", className, "pr-11")}>{children}</DrawerHeader>
   return <BaseDialogHeader className={className}>{children}</BaseDialogHeader>
 }
 
