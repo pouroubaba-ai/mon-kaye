@@ -94,7 +94,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
       <AppSidebar />
       <SidebarInset>
         {/* En-tête : le nom de la page, le thème et le verrouillage. */}
-        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4">
+        <header className="sticky top-0 z-30 flex h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0 pt-[env(safe-area-inset-top)] items-center gap-2 border-b bg-background px-4">
           <SidebarTrigger className="-ml-1 hidden md:inline-flex" />
           <Separator orientation="vertical" className="mr-2 hidden data-[orientation=vertical]:h-4 md:block" />
           <div className="min-w-0 flex-1">
@@ -141,12 +141,12 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
           </div>
         </header>
 
-        <div className={cn('mx-auto w-full max-w-6xl flex-1 p-4 md:p-6', crumb ? 'pb-8' : 'pb-28')}>{children}</div>
+        <div className={cn('mx-auto w-full max-w-6xl flex-1 p-4 md:p-6', crumb ? 'pb-[calc(2rem+env(safe-area-inset-bottom))]' : 'pb-[calc(7rem+env(safe-area-inset-bottom))]')}>{children}</div>
       </SidebarInset>
 
       {/* Barre du bas (téléphone) : masquée dans une fiche, le fil d'Ariane sert au retour */}
       {!crumb && (
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background px-3 pb-[max(env(safe-area-inset-bottom),0.5rem)] md:hidden">
         <div className="grid items-end" style={{ gridTemplateColumns: `repeat(${tabs.length + 1}, minmax(0, 1fr))` }}>
           {tabs.slice(0, half).map(t => (
             <TabButton key={t.tab} active={activeTab === t.tab} label={t.label} Icon={t.icon} onClick={() => go(t.tab)} />
