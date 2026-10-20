@@ -8,14 +8,12 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
 import { cn, formatFCFA, formatPhone, nameTaken } from '@/lib/utils'
 
 // Nouvel employé, un écran court par question :
 //   Qui ?  →  Son salaire  →  Sa paie  →  Ancien compte  →  Anciennes avances  →  Résumé
-// « Sa paie » : le jour de l'échéance (du 1 au 28, ou le dernier jour du mois). La période de paie
-// va d'une échéance à la suivante. S'il arrive en cours de période, sa première période est
-// calculée à part (selon ses jours, ou montant convenu) ; les suivantes sont entières.
+// « Sa paie » : seulement le jour de l'échéance (du 1 au 28, ou le dernier jour du mois).
+// La période de paie va d'une échéance à la suivante ; chaque période compte le salaire entier.
 
 type Step = 'qui' | 'salaire' | 'mois' | 'ancien' | 'avance' | 'resume'
 const ORDER: Step[] = ['qui', 'salaire', 'mois', 'ancien', 'avance', 'resume']
@@ -64,9 +62,6 @@ function Choice({ on, title, onPick, children }: { on: boolean; title: string; o
 
 export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpenChange: (o: boolean) => void; onCreated?: (id: string) => void }) {
   const { addPerson, persons } = useStore()
-  const todayDay = new Date().getDate()
-  const DAY = 86_400_000
-  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
   const [step, setStep] = React.useState<Step>('qui')
   const [name, setName] = React.useState('')
@@ -74,10 +69,6 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
   const [role, setRole] = React.useState('')
   const [salary, setSalary] = React.useState('')
   const [dueDay, setDueDay] = React.useState(LAST_DAY) // jour de paie (31 = dernier jour du mois)
-  const [fromStart, setFromStart] = React.useState(true)
-  const [how, setHow] = React.useState<'jours' | 'fixe'>('jours')
-  const [arrival, setArrival] = React.useState('') // jour d'arrivée (aaaa-mm-jj)
-  const [fixed, setFixed] = React.useState('')
   const [oldDebt, setOldDebt] = React.useState('')
   const [advance, setAdvance] = React.useState('')
   const [direct, setDirect] = React.useState(false)
@@ -90,12 +81,8 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
     setPhone('')
     setRole('')
     setSalary('')
-    // Par défaut, payé le jour de son arrivée (après le 28 : le dernier jour du mois)
+    // Proposé par défaut : le jour d'aujourd'hui (après le 28 : le dernier jour du mois)
     setDueDay(new Date().getDate() > 28 ? LAST_DAY : new Date().getDate())
-    setFromStart(true)
-    setHow('jours')
-    setArrival(iso(new Date()))
-    setFixed('')
     setOldDebt('')
     setAdvance('')
     setDirect(false)
@@ -106,15 +93,7 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
   // Sa période en cours, selon le jour de paie choisi
   const cur = periodFor(dueDay)
   const { start, end } = periodBounds(cur, dueDay)
-  const dim = Math.round((end.getTime() - start.getTime()) / DAY)
-  // La période commence aujourd'hui : elle compte en entier, pas de question à poser
-  const startsToday = start.toDateString() === new Date().toDateString()
-  const partial = !startsToday && !fromStart
-  const arr = arrival ? new Date(`${arrival}T00:00:00`) : new Date()
-  const arrOk = arr >= start && arr < end
-  const worked = arrOk ? Math.round((end.getTime() - arr.getTime()) / DAY) : 0 // le jour d'arrivée compte, pas celui de l'échéance
-  const firstMonth = !partial ? sal : how === 'jours' ? Math.round((sal * worked) / dim) : num(fixed)
-  const firstLabel = !partial ? '' : how === 'jours' ? `du ${dayMonth(arr)} au ${dayMonth(end)} : ${worked} jours sur ${dim}` : 'montant convenu'
+  const firstMonth = sal
   const debt = num(oldDebt)
   const adv = num(advance)
   const per = adv > 0 && !direct ? Math.min(num(perMonth), adv) : 0
@@ -123,7 +102,7 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
   const okStep: Record<Step, boolean> = {
     qui: name.trim().length > 0 && !nameTaken(persons, name),
     salaire: sal > 0,
-    mois: !partial || (how === 'jours' ? arrOk && worked > 0 : num(fixed) > 0),
+    mois: true,
     ancien: true,
     avance: adv === 0 || direct || num(perMonth) > 0,
     resume: true,
@@ -141,9 +120,6 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
       role: role.trim() || undefined,
       salary: sal,
       dueDay,
-      start: !partial
-        ? undefined
-        : { date: `${String(arr.getDate()).padStart(2, '0')}/${String(arr.getMonth() + 1).padStart(2, '0')}/${arr.getFullYear()}`, amount: firstMonth, label: firstLabel },
       oldDebt: debt || undefined,
       advance: adv || undefined,
       perMonth: per || undefined,
@@ -227,57 +203,7 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
                     <SelectItem value={String(LAST_DAY)}>Le dernier jour du mois</SelectItem>
                   </SelectContent>
                 </Select>
-                {todayDay > 28 && dueDay === LAST_DAY && (
-                  <p className="text-xs text-muted-foreground">Le {todayDay} n'existe pas dans tous les mois : il sera payé le dernier jour de chaque mois.</p>
-                )}
               </div>
-              <div className="rounded-xl bg-muted/50 p-3 text-sm">
-                <p>
-                  Payé <span className="font-medium">{dueDayLabel(dueDay)}</span>
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Période en cours : du {dayMonth(start)} au {dayMonth(end)} · échéance le {dayMonth(end)}
-                </p>
-              </div>
-              {!startsToday && (
-                <>
-                  <label htmlFor="ne-start" className="flex items-center gap-3 rounded-xl border p-3">
-                    <span className="flex min-w-0 flex-1 flex-col">
-                      <span className="text-sm font-medium">Il compte toute la période en cours</span>
-                      <span className="text-xs text-muted-foreground">Du {dayMonth(start)} au {dayMonth(end)}, salaire entier</span>
-                    </span>
-                    <Switch id="ne-start" checked={fromStart} onCheckedChange={setFromStart} />
-                  </label>
-                  {!fromStart && (
-                    <div className="flex flex-col gap-2" role="radiogroup" aria-label="Sa première période">
-                      <p className="text-sm text-muted-foreground">Combien touche-t-il pour cette première période ?</p>
-                      <Choice on={how === 'jours'} title="Selon son jour d'arrivée" onPick={() => setHow('jours')}>
-                        <label className="flex flex-col gap-1.5 text-sm">
-                          Il a commencé le
-                          <Input
-                            type="date"
-                            aria-label="Jour d'arrivée"
-                            value={arrival}
-                            min={iso(start)}
-                            max={iso(new Date(end.getTime() - DAY))}
-                            onChange={e => setArrival(e.target.value)}
-                            className="h-11"
-                          />
-                        </label>
-                        <p className={cn('mt-1 text-xs tabular-nums', arrOk ? 'text-muted-foreground' : 'text-destructive')}>
-                          {arrOk
-                            ? `${worked} jours sur ${dim} : ${formatFCFA(Math.round((sal * worked) / dim))}`
-                            : `Choisissez un jour entre le ${dayMonth(start)} et le ${dayMonth(new Date(end.getTime() - DAY))}.`}
-                        </p>
-                      </Choice>
-                      <Choice on={how === 'fixe'} title="Montant convenu" onPick={() => setHow('fixe')}>
-                        <MoneyInput id="ne-fixed" autoFocus value={fixed} onChange={setFixed} />
-                      </Choice>
-                      <p className="text-xs text-muted-foreground">À la période suivante, il touchera son salaire entier.</p>
-                    </div>
-                  )}
-                </>
-              )}
             </div>
           )}
 
@@ -321,8 +247,7 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
               <section className="flex flex-col rounded-xl border px-3 pt-2 pb-1">
                 <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Paie {ofMonth(cur)}</p>
                 <p className="text-xs text-muted-foreground">Du {dayMonth(start)} au {dayMonth(end)} · échéance le {dayMonth(end)}</p>
-                <Row label={!partial ? 'Salaire de la période' : 'Salaire de la période (en partie)'} value={formatFCFA(firstMonth)} />
-                {partial && <p className="-mt-1 pb-1 text-xs text-muted-foreground">{firstLabel}</p>}
+                <Row label="Salaire de la période" value={formatFCFA(firstMonth)} />
                 {debt > 0 && <Row label="Ancien compte" value={`+ ${formatFCFA(debt)}`} tone="text-credit" />}
                 {per > 0 && <Row label="Retenue pour l'avance" value={`− ${formatFCFA(per)}`} tone="text-debt" />}
                 <div className="mt-1 flex items-baseline justify-between gap-3 border-t py-2">
