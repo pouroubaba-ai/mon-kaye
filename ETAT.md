@@ -282,3 +282,5 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 ## 2026-10-20 — Installation sur l'écran d'accueil : nom « Kayé », icône « é » doré (manifest.webmanifest, icônes Android/iPhone, favicon, titre de la page)
 
 ## 2026-10-20 — Icône de l'app : le nom complet « kayé » (au lieu du « é » seul)
+
+## 2026-10-20 — iPhone : plus de zoom en touchant un champ (champs à 16 px sur iPhone), en-tête sous la barre de l'heure ; « Utiliser un autre compte » au lieu de « Ce n'est pas mon compte »

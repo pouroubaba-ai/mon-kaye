@@ -149,3 +149,13 @@
     touch-action: manipulation;
   }
 }
+
+/* iPhone : Safari grossit l'écran quand on touche un champ écrit en moins de 16 px, et ne le remet pas.
+   On met donc tous les champs à 16 px au moins, seulement sur iPhone / iPad. */
+@supports (-webkit-touch-callout: none) {
+  input,
+  textarea,
+  select {
+    font-size: max(16px, 1em) !important;
+  }
+}

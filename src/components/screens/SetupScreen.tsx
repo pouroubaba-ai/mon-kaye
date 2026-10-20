@@ -71,7 +71,7 @@ export function SetupScreen({ defaultName, onDone, onLogout }: { defaultName: st
           {busy ? 'Un instant…' : 'Commencer'}
         </Button>
         <button type="button" onClick={onLogout} className="text-center text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
-          Ce n'est pas mon compte
+          Utiliser un autre compte
         </button>
       </form>
     </div>
