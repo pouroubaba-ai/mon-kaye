@@ -105,7 +105,7 @@ export function AuthScreen({ mode, onSwitch, actions }: { mode: AuthMode; onSwit
         >
           {signup && (
             <div className="grid gap-2">
-              <Label htmlFor="auth-shop">Nom de votre commerce</Label>
+              <Label htmlFor="auth-shop">Nom de l'activité</Label>
               <Input id="auth-shop" className="h-12" placeholder="Ex : Alimentation La Grâce" value={shop} onChange={e => setShop(e.target.value)} />
             </div>
           )}

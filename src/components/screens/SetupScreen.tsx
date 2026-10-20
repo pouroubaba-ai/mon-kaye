@@ -51,7 +51,7 @@ export function SetupScreen({ defaultName, onDone, onLogout }: { defaultName: st
 
         <div className="flex flex-col gap-4">
           <div className="grid gap-2">
-            <Label htmlFor="setup-name">Nom de votre commerce</Label>
+            <Label htmlFor="setup-name">Nom de l'activité</Label>
             <Input id="setup-name" className="h-12" placeholder="Ex : Alimentation La Grâce" value={name} onChange={e => setName(e.target.value)} />
           </div>
           <div className="grid gap-2">

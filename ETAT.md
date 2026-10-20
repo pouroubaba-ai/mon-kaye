@@ -276,3 +276,5 @@ Reste à faire : écran de code PIN au format du bloc shadcn « login » ; pavé
 - firebase.json : hébergement (dist, toutes les adresses vers index.html).
 
 ## 2026-10-20 — En ligne sur Vercel (mon-kaye.vercel.app) : vercel.json renvoie toutes les adresses vers index.html (actualiser /connexion ne fait plus 404). Message clair si le domaine n'est pas autorisé dans Firebase.
+
+## 2026-10-20 — « Nom de l'activité » au lieu de « Nom de votre commerce » (inscription, bienvenue, réglages)

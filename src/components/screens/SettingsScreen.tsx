@@ -97,7 +97,7 @@ export const SettingsScreen: React.FC = () => {
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="shop-name">Nom du commerce</Label>
+              <Label htmlFor="shop-name">Nom de l'activité</Label>
               <Input id="shop-name" value={shopNameInput} onChange={e => { setShopNameInput(e.target.value); setSaved(false) }} aria-invalid={!nameOk} />
               {!nameOk && <p className="text-xs text-destructive">Le nom ne peut pas être vide.</p>}
             </div>
