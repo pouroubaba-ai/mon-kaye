@@ -68,7 +68,8 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
   const [phone, setPhone] = React.useState('')
   const [role, setRole] = React.useState('')
   const [salary, setSalary] = React.useState('')
-  const [dueDay, setDueDay] = React.useState(LAST_DAY) // jour de paie (31 = dernier jour du mois)
+  // Jour de paie (31 = dernier jour du mois) : vide au départ, c'est l'utilisateur qui le choisit
+  const [dueDay, setDueDay] = React.useState<number | null>(null)
   const [oldDebt, setOldDebt] = React.useState('')
   const [advance, setAdvance] = React.useState('')
 
@@ -79,16 +80,15 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
     setPhone('')
     setRole('')
     setSalary('')
-    // Proposé par défaut : le jour d'aujourd'hui (après le 28 : le dernier jour du mois)
-    setDueDay(new Date().getDate() > 28 ? LAST_DAY : new Date().getDate())
+    setDueDay(null)
     setOldDebt('')
     setAdvance('')
   }, [open])
 
   const sal = num(salary)
   // Sa période en cours, selon le jour de paie choisi
-  const cur = periodFor(dueDay)
-  const { start, end } = periodBounds(cur, dueDay)
+  const cur = periodFor(dueDay ?? LAST_DAY)
+  const { start, end } = periodBounds(cur, dueDay ?? LAST_DAY)
   const firstMonth = sal
   const debt = num(oldDebt)
   const adv = num(advance)
@@ -99,7 +99,7 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
   const okStep: Record<Step, boolean> = {
     qui: name.trim().length > 0 && !nameTaken(persons, name),
     salaire: sal > 0,
-    mois: true,
+    mois: dueDay !== null,
     ancien: true,
     avance: true,
     resume: true,
@@ -116,7 +116,7 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
       phone: formatPhone(phone),
       role: role.trim() || undefined,
       salary: sal,
-      dueDay,
+      dueDay: dueDay ?? LAST_DAY,
       oldDebt: debt || undefined,
       advance: adv || undefined,
       perMonth: per || undefined,
@@ -187,9 +187,9 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
             <div className="flex flex-col gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="ne-dueday">Vous le payez le combien du mois ?</Label>
-                <Select value={String(dueDay)} onValueChange={v => setDueDay(Number(v))}>
+                <Select value={dueDay === null ? '' : String(dueDay)} onValueChange={v => setDueDay(Number(v))}>
                   <SelectTrigger id="ne-dueday" className="h-12 w-full text-base">
-                    <SelectValue />
+                    <SelectValue placeholder="Choisir un jour" />
                   </SelectTrigger>
                   <SelectContent position="popper" className="max-h-64">
                     {Array.from({ length: 28 }, (_, k) => k + 1).map(d => (
@@ -227,23 +227,25 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
               {/* 1. Son salaire */}
               <section className="rounded-xl border px-3 py-1">
                 <Row label="Salaire par mois" value={formatFCFA(sal)} />
-                <Row label="Payé" value={dueDayLabel(dueDay)} />
+                <Row label="Payé" value={dueDayLabel(dueDay ?? LAST_DAY)} />
               </section>
 
-              {/* 2. Sa paie de ce mois : le calcul, ligne par ligne, puis le total */}
+              {/* 2. Sa paie */}
               <section className="flex flex-col rounded-xl border px-3 pt-2 pb-1">
                 <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Paie {ofMonth(cur)}</p>
                 <p className="text-xs text-muted-foreground">Du {dayMonth(start)} au {dayMonth(end)} · échéance le {dayMonth(end)}</p>
                 <Row label="Salaire de la période" value={formatFCFA(firstMonth)} />
-                {debt > 0 && <Row label="Ancien compte" value={`+ ${formatFCFA(debt)}`} tone="text-credit" />}
-                {per > 0 && <Row label="Retenue pour l'avance" value={`− ${formatFCFA(per)}`} tone="text-debt" />}
-                <div className="mt-1 flex items-baseline justify-between gap-3 border-t py-2">
-                  <span className="text-sm font-medium">À lui payer</span>
-                  <span className="text-base font-semibold text-debt tabular-nums">{formatFCFA(toPay)}</span>
-                </div>
               </section>
 
-              {/* 3. Ses anciennes avances, à part */}
+              {/* 3. Son ancien compte, à part */}
+              {debt > 0 && (
+                <section className="flex flex-col rounded-xl border px-3 pt-2 pb-1">
+                  <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Ancien compte</p>
+                  <Row label="Vous lui devez" value={formatFCFA(debt)} tone="text-debt" />
+                </section>
+              )}
+
+              {/* 4. Ses anciennes avances, à part */}
               {adv > 0 && (
                 <section className="flex flex-col rounded-xl border px-3 pt-2 pb-1">
                   <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Anciennes avances</p>
