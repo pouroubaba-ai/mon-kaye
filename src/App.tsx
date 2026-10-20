@@ -19,6 +19,7 @@ import { onAuthStateChanged } from 'firebase/auth'
 import { auth, authError, createShop, loadShop, logOut, makePersister, resetPassword, signInApple, signInEmail, signInGoogle, signUpEmail } from '@/lib/firebase'
 import type { StoreData } from '@/data/store'
 import { SplashScreen } from '@/components/splash-screen'
+import { PullToRefresh } from '@/components/pull-to-refresh'
 import { EmployeesMonthScreen } from '@/components/screens/EmployeesMonthScreen'
 
 const AppContent: React.FC = () => {
@@ -224,6 +225,7 @@ export function App() {
     <>
       {body}
       <SplashScreen />
+      <PullToRefresh />
     </>
   )
 }
