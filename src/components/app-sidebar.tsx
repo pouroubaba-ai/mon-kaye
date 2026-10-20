@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Briefcase, Coins, LayoutDashboard, Lock, Moon, Plus, Settings, Store, Sun, Users } from "lucide-react"
+import { Briefcase, Coins, LayoutDashboard, Moon, Plus, Settings, Store, Sun, Users } from "lucide-react"
 import { useToPayCount } from "@/components/screens/EmployeesMonthScreen"
 
 import {
@@ -39,7 +39,7 @@ const BADGE_TITLES: Partial<Record<Tab, string>> = {
 }
 
 export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
-  const { shop, activeTab, navigate, openNewMovement, theme, toggleTheme, lockApp, totals, modules } =
+  const { shop, activeTab, navigate, openNewMovement, theme, toggleTheme, totals, modules } =
     useStore()
 
   // Bouton du menu : toujours en haut de la page (même si on y est déjà).
@@ -115,12 +115,6 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
             <SidebarMenuButton tooltip={theme === "dark" ? "Passer en mode clair" : "Passer en mode sombre"} onClick={toggleTheme}>
               {theme === "dark" ? <Sun /> : <Moon />}
               <span>{theme === "dark" ? "Mode clair" : "Mode sombre"}</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton tooltip="Verrouiller" onClick={lockApp}>
-              <Lock />
-              <span>Verrouiller</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

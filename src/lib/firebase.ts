@@ -89,11 +89,11 @@ export function authError(e: unknown): string {
 }
 
 // ——— Données ———
-// shops/{uid}                 la boutique : nom, code PIN
+// shops/{uid}                 la boutique : son nom
 // shops/{uid}/persons/{id}    personnes et employés
 // shops/{uid}/movements/{id}  toutes les opérations
 // shops/{uid}/meta/months     état des mois (arrêté, annulé)
-export type ShopDoc = { name: string; pin: string; createdAt?: string }
+export type ShopDoc = { name: string; createdAt?: string }
 export type CloudData = {
   shop: ShopDoc
   persons: Person[]
@@ -117,8 +117,8 @@ export async function loadShop(uid: string): Promise<CloudData | null> {
   }
 }
 
-export async function createShop(uid: string, name: string, pin: string) {
-  await setDoc(doc(db, 'shops', uid), { name, pin, createdAt: new Date().toISOString() })
+export async function createShop(uid: string, name: string) {
+  await setDoc(doc(db, 'shops', uid), { name, createdAt: new Date().toISOString() })
 }
 
 // Enregistre seulement ce qui a changé depuis la dernière fois (par petits paquets, sans bloquer l'écran).

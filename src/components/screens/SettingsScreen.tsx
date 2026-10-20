@@ -21,25 +21,21 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Switch } from '@/components/ui/switch'
 
 // Réglages : trois cartes shadcn standard (formulaire, apparence, données).
-// Le verrouillage reste dans l'en-tête et la barre latérale : pas de doublon ici.
 
 export const SettingsScreen: React.FC = () => {
-  const { shop, setShopName, setShopPin, theme, toggleTheme, modules, setModule, logout, settingsView: view, setSettingsView: setView } = useStore()
+  const { shop, setShopName, theme, toggleTheme, modules, setModule, logout, settingsView: view, setSettingsView: setView } = useStore()
   const [shopNameInput, setShopNameInput] = useState(shop.name)
-  const [pinInput, setPinInput] = useState(shop.pin)
   const [saved, setSaved] = useState(false)
   const [askLogout, setAskLogout] = useState(false)
 
   const onNames = [modules.personnes && 'Personnes', modules.employes && 'Employés'].filter(Boolean).join(' · ')
 
-  // On n'enregistre que si tout est bon : un nom, et un code de 4 chiffres
+  // On n'enregistre que si le nom n'est pas vide
   const nameOk = shopNameInput.trim().length > 0
-  const pinOk = /^\d{4}$/.test(pinInput)
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!nameOk || !pinOk) return
+    if (!nameOk) return
     setShopName(shopNameInput.trim())
-    setShopPin(pinInput)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
@@ -93,7 +89,7 @@ export const SettingsScreen: React.FC = () => {
         <form onSubmit={handleSave} className="flex flex-col gap-6">
           <CardHeader>
             <CardTitle>Commerce</CardTitle>
-            <CardDescription>Le nom affiché en haut de l'écran et le code pour ouvrir l'application.</CardDescription>
+            <CardDescription>Le nom affiché en haut de l'écran.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <div className="grid gap-2">
@@ -101,23 +97,9 @@ export const SettingsScreen: React.FC = () => {
               <Input id="shop-name" value={shopNameInput} onChange={e => { setShopNameInput(e.target.value); setSaved(false) }} aria-invalid={!nameOk} />
               {!nameOk && <p className="text-xs text-destructive">Le nom ne peut pas être vide.</p>}
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="shop-pin">Code PIN (4 chiffres)</Label>
-              <Input
-                id="shop-pin"
-                type="password"
-                inputMode="numeric"
-                maxLength={4}
-                value={pinInput}
-                onChange={e => { setPinInput(e.target.value.replace(/\D/g, '')); setSaved(false) }}
-                aria-invalid={!pinOk}
-                className="max-w-32 tracking-widest"
-              />
-              {!pinOk && <p className="text-xs text-destructive">Le code doit avoir 4 chiffres.</p>}
-            </div>
           </CardContent>
           <CardFooter className="gap-3">
-            <Button type="submit" disabled={!nameOk || !pinOk}>Enregistrer</Button>
+            <Button type="submit" disabled={!nameOk}>Enregistrer</Button>
             {saved && (
               <span className="flex items-center gap-1 text-sm text-muted-foreground">
                 <Check className="size-4" /> Enregistré

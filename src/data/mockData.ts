@@ -64,8 +64,6 @@ export const INITIAL_SHOP = {
   owner: "M. Sylvain Ngoma",
   phone: "+242 06 654 32 10",
   address: "Marché Total, Bacongo — Brazzaville",
-  pin: "1234",
-  isLocked: false,
 }
 
 export const INITIAL_PERSONS: Person[] = [

@@ -20,10 +20,6 @@ export const excessOf = (person: Person | undefined, side: 'lui' | 'moi', reduce
 interface StoreContextType {
   shop: typeof INITIAL_SHOP
   setShopName: (name: string) => void
-  setShopPin: (pin: string) => void
-  isLocked: boolean
-  unlockWithPin: (pin: string) => boolean
-  lockApp: () => void
   
   // Theme
   theme: 'dark' | 'light'
@@ -183,7 +179,7 @@ export function buildPath(s: Screen, persons: Person[]): string {
 }
 // Données d'un vrai compte (venues de Firebase) ; sans elles : la démonstration
 export type StoreData = {
-  shop: { name: string; pin: string }
+  shop: { name: string }
   persons: Person[]
   movements: Movement[]
   monthStates: Record<string, 'arrete' | 'annule'>
@@ -207,11 +203,9 @@ export const StoreProvider: React.FC<{
   children: React.ReactNode
   data?: StoreData // vrai compte ; absent : démonstration
   persist?: (d: StoreData) => void // enregistre chaque changement (Firebase)
-  startLocked?: boolean // demander le code PIN à l'ouverture
   onLogout?: () => void
-}> = ({ children, data, persist, startLocked = false, onLogout }) => {
-  const [shop, setShop] = useState(() => (data ? { ...INITIAL_SHOP, owner: '', phone: '', address: '', name: data.shop.name, pin: data.shop.pin } : INITIAL_SHOP))
-  const [isLocked, setIsLocked] = useState(startLocked)
+}> = ({ children, data, persist, onLogout }) => {
+  const [shop, setShop] = useState(() => (data ? { ...INITIAL_SHOP, owner: '', phone: '', address: '', name: data.shop.name } : INITIAL_SHOP))
   // Écran au démarrage : celui de l'adresse (actualiser garde l'écran)
   const startRef = React.useRef<Screen | null>(null)
   const startScreen = () => (startRef.current ??= parsePath(window.location.pathname, loadModules(), data ? data.persons : INITIAL_PERSONS))
@@ -276,8 +270,8 @@ export const StoreProvider: React.FC<{
   })
   // Vrai compte : chaque changement est enregistré (sur le téléphone, puis en ligne)
   React.useEffect(() => {
-    persist?.({ shop: { name: shop.name, pin: shop.pin }, persons, movements, monthStates })
-  }, [shop.name, shop.pin, persons, movements, monthStates])
+    persist?.({ shop: { name: shop.name }, persons, movements, monthStates })
+  }, [shop.name, persons, movements, monthStates])
   // Nouveau mois : chaque employé actif commence le mois avec son salaire entier
   React.useEffect(() => {
     const extra = missingMonths(persons, movements, monthStates)
@@ -333,22 +327,6 @@ export const StoreProvider: React.FC<{
 
   const setShopName = (name: string) => {
     setShop(prev => ({ ...prev, name }))
-  }
-
-  const setShopPin = (pin: string) => {
-    setShop(prev => ({ ...prev, pin }))
-  }
-
-  const unlockWithPin = (enteredPin: string) => {
-    if (enteredPin === shop.pin) {
-      setIsLocked(false)
-      return true
-    }
-    return false
-  }
-
-  const lockApp = () => {
-    setIsLocked(true)
   }
 
   const openNewMovement = (personId?: string, defaultType?: Movement['type'], side?: 'credit' | 'debt') => {
@@ -957,17 +935,15 @@ export const StoreProvider: React.FC<{
   }, [path])
   const pathRef = React.useRef(path)
   pathRef.current = path
-  const lockedRef = React.useRef(isLocked)
-  lockedRef.current = isLocked
   const modulesRef = React.useRef(modules)
   modulesRef.current = modules
   const personsRef = React.useRef(persons)
   personsRef.current = persons
   React.useEffect(() => {
     const onPop = () => {
-      // Fenêtre ouverte ou app verrouillée : le retour ferme la fenêtre (comme Échap), l'écran ne bouge pas
-      if (lockedRef.current || document.querySelector('[role="dialog"]')) {
-        if (!lockedRef.current) document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+      // Fenêtre ouverte : le retour ferme la fenêtre (comme Échap), l'écran ne bouge pas
+      if (document.querySelector('[role="dialog"]')) {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
         window.history.pushState(null, '', pathRef.current + window.location.search)
         return
       }
@@ -993,10 +969,6 @@ export const StoreProvider: React.FC<{
       value={{
         shop,
         setShopName,
-        setShopPin,
-        isLocked,
-        unlockWithPin,
-        lockApp,
         theme,
         toggleTheme,
         modules,

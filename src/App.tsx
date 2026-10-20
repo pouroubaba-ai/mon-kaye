@@ -1,7 +1,6 @@
 import React from 'react'
 import { StoreProvider, useStore } from '@/data/store'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { AuthPinScreen } from '@/components/screens/AuthPinScreen'
 import { DashboardScreen } from '@/components/screens/DashboardScreen'
 import { PersonsListScreen } from '@/components/screens/PersonsListScreen'
 import { PartnerDetailScreen } from '@/components/screens/PartnerDetailScreen'
@@ -23,7 +22,7 @@ import { SplashScreen } from '@/components/splash-screen'
 import { EmployeesMonthScreen } from '@/components/screens/EmployeesMonthScreen'
 
 const AppContent: React.FC = () => {
-  const { isLocked, activeTab, selectedPersonId, persons, accountsView, modules } = useStore()
+  const { activeTab, selectedPersonId, persons, accountsView, modules } = useStore()
 
   // Sens du glissement entre le tableau de bord et « Leurs/Mes comptes » (rien au premier affichage)
   const wasOpen = React.useRef(!!accountsView)
@@ -52,11 +51,6 @@ const AppContent: React.FC = () => {
     if (selectedPersonId) slideIn(ficheRef.current, 'forward')
     else slideIn(pageRef.current, 'back')
   }, [selectedPersonId, activeTab])
-
-  // Si verrouillé -> Écran PIN obligatoire
-  if (isLocked) {
-    return <AuthPinScreen />
-  }
 
   // Fiche ouverte par-dessus la page : la page reste montée (cachée), pour retrouver au retour
   // sa recherche, ses filtres et sa position.
@@ -96,18 +90,18 @@ const AppContent: React.FC = () => {
 
 // ——— Entrée dans l'app ———
 // Pas connecté : écran de connexion (/connexion) ou d'inscription (/inscription).
-// Connecté pour la première fois : premier réglage (nom du commerce, code PIN).
-// Ensuite : l'app avec SES données (gardées sur le téléphone et en ligne). Code PIN à chaque ouverture.
+// Connecté pour la première fois : premier réglage (le nom de l'activité).
+// Ensuite : l'app avec SES données (gardées sur le téléphone et en ligne).
 // Démonstration sans compte : ajouter ?demo à l'adresse (données d'exemple, rien n'est enregistré).
 const authModeOf = (path: string): AuthMode | null => (path === '/connexion' ? 'connexion' : path === '/inscription' ? 'inscription' : null)
 const DEMO = new URLSearchParams(window.location.search).has('demo')
-const EMPTY_DEMO: StoreData = { shop: { name: 'Ma boutique', pin: '1234' }, persons: [], movements: [], monthStates: {} }
+const EMPTY_DEMO: StoreData = { shop: { name: 'Ma boutique' }, persons: [], movements: [], monthStates: {} }
 
 type Phase =
   | { k: 'loading' }
   | { k: 'out'; mode: AuthMode }
   | { k: 'setup'; uid: string; name: string }
-  | { k: 'ready'; uid: string; data: StoreData; persist: (d: StoreData) => void; locked: boolean }
+  | { k: 'ready'; uid: string; data: StoreData; persist: (d: StoreData) => void }
   | { k: 'error' }
 
 function Loading() {
@@ -120,8 +114,6 @@ function Loading() {
 
 export function App() {
   const [phase, setPhase] = React.useState<Phase>({ k: 'loading' })
-  // Connexion faite à l'instant sur cet écran : pas besoin du code PIN tout de suite
-  const fresh = React.useRef(false)
   const pendingName = React.useRef('')
   const [retry, setRetry] = React.useState(0)
 
@@ -143,10 +135,10 @@ export function App() {
           return
         }
         if (authModeOf(path)) window.history.replaceState(null, '', '/')
-        const data: StoreData = { shop: { name: d.shop.name, pin: d.shop.pin }, persons: d.persons, movements: d.movements, monthStates: d.monthStates }
+        const data: StoreData = { shop: { name: d.shop.name }, persons: d.persons, movements: d.movements, monthStates: d.monthStates }
         const persist = makePersister(user.uid, d)
-        setPhase({ k: 'ready', uid: user.uid, data, persist: (x: StoreData) => persist({ ...x, shop: { ...d.shop, ...x.shop } }), locked: !fresh.current })
-        fresh.current = false
+        // L'ancien code PIN, s'il existe encore en ligne, est effacé au premier enregistrement
+        setPhase({ k: 'ready', uid: user.uid, data, persist: (x: StoreData) => persist({ ...x, shop: { name: x.shop.name, createdAt: d.shop.createdAt } }) })
       } catch (e) {
         console.error('[Kayé] Chargement du compte', e)
         setPhase({ k: 'error' })
@@ -162,10 +154,9 @@ export function App() {
   }, [])
 
   const actions: AuthActions = {
-    google: () => ((fresh.current = true), signInGoogle()),
-    apple: () => ((fresh.current = true), signInApple()),
+    google: () => signInGoogle(),
+    apple: () => signInApple(),
     email: (mode, email, pwd, shop) => {
-      fresh.current = true
       pendingName.current = shop
       return mode === 'inscription' ? signUpEmail(email, pwd) : signInEmail(email, pwd)
     },
@@ -200,13 +191,13 @@ export function App() {
       <SetupScreen
         defaultName={phase.name}
         onLogout={() => void logOut()}
-        onDone={async (name, pin) => {
+        onDone={async name => {
           // Enregistré tout de suite sur le téléphone ; part en ligne dès que possible (on n'attend pas le réseau)
-          createShop(uid, name, pin).catch(e => console.error('[Kayé] Création de la boutique', e))
-          const empty = { shop: { name, pin }, persons: [], movements: [], monthStates: {} }
-          const persist = makePersister(uid, { ...empty, shop: { name, pin } })
+          createShop(uid, name).catch(e => console.error('[Kayé] Création de la boutique', e))
+          const empty = { shop: { name }, persons: [], movements: [], monthStates: {} }
+          const persist = makePersister(uid, empty)
           window.history.replaceState(null, '', '/')
-          setPhase({ k: 'ready', uid, data: empty, persist: (x: StoreData) => persist({ ...x, shop: { ...x.shop } }), locked: false })
+          setPhase({ k: 'ready', uid, data: empty, persist: (x: StoreData) => persist({ ...x, shop: { ...x.shop } }) })
         }}
       />
     )
@@ -223,7 +214,7 @@ export function App() {
     )
   } else {
     body = (
-      <StoreProvider key={phase.uid} data={phase.data} persist={phase.persist} startLocked={phase.locked} onLogout={() => void logOut()}>
+      <StoreProvider key={phase.uid} data={phase.data} persist={phase.persist} onLogout={() => void logOut()}>
         <AppContent />
       </StoreProvider>
     )

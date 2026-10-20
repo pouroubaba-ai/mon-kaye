@@ -1,6 +1,6 @@
 import React from 'react'
 import { useStore } from '@/data/store'
-import { LayoutDashboard, Users, Briefcase, Settings, Plus, Moon, Sun, Lock, Coins } from 'lucide-react'
+import { LayoutDashboard, Users, Briefcase, Settings, Plus, Moon, Sun, Coins } from 'lucide-react'
 import { useToPayCount } from '@/components/screens/EmployeesMonthScreen'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -30,7 +30,7 @@ const TITLES: Record<Tab, string> = {
 // Mise en page : barre latérale shadcn (ordinateur, tablette) + barre du bas à 4 onglets
 // et un seul bouton « + » (téléphone). Une seule entrée « nouveau mouvement » par appareil.
 export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { shop, persons, activeTab, selectedPersonId, navigate, navKey, setSelectedPersonId, openNewMovement, theme, toggleTheme, lockApp, accountsView, setAccountsView, modules, settingsView, setSettingsView } =
+  const { shop, persons, activeTab, selectedPersonId, navigate, navKey, setSelectedPersonId, openNewMovement, theme, toggleTheme, accountsView, setAccountsView, modules, settingsView, setSettingsView } =
     useStore()
 
   // Position de défilement :
@@ -93,7 +93,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
-        {/* En-tête : le nom de la page, le thème et le verrouillage. */}
+        {/* En-tête : le nom de la page et le thème. */}
         <header className="sticky top-0 z-30 flex h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0 pt-[env(safe-area-inset-top)] items-center gap-2 border-b bg-background px-4">
           <SidebarTrigger className="-ml-1 hidden md:inline-flex" />
           <Separator orientation="vertical" className="mr-2 hidden data-[orientation=vertical]:h-4 md:block" />
@@ -127,9 +127,6 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
           <div className="flex shrink-0 items-center md:hidden">
             <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Changer de thème">
               {theme === 'dark' ? <Sun /> : <Moon />}
-            </Button>
-            <Button variant="ghost" size="icon" onClick={lockApp} aria-label="Verrouiller">
-              <Lock />
             </Button>
             {/* Réglages : ici sur téléphone, la barre du bas laisse sa place à « Salaires » */}
             {/* Dans une page ouverte (fiche, Modules…), on revient par le fil d'Ariane : pas de roue ici */}
