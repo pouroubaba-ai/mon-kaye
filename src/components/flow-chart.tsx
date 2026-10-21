@@ -4,14 +4,14 @@ import { Area, AreaChart, CartesianGrid, XAxis } from 'recharts'
 import type { Movement } from '@/data/mockData'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartContainer, type ChartConfig } from '@/components/ui/chart'
-import { Segmented } from '@/components/segmented'
 import { formatFCFA } from '@/lib/utils'
 import { opTime, rangeBounds, type DateRange } from '@/lib/date-range'
 
-// Graphique en aires (courbes lissées) des partenaires :
-// « Ils prennent chez moi » ou « Je prends chez eux », avec trois courbes :
-// ce qui est pris (crédits), les versements, et les retours (seulement s'il y en a).
-// Il suit le filtre par date : par jour sur une courte période, par semaine, ou par mois.
+// Graphiques en aires (courbes lissées), empilés l'un sous l'autre :
+// - partenaires : « Ils prennent chez moi » puis « Je prends chez eux », avec Total (ce qui est pris),
+//   Versements, et Retours (seulement s'il y en a) ; ils suivent le filtre par date
+//   (par jour sur une courte période, par semaine, ou par mois) ;
+// - employés : Salaires et Avances, une période de paie par point (voir le tableau de bord).
 
 const MONTHS = ['Janv.', 'Févr.', 'Mars', 'Avr.', 'Mai', 'Juin', 'Juil.', 'Août', 'Sept.', 'Oct.', 'Nov.', 'Déc.']
 const DAY = 86_400_000
@@ -24,8 +24,7 @@ const TYPES: Record<Side, { credit: string; pay: string; ret: string }> = {
   chez_eux: { credit: 'j_ai_pris_credit', pay: 'je_lui_ai_verse', ret: 'j_ai_retourne' },
 }
 
-export function FlowChart({ movements, range }: { movements: Movement[]; range: DateRange }) {
-  const [side, setSide] = React.useState<Side>('chez_moi')
+export function FlowChart({ movements, range, side }: { movements: Movement[]; range: DateRange; side: Side }) {
   const t = TYPES[side]
   const live = movements.filter(m => !m.isCancelled && (m.type === t.credit || m.type === t.pay || m.type === t.ret))
 
@@ -71,29 +70,39 @@ export function FlowChart({ movements, range }: { movements: Movement[]; range: 
   }
 
   // Couleurs écrites en clair : le dessin du graphique (SVG) ne lit pas les variables CSS
+  // Couleurs écrites en clair : le dessin du graphique (SVG) ne lit pas les variables CSS
   const main = side === 'chez_moi' ? '#16a34a' : '#ea580c'
-  const series = [
-    { key: 'credit', label: side === 'chez_moi' ? 'Crédits' : 'Dettes', color: main, total: tc },
+  const series: Serie[] = [
+    { key: 'credit', label: 'Total', color: main, total: tc },
     { key: 'verse', label: 'Versements', color: '#38bdf8', total: tv },
     ...(tr > 0 ? [{ key: 'retour', label: 'Retours', color: '#a78bfa', total: tr }] : []),
   ]
+  return <AreaCard title={`${side === 'chez_moi' ? 'Ils prennent chez moi' : 'Je prends chez eux'}${by !== 'jour' ? ` · par ${by}` : ''}`} rows={rows} series={series} />
+}
+
+export type Serie = { key: string; label: string; color: string; total: number }
+
+// Carte avec un graphique en aires lissées et, dessous, le total de chaque courbe
+export function AreaCard({
+  title,
+  rows,
+  series,
+  maxLabels = 6,
+}: {
+  title: string
+  rows: ({ label: string } & Record<string, number | string>)[]
+  series: Serie[]
+  maxLabels?: number // étiquettes longues (« Sept. – Oct. ») : moins d'étiquettes
+}) {
   const config = Object.fromEntries(series.map(s => [s.key, { label: s.label, color: s.color }])) satisfies ChartConfig
   const uid = React.useId().replace(/:/g, '')
   // Pas trop d'étiquettes sous le graphique
-  const step = Math.max(1, Math.ceil(rows.length / 6))
+  const step = Math.max(1, Math.ceil(rows.length / maxLabels))
 
   return (
     <Card>
-      <CardHeader className="gap-3">
-        <CardTitle className="text-sm font-normal text-muted-foreground">Ce qui est pris et versé{by !== 'jour' ? ` (par ${by})` : ''}</CardTitle>
-        <Segmented
-          options={[
-            { value: 'chez_moi', label: 'Ils prennent chez moi' },
-            { value: 'chez_eux', label: 'Je prends chez eux' },
-          ]}
-          value={side}
-          onChange={setSide}
-        />
+      <CardHeader>
+        <CardTitle className="text-sm font-normal text-muted-foreground">{title}</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {/* Simple lecture : pas de toucher sur le graphique (sur iPhone, un graphique qui réagit au toucher gêne les onglets du bas) */}
@@ -116,7 +125,7 @@ export function FlowChart({ movements, range }: { movements: Movement[]; range: 
               interval={0}
               tick={({ x, y, payload, index }) =>
                 index === rows.length - 1 || (index % step === 0 && rows.length - 1 - index >= step * 0.7) ? (
-                  <text x={x} y={Number(y) + 10} textAnchor="middle" className="fill-muted-foreground text-[10px]">
+                  <text x={x} y={Number(y) + 10} textAnchor={index === 0 && rows.length > 1 ? 'start' : index === rows.length - 1 && rows.length > 1 ? 'end' : 'middle'} className="fill-muted-foreground text-[10px]">
                     {payload.value}
                   </text>
                 ) : (

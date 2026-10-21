@@ -6,7 +6,7 @@ import { useStore } from '@/data/store'
 import { dueDayOf, payrollOf, periodBounds, toTime } from '@/data/payroll'
 import { Segmented } from '@/components/segmented'
 import { DateFilter, FilterOption, FilterPill } from '@/components/date-filter'
-import { FlowChart } from '@/components/flow-chart'
+import { AreaCard, FlowChart } from '@/components/flow-chart'
 import { ALL_TIME, inRange, isFiltered, type DateRange } from '@/lib/date-range'
 import type { Person } from '@/data/mockData'
 import { PaidLine } from '@/components/paid-line'
@@ -258,7 +258,8 @@ const CurrentDashboard: React.FC<{ only?: 'partner' | 'employee'; extra?: React.
 
       {extra}
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      {/* Les anneaux seulement dans « Tout » (dans Partenaires ou Employés, les graphiques les remplacent) */}
+      {!only && <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <DonutCard
           title="Leurs comptes"
           tone="credit"
@@ -281,7 +282,7 @@ const CurrentDashboard: React.FC<{ only?: 'partner' | 'employee'; extra?: React.
             { key: 'salaires', label: 'Salaires', value: totals.employeesSalaryDue, color: modules.personnes ? 'color-mix(in oklch, var(--color-debt) 45%, transparent)' : 'var(--color-debt)', count: nSalaries, unit: STAFF },
           ].filter(s => on(s.key))}
         />
-      </div>
+      </div>}
     </div>
   )
 }
@@ -364,14 +365,13 @@ function PeriodFilter({ value, onChange }: { value: string | null; onChange: (p:
 }
 
 // Employés, sur une période de paie : avances données et rendues, salaires à payer et versés
-const EmployeePeriod: React.FC<{ period: string }> = ({ period }) => {
-  const { movements, setAccountsView } = useStore()
-  const { rows } = usePayPeriods()
+function periodStats(period: string, rows: ReturnType<typeof usePayPeriods>['rows'], movements: ReturnType<typeof useStore>['movements']) {
   let brut = 0
   let verse = 0
   let reste = 0
   let given = 0
   let rendu = 0
+  let retenues = 0
   for (const { e, pr } of rows) {
     const row = pr.months.find(m => m.period === period)
     if (!row) continue
@@ -389,7 +389,15 @@ const EmployeePeriod: React.FC<{ period: string }> = ({ period }) => {
       // Retenue : seulement quand le salaire de la période est tombé
       if (m.type === 'retenue_salaire' && m.period === period && row.state !== 'en_cours') rendu += m.amount
     }
+    if (row.state !== 'annule') retenues += row.retenues
   }
+  return { brut, verse, reste, given, rendu, retenues }
+}
+
+const EmployeePeriod: React.FC<{ period: string }> = ({ period }) => {
+  const { movements, setAccountsView } = useStore()
+  const { rows } = usePayPeriods()
+  const { brut, verse, reste, given, rendu } = periodStats(period, rows, movements)
   return (
     <div className="grid grid-cols-2 gap-3 md:gap-4">
       <StatCard
@@ -416,6 +424,57 @@ const EmployeePeriod: React.FC<{ period: string }> = ({ period }) => {
             ]}
           />
         }
+      />
+    </div>
+  )
+}
+
+// Les deux graphiques des partenaires, l'un sous l'autre
+const PartnerCharts: React.FC<{ movements: ReturnType<typeof useStore>['movements']; range: DateRange }> = ({ movements, range }) => (
+  <div className="flex flex-col gap-4">
+    <FlowChart movements={movements} range={range} side="chez_moi" />
+    <FlowChart movements={movements} range={range} side="chez_eux" />
+  </div>
+)
+
+// Nom court d'une période sous le graphique : « Sept. – Oct. » ou « Oct. »
+const SHORT_M = ['Janv.', 'Févr.', 'Mars', 'Avr.', 'Mai', 'Juin', 'Juil.', 'Août', 'Sept.', 'Oct.', 'Nov.', 'Déc.']
+const shortPeriod = (name: string) =>
+  name
+    .split(' – ')
+    .map(n => SHORT_M[MONTH_NAMES.indexOf(n.split(' ')[0])] ?? n)
+    .join(' – ')
+
+// Employés : Salaires puis Avances, sur les 6 périodes de paie qui finissent à celle choisie (ou à la dernière)
+const EmployeeCharts: React.FC<{ period: string | null }> = ({ period }) => {
+  const { movements } = useStore()
+  const { rows, periods, nameOf } = usePayPeriods()
+  const at = period ? Math.max(0, periods.indexOf(period)) : 0
+  const list = periods.slice(at, at + 6).reverse()
+  if (list.length === 0) return null
+  const data = list.map(p => ({ p, label: shortPeriod(nameOf(p)), ...periodStats(p, rows, movements) }))
+  const total = (k: 'brut' | 'verse' | 'retenues' | 'given' | 'rendu') => data.reduce((a, d) => a + d[k], 0)
+  const retenues = total('retenues')
+  return (
+    <div className="flex flex-col gap-4">
+      <AreaCard
+        title="Salaires · par période de paie"
+        maxLabels={3}
+        rows={data.map(d => ({ label: d.label, total: d.brut, verse: d.verse, retenues: d.retenues }))}
+        series={[
+          { key: 'total', label: 'Total', color: '#ea580c', total: total('brut') },
+          { key: 'verse', label: 'Versé', color: '#38bdf8', total: total('verse') },
+          ...(retenues > 0 ? [{ key: 'retenues', label: 'Retenues', color: '#a78bfa', total: retenues }] : []),
+        ]}
+      />
+      <AreaCard
+        title="Avances · par période de paie"
+        maxLabels={3}
+        rows={data.map(d => ({ label: d.label, total: d.given, rendu: d.rendu }))}
+        series={[
+          { key: 'total', label: 'Total', color: '#16a34a', total: total('given') },
+          { key: 'rendu', label: 'Rendu', color: '#38bdf8', total: total('rendu') },
+        ]}
       />
     </div>
   )
@@ -460,12 +519,20 @@ export const DashboardScreen: React.FC = () => {
         (isFiltered(range) ? (
           <div className="flex flex-col gap-6">
             <PartnerPeriod range={range} />
-            <FlowChart movements={partnerMovs} range={range} />
+            <PartnerCharts movements={partnerMovs} range={range} />
           </div>
         ) : (
-          <CurrentDashboard only="partner" extra={<FlowChart movements={partnerMovs} range={range} />} />
+          <CurrentDashboard only="partner" extra={<PartnerCharts movements={partnerMovs} range={range} />} />
         ))}
-      {scope === 'employee' && (period ? <EmployeePeriod period={period} /> : <CurrentDashboard only="employee" />)}
+      {scope === 'employee' &&
+        (period ? (
+          <div className="flex flex-col gap-6">
+            <EmployeePeriod period={period} />
+            <EmployeeCharts period={period} />
+          </div>
+        ) : (
+          <CurrentDashboard only="employee" extra={<EmployeeCharts period={null} />} />
+        ))}
     </div>
   )
 }
