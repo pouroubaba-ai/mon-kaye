@@ -105,12 +105,9 @@ type Phase =
   | { k: 'ready'; uid: string; data: StoreData; persist: (d: StoreData) => void }
   | { k: 'error' }
 
+// Pendant le chargement : un fond uni, caché par l'écran « kayé » (un seul écran au démarrage)
 function Loading() {
-  return (
-    <div className="dark flex min-h-dvh items-center justify-center bg-[#0B0C0F]">
-      <Wordmark size="text-5xl" />
-    </div>
-  )
+  return <div className="min-h-dvh bg-[#0B0C0F]" />
 }
 
 export function App() {
@@ -224,7 +221,7 @@ export function App() {
   return (
     <>
       {body}
-      <SplashScreen />
+      <SplashScreen ready={DEMO || phase.k !== 'loading'} />
       <PullToRefresh />
     </>
   )
