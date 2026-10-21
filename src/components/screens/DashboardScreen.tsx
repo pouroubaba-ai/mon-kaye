@@ -252,8 +252,8 @@ const CurrentDashboard: React.FC<{ only?: 'partner' | 'employee'; extra?: React.
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-2 gap-3 md:gap-4">
-        <StatCard label="On me doit" value={totals.totalOwesMe} paid={paidToMe} tone="credit" Icon={ArrowDownLeft} onClick={() => setAccountsView({ dir: 'leurs', group: firstGroup })} />
-        <StatCard label="Je dois" value={totals.totalIOwe} paid={paidByMe} tone="debt" Icon={ArrowUpRight} onClick={() => setAccountsView({ dir: 'mes', group: firstGroup })} />
+        <StatCard label={only === 'partner' ? 'Clients' : 'On me doit'} value={totals.totalOwesMe} paid={paidToMe} tone="credit" Icon={ArrowDownLeft} onClick={() => setAccountsView({ dir: 'leurs', group: firstGroup })} />
+        <StatCard label={only === 'partner' ? 'Fournisseurs' : 'Je dois'} value={totals.totalIOwe} paid={paidByMe} tone="debt" Icon={ArrowUpRight} onClick={() => setAccountsView({ dir: 'mes', group: firstGroup })} />
       </div>
 
       {extra}
