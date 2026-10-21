@@ -36,7 +36,11 @@ export function StatementDialog({ person, open, onOpenChange }: { person: Person
   const linesOf = (s: Side) =>
     mine
       .filter(m => m.type === s.credit || m.type === s.pay || m.type === s.ret)
-      .sort((a, b) => toTime(a.date) - toTime(b.date))
+      // Du plus ancien au plus récent ; le même jour, dans l'ordre où ils ont été enregistrés
+      // (la liste des opérations est rangée de la plus récente à la plus ancienne)
+      .map((m, i) => ({ m, i }))
+      .sort((a, b) => toTime(a.m.date) - toTime(b.m.date) || b.i - a.i)
+      .map(x => x.m)
       .map(m => ({
         m,
         minus: m.type !== s.credit,
