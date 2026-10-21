@@ -25,7 +25,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { cn, formatFCFA, matchesPerson, useKept } from '@/lib/utils'
+import { cn, formatFCFA, matchesPerson, useKept, compressImage } from '@/lib/utils'
 
 // Saisie d'une opération en 3 écrans courts, une seule question par écran :
 //   Qui ?  →  Quoi ?  →  Combien ?
@@ -102,7 +102,8 @@ export const NewMovementModal: React.FC = () => {
   const [payment, setPayment] = useState<'especes' | 'mobile_money'>('especes')
   const [reference, setReference] = useState('')
   const [note, setNote] = useState('')
-  const [photo, setPhoto] = useState(false)
+  const [photo, setPhoto] = useState<string | null>(null) // photo jointe (image compressée)
+  const photoInput = React.useRef<HTMLInputElement>(null)
   const [showMore, setShowMore] = useState(false)
   const [search, setSearch] = useState('')
   const [group, setGroup] = useState<'partner' | 'employee'>('partner')
@@ -123,7 +124,7 @@ export const NewMovementModal: React.FC = () => {
     setPayment('especes')
     setReference('')
     setNote('')
-    setPhoto(false)
+    setPhoto(null)
     setShowMore(false)
     setSearch('')
     setGroup('partner')
@@ -304,7 +305,7 @@ export const NewMovementModal: React.FC = () => {
       period: isAdjust ? currentPeriod(personId) : undefined,
       reference: reference.trim() || undefined,
       note: note.trim() || undefined,
-      receiptPhoto: photo ? 'simulation_photo_recu.jpg' : undefined,
+      receiptPhoto: photo ?? undefined,
       items: hasItems ? items! : undefined,
     })
     closeNewMovement()
@@ -349,7 +350,7 @@ export const NewMovementModal: React.FC = () => {
     <Dialog
       open={isNewMovementOpen}
       onOpenChange={o => !o && closeNewMovement()}
-      dirty={amount > 0 || note.trim() !== '' || reference.trim() !== '' || photo || hasItems || motif.trim() !== '' || (step === 'detail' && draftSum > 0)}
+      dirty={amount > 0 || note.trim() !== '' || reference.trim() !== '' || !!photo || hasItems || motif.trim() !== '' || (step === 'detail' && draftSum > 0)}
       dirtyKind="ajout"
     >
       <DialogContent fixedHeight>
@@ -598,9 +599,35 @@ export const NewMovementModal: React.FC = () => {
                     <Input placeholder="Numéro de transaction" value={reference} onChange={e => setReference(e.target.value)} />
                   )}
                   <Textarea rows={1} placeholder="Note" value={note} onChange={e => setNote(e.target.value)} className="max-h-32 min-h-8 py-1.5" />
-                  <Button type="button" variant={photo ? 'secondary' : 'outline'} onClick={() => setPhoto(!photo)}>
-                    <Camera /> {photo ? 'Photo ajoutée' : 'Ajouter une photo'}
-                  </Button>
+                  {/* Toucher le bouton : le téléphone propose de prendre une photo ou d'en choisir une dans la galerie */}
+                  <input
+                    ref={photoInput}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async e => {
+                      const f = e.target.files?.[0]
+                      e.target.value = ''
+                      if (!f) return
+                      try {
+                        setPhoto(await compressImage(f))
+                      } catch {
+                        /* image illisible : rien n'est joint */
+                      }
+                    }}
+                  />
+                  {photo ? (
+                    <div className="relative">
+                      <img src={photo} alt="Photo jointe" className="max-h-40 w-full rounded-lg border object-cover" />
+                      <Button type="button" size="icon" variant="secondary" aria-label="Enlever la photo" className="absolute top-2 right-2 size-8 rounded-full" onClick={() => setPhoto(null)}>
+                        <X />
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button type="button" variant="outline" onClick={() => photoInput.current?.click()}>
+                      <Camera /> Ajouter une photo
+                    </Button>
+                  )}
                   {/* Détail ligne par ligne : seulement pour un crédit ou une dette */}
                   {isAddition && !hasItems && (
                     <Button type="button" variant="outline" onClick={openDetail}>

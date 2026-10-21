@@ -82,3 +82,26 @@ export function slideIn(el: HTMLElement | null, dir: 'forward' | 'back') {
     { duration: 300, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' }
   )
 }
+
+// Photo jointe (reçu, bordereau…) : réduite et compressée pour rester légère (≈ 100 à 200 Ko),
+// gardée avec l'opération, sur le téléphone et en ligne.
+export function compressImage(file: File, max = 1200, quality = 0.72): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file)
+    const img = new Image()
+    img.onload = () => {
+      const k = Math.min(1, max / Math.max(img.width, img.height))
+      const c = document.createElement('canvas')
+      c.width = Math.round(img.width * k)
+      c.height = Math.round(img.height * k)
+      c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height)
+      URL.revokeObjectURL(url)
+      resolve(c.toDataURL('image/jpeg', quality))
+    }
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error('image illisible'))
+    }
+    img.src = url
+  })
+}

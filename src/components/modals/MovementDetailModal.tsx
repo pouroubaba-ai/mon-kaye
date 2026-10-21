@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom'
 import React, { useState } from 'react'
 import { PAYMENT_LABELS } from '@/components/movement-history'
 import { currentPeriod, payrollOf } from '@/data/payroll'
@@ -31,6 +32,7 @@ export const MovementDetailModal: React.FC = () => {
   // Trop versé : la question posée avant d'appliquer l'annulation ou le retour.
   const [excessAsk, setExcessAsk] = useState<{ amount: number; apply: (c: ExcessChoice) => void } | null>(null)
   const [copySuccess, setCopySuccess] = useState(false)
+  const [zoom, setZoom] = useState(false) // photo jointe affichée en grand
 
   // Nouvelle opération affichée : on referme les panneaux en cours.
   React.useEffect(() => {
@@ -38,6 +40,7 @@ export const MovementDetailModal: React.FC = () => {
     setCancelReason('')
     setReturnStr('')
     setExcessAsk(null)
+    setZoom(false)
   }, [selectedMovement?.id])
 
   if (!selectedMovement) return null
@@ -210,12 +213,17 @@ export const MovementDetailModal: React.FC = () => {
               </div>
             )}
 
-            {selectedMovement.receiptPhoto && (
+            {/* Photo jointe : toucher pour la voir en grand */}
+            {selectedMovement.receiptPhoto?.startsWith('data:image') ? (
+              <button type="button" onClick={() => setZoom(true)} className="block w-full overflow-hidden rounded-lg border">
+                <img src={selectedMovement.receiptPhoto} alt="Photo jointe" className="max-h-56 w-full object-cover" />
+              </button>
+            ) : selectedMovement.receiptPhoto ? (
               <div className="p-2.5 rounded-lg border bg-muted/20 flex items-center gap-2 text-xs text-foreground font-semibold">
                 <Camera className="w-4 h-4 text-primary" />
-                Photo du reçu / bordereau archivée
+                Photo jointe
               </div>
-            )}
+            ) : null}
           </div>
 
           {/* Crédit : les retours de marchandise déjà faits dessus */}
@@ -375,6 +383,21 @@ export const MovementDetailModal: React.FC = () => {
           )}
 
         </div>
+        {zoom &&
+          selectedMovement?.receiptPhoto &&
+          createPortal(
+            // Photo en grand, par-dessus tout (hors de la fenêtre) : toucher n'importe où pour fermer
+            <button
+              type="button"
+              aria-label="Fermer la photo"
+              onClick={() => setZoom(false)}
+              style={{ pointerEvents: 'auto' }}
+              className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90 p-4"
+            >
+              <img src={selectedMovement.receiptPhoto} alt="Photo jointe" className="max-h-full max-w-full rounded-lg object-contain" />
+            </button>,
+            document.body
+          )}
       </DialogContent>
     </Dialog>
   )
