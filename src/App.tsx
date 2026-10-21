@@ -102,12 +102,19 @@ type Phase =
   | { k: 'loading' }
   | { k: 'out'; mode: AuthMode }
   | { k: 'setup'; uid: string; name: string }
-  | { k: 'ready'; uid: string; data: StoreData; persist: (d: StoreData) => void }
+  | { k: 'ready'; uid: string; v?: number; data: StoreData; persist: (d: StoreData) => void }
   | { k: 'error' }
 
-// Pendant le chargement : un fond uni, caché par l'écran « kayé » (un seul écran au démarrage)
+// Pendant le chargement (très court) : un fond uni de la couleur du thème choisi, pas d'écran noir
 function Loading() {
-  return <div className="min-h-dvh bg-[#0B0C0F]" />
+  let light = false
+  try {
+    const t = localStorage.getItem('kaye.theme')
+    light = t ? t === 'light' : !!window.matchMedia?.('(prefers-color-scheme: light)').matches
+  } catch {
+    /* thème par défaut : sombre */
+  }
+  return <div className="min-h-dvh" style={{ background: light ? '#ffffff' : '#0B0C0F' }} />
 }
 
 export function App() {
@@ -126,17 +133,40 @@ export function App() {
         return
       }
       setPhase({ k: 'loading' })
+      // Ouvre l'app avec un compte chargé
+      const open = (d: Awaited<ReturnType<typeof loadShop>> & object, v: number) => {
+        const data: StoreData = { shop: { name: d.shop.name }, persons: d.persons, movements: d.movements, monthStates: d.monthStates }
+        const p = makePersister(user.uid, d)
+        // L'ancien code PIN, s'il existe encore en ligne, est effacé au premier enregistrement
+        const persist = Object.assign((x: StoreData) => p({ ...x, shop: { name: x.shop.name, createdAt: d.shop.createdAt } }), { touched: p.touched })
+        setPhase({ k: 'ready', uid: user.uid, v, data, persist })
+        return persist
+      }
       try {
+        // 1. Tout de suite : les comptes gardés sur le téléphone (pas d'attente du réseau)
+        const local = await loadShop(user.uid, 'cache').catch(() => null)
+        if (local) {
+          if (authModeOf(path)) window.history.replaceState(null, '', '/')
+          const persist = open(local, 0)
+          // 2. Ensuite, sans bloquer : la version en ligne (changements faits sur un autre téléphone).
+          //    Si elle est différente et que rien n'a été changé ici entre-temps, elle remplace l'affichage.
+          loadShop(user.uid, 'server')
+            .then(online => {
+              if (!online || persist.touched()) return
+              const same = (x: typeof local) => JSON.stringify([x.shop.name, x.persons, x.movements, x.monthStates])
+              if (same(online) !== same(local)) open(online, 1)
+            })
+            .catch(() => {})
+          return
+        }
+        // Rien sur le téléphone (première connexion) : on attend la version en ligne
         const d = await loadShop(user.uid)
         if (!d) {
           setPhase({ k: 'setup', uid: user.uid, name: pendingName.current || user.displayName || '' })
           return
         }
         if (authModeOf(path)) window.history.replaceState(null, '', '/')
-        const data: StoreData = { shop: { name: d.shop.name }, persons: d.persons, movements: d.movements, monthStates: d.monthStates }
-        const persist = makePersister(user.uid, d)
-        // L'ancien code PIN, s'il existe encore en ligne, est effacé au premier enregistrement
-        setPhase({ k: 'ready', uid: user.uid, data, persist: (x: StoreData) => persist({ ...x, shop: { name: x.shop.name, createdAt: d.shop.createdAt } }) })
+        open(d, 0)
       } catch (e) {
         console.error('[Kayé] Chargement du compte', e)
         setPhase({ k: 'error' })
@@ -212,7 +242,7 @@ export function App() {
     )
   } else {
     body = (
-      <StoreProvider key={phase.uid} data={phase.data} persist={phase.persist} onLogout={() => void logOut()}>
+      <StoreProvider key={`${phase.uid}-${phase.v ?? 0}`} data={phase.data} persist={phase.persist} onLogout={() => void logOut()}>
         <AppContent />
       </StoreProvider>
     )

@@ -15,7 +15,11 @@ import {
   collection,
   doc,
   getDoc,
+  getDocFromCache,
+  getDocFromServer,
   getDocs,
+  getDocsFromCache,
+  getDocsFromServer,
   initializeFirestore,
   persistentLocalCache,
   persistentMultipleTabManager,
@@ -101,19 +105,30 @@ export type CloudData = {
   monthStates: Record<string, 'arrete' | 'annule'>
 }
 
-export async function loadShop(uid: string): Promise<CloudData | null> {
-  const shopSnap = await getDoc(doc(db, 'shops', uid))
+// source « cache » : seulement ce qui est gardé sur le téléphone (instantané, sans réseau) ;
+// « server » : seulement la version en ligne ; par défaut : en ligne si possible, sinon le téléphone.
+export async function loadShop(uid: string, source: 'cache' | 'server' | 'default' = 'default'): Promise<CloudData | null> {
+  const one = source === 'cache' ? getDocFromCache : source === 'server' ? getDocFromServer : getDoc
+  const many = source === 'cache' ? getDocsFromCache : source === 'server' ? getDocsFromServer : getDocs
+  let shopSnap
+  try {
+    shopSnap = await one(doc(db, 'shops', uid))
+  } catch (e) {
+    if (source === 'cache') return null // rien sur le téléphone
+    throw e
+  }
   if (!shopSnap.exists()) return null
+  const monthsRef = doc(db, 'shops', uid, 'meta', 'months')
   const [ps, ms, months] = await Promise.all([
-    getDocs(collection(db, 'shops', uid, 'persons')),
-    getDocs(collection(db, 'shops', uid, 'movements')),
-    getDoc(doc(db, 'shops', uid, 'meta', 'months')),
+    many(collection(db, 'shops', uid, 'persons')),
+    many(collection(db, 'shops', uid, 'movements')),
+    one(monthsRef).catch(() => null),
   ])
   return {
     shop: shopSnap.data() as ShopDoc,
     persons: ps.docs.map(d => d.data() as Person),
     movements: ms.docs.map(d => d.data() as Movement),
-    monthStates: (months.data()?.states ?? {}) as CloudData['monthStates'],
+    monthStates: (months?.data()?.states ?? {}) as CloudData['monthStates'],
   }
 }
 
@@ -132,6 +147,7 @@ export function makePersister(uid: string, start: CloudData) {
   }
   let timer: number | undefined
   let pending: CloudData | null = null
+  let touched = false // un changement a été fait sur ce téléphone depuis le chargement
 
   const flush = async () => {
     const snap = pending
@@ -174,6 +190,7 @@ export function makePersister(uid: string, start: CloudData) {
         ops.push({ kind: 'delete', path: ['shops', uid, 'movements', id] })
         last.movements.delete(id)
       }
+    if (ops.length > 0) touched = true
     // Firestore : 500 écritures au plus par paquet
     for (let i = 0; i < ops.length; i += 450) {
       const batch = writeBatch(db)
@@ -194,11 +211,13 @@ export function makePersister(uid: string, start: CloudData) {
   window.addEventListener('pagehide', now)
   document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && now())
 
-  return (snap: CloudData) => {
+  const persist = (snap: CloudData) => {
     pending = snap
     window.clearTimeout(timer)
     timer = window.setTimeout(flush, 400)
   }
+  persist.touched = () => touched || pending !== null
+  return persist
 }
 
 export type { User }
