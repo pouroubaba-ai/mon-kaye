@@ -344,6 +344,12 @@ export const MovementDetailModal: React.FC = () => {
                 </form>
               ) : panel === 'annuler' ? (
                 <form onSubmit={handleConfirmCancel} className="space-y-2 p-3 border border-destructive/30 rounded-xl bg-destructive/5">
+                  {mov.paymentMethod === 'compensation' && mov.linkedMovementId && (
+                    <p className="text-xs text-foreground">
+                      Ce versement vient d'une compensation. Si vous l'annulez, le versement de l'autre compte sera annulé aussi : les deux comptes remontent de{' '}
+                      <span className="font-semibold whitespace-nowrap">{formatFCFA(mov.amount)}</span>.
+                    </p>
+                  )}
                   <span className="text-xs font-bold text-destructive block">
                     Motif obligatoire de l'annulation :
                   </span>

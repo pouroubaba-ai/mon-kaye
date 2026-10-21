@@ -17,7 +17,7 @@ import { formatFCFA } from '@/lib/utils'
 // Envoyée en PDF : le partage du téléphone s'ouvre (WhatsApp, e-mail…), ou le PDF est téléchargé.
 
 type Side = { title: string; hint: string; credit: Movement['type']; pay: Movement['type']; ret: Movement['type']; reste: number }
-type Row = { m: Movement; minus: boolean; label: string; solde: number }
+type Row = { m: Movement; minus: boolean; label: string; solde: number; off: boolean }
 
 const shortDate = (d: string) => `${d.slice(0, 6)}${d.slice(8, 10)}` // 05/10/2026 → 05/10/26
 const amount = (v: number) => formatFCFA(v).replace(/\s?FCFA$/, '')
@@ -27,7 +27,9 @@ const pdfText = (s: string) => s.replace(/[  ]/g, ' ').replace(/−/g, '-')
 export function StatementDialog({ person, open, onOpenChange }: { person: Person; open: boolean; onOpenChange: (o: boolean) => void }) {
   const { movements, shop } = useStore()
   const [busy, setBusy] = React.useState(false)
-  const mine = movements.filter(m => m.personId === person.id && !m.isCancelled)
+  // Les versements annulés restent sur la fiche (barrés, sans changer le solde) ; les autres annulés n'y sont pas.
+  const isPay = (m: Movement) => m.type === 'il_m_a_verse' || m.type === 'je_lui_ai_verse'
+  const mine = movements.filter(m => m.personId === person.id && (!m.isCancelled || isPay(m)))
   const today = new Date().toLocaleDateString('fr-FR')
 
   const sides: Side[] = [
@@ -49,22 +51,27 @@ export function StatementDialog({ person, open, onOpenChange }: { person: Person
       .sort((a, b) => toTime(a.m.date) - toTime(b.m.date) || b.i - a.i)
       .map(({ m }) => {
         const minus = m.type !== s.credit
-        solde = Math.max(0, solde + (minus ? -m.amount : m.amount))
+        const off = !!m.isCancelled
+        if (!off) solde = Math.max(0, solde + (minus ? -m.amount : m.amount))
         const label =
           m.type === s.credit
             ? (m.label || 'Crédit').replace(/^.*? — /, '') // « A pris à crédit — 2 sacs » → « 2 sacs »
             : m.type === s.ret
               ? retourLabel(m)
               : m.paymentMethod === 'compensation'
-                ? 'Compensation'
-                : `Versement · ${PAYMENT_LABELS[m.paymentMethod || 'especes']}`
-        return { m, minus, label, solde }
+                ? off
+                  ? 'Compensation (annulée)'
+                  : 'Compensation'
+                : off
+                  ? 'Versement (annulé)'
+                  : `Versement · ${PAYMENT_LABELS[m.paymentMethod || 'especes']}`
+        return { m, minus, label, solde, off }
       })
   }
   const shown = sides
     .map(s => {
       const lines = linesOf(s)
-      const sum = (t: Movement['type']) => lines.filter(l => l.m.type === t).reduce((a, l) => a + l.m.amount, 0)
+      const sum = (t: Movement['type']) => lines.filter(l => l.m.type === t && !l.off).reduce((a, l) => a + l.m.amount, 0)
       return { s, lines, total: sum(s.credit), verse: sum(s.pay), retours: sum(s.ret) }
     })
     .filter(x => x.lines.length > 0)
@@ -146,8 +153,15 @@ export function StatementDialog({ person, open, onOpenChange }: { person: Person
         while (doc.getTextWidth(label) > cx.mt - cx.op - 30 && label.length > 4) label = label.slice(0, -2)
         if (label !== pdfText(l.label)) label = label.trimEnd() + '…'
         txt(shortDate(l.m.date), cx.date, y + 4.8, { size: 9, color: grey })
-        txt(label, cx.op, y + 4.8, { size: 9 })
-        txt(`${l.minus ? '- ' : ''}${amount(l.m.amount)}`, cx.mt, y + 4.8, { size: 9, align: 'right', color: l.minus ? green : [20, 20, 22] })
+        txt(label, cx.op, y + 4.8, { size: 9, color: l.off ? grey : undefined })
+        const mt = `${l.minus ? '- ' : ''}${amount(l.m.amount)}`
+        txt(mt, cx.mt, y + 4.8, { size: 9, align: 'right', color: l.off ? grey : l.minus ? green : [20, 20, 22] })
+        if (l.off) {
+          // montant barré : le versement annulé ne compte pas
+          doc.setDrawColor(...grey)
+          doc.setLineWidth(0.3)
+          doc.line(cx.mt - doc.getTextWidth(pdfText(mt)) - 0.5, y + 3.6, cx.mt + 0.5, y + 3.6)
+        }
         txt(amount(l.solde), cx.so, y + 4.8, { size: 9, align: 'right', bold: true })
         y += 7
       })
@@ -240,8 +254,8 @@ export function StatementDialog({ person, open, onOpenChange }: { person: Person
                     {lines.map((l, i) => (
                       <div key={l.m.id} className={`grid grid-cols-[3.2rem_1fr_auto_auto] items-baseline gap-2 px-2 py-1.5 ${i % 2 ? 'bg-neutral-50' : ''}`}>
                         <span className="text-neutral-500 tabular-nums">{shortDate(l.m.date)}</span>
-                        <span className="min-w-0 break-words">{l.label}</span>
-                        <span className={`text-right tabular-nums ${l.minus ? 'text-green-700' : ''}`}>
+                        <span className={`min-w-0 break-words ${l.off ? 'text-neutral-500' : ''}`}>{l.label}</span>
+                        <span className={`text-right tabular-nums ${l.off ? 'text-neutral-400 line-through' : l.minus ? 'text-green-700' : ''}`}>
                           {l.minus ? '− ' : ''}
                           {amount(l.m.amount)}
                         </span>
