@@ -97,7 +97,8 @@ export function authError(e: unknown): string {
 // shops/{uid}/persons/{id}    personnes et employés
 // shops/{uid}/movements/{id}  toutes les opérations
 // shops/{uid}/meta/months     état des mois (arrêté, annulé)
-export type ShopDoc = { name: string; createdAt?: string }
+// modules : les modules allumés par le commerçant (gardés dans le compte, retrouvés à chaque connexion)
+export type ShopDoc = { name: string; createdAt?: string; modules?: { personnes: boolean; employes: boolean } }
 export type CloudData = {
   shop: ShopDoc
   persons: Person[]
@@ -133,7 +134,8 @@ export async function loadShop(uid: string, source: 'cache' | 'server' | 'defaul
 }
 
 export async function createShop(uid: string, name: string) {
-  await setDoc(doc(db, 'shops', uid), { name, createdAt: new Date().toISOString() })
+  // Compte neuf : seul le module Partenaires est allumé
+  await setDoc(doc(db, 'shops', uid), { name, createdAt: new Date().toISOString(), modules: { personnes: true, employes: false } })
 }
 
 // Enregistre seulement ce qui a changé depuis la dernière fois (par petits paquets, sans bloquer l'écran).

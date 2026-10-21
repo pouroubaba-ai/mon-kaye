@@ -179,14 +179,28 @@ export function buildPath(s: Screen, persons: Person[]): string {
 }
 // Données d'un vrai compte (venues de Firebase) ; sans elles : la démonstration
 export type StoreData = {
-  shop: { name: string }
+  shop: { name: string; modules?: Modules }
   persons: Person[]
   movements: Movement[]
   monthStates: Record<string, 'arrete' | 'annule'>
 }
-// Par défaut : Personnes seulement. Le choix est gardé sur l'appareil.
+// Par défaut : Personnes seulement. Le choix est enregistré dans le compte (et gardé aussi sur l'appareil).
 const DEFAULT_MODULES: Modules = { personnes: true, employes: false }
 const MODULES_KEY = 'kaye.modules'
+export const NEW_ACCOUNT_MODULES = DEFAULT_MODULES
+const cleanModules = (m: Partial<Modules>): Modules => {
+  const out = { personnes: m.personnes !== false, employes: m.employes === true }
+  return out.personnes || out.employes ? out : DEFAULT_MODULES
+}
+const saveModulesLocal = (m: Modules) => {
+  try {
+    localStorage.setItem(MODULES_KEY, JSON.stringify(m))
+  } catch {
+    /* rien */
+  }
+}
+// Compte neuf sur ce téléphone : on repart de Partenaires seulement
+export const resetModulesLocal = () => saveModulesLocal(DEFAULT_MODULES)
 const loadModules = (): Modules => {
   try {
     const raw = localStorage.getItem(MODULES_KEY)
@@ -208,7 +222,9 @@ export const StoreProvider: React.FC<{
   const [shop, setShop] = useState(() => (data ? { ...INITIAL_SHOP, owner: '', phone: '', address: '', name: data.shop.name } : INITIAL_SHOP))
   // Écran au démarrage : celui de l'adresse (actualiser garde l'écran)
   const startRef = React.useRef<Screen | null>(null)
-  const startScreen = () => (startRef.current ??= parsePath(window.location.pathname, loadModules(), data ? data.persons : INITIAL_PERSONS))
+  // Modules : ceux enregistrés dans le compte ; un ancien compte qui n'en a pas encore reprend ceux du téléphone
+  const initialModules = React.useRef<Modules>(data?.shop.modules ? cleanModules(data.shop.modules) : loadModules()).current
+  const startScreen = () => (startRef.current ??= parsePath(window.location.pathname, initialModules, data ? data.persons : INITIAL_PERSONS))
   // Thème gardé sur l'appareil ; la première fois, celui du téléphone (sombre par défaut)
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     try {
@@ -238,7 +254,8 @@ export const StoreProvider: React.FC<{
   }
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(() => startScreen().person)
 
-  const [modules, setModules] = useState<Modules>(loadModules)
+  const [modules, setModules] = useState<Modules>(initialModules)
+  React.useEffect(() => saveModulesLocal(modules), [modules])
   const setModule: StoreContextType['setModule'] = (key, on) => {
     const next = { ...modules, [key]: on }
     if (!next.personnes && !next.employes) return // au moins un module allumé
@@ -270,8 +287,8 @@ export const StoreProvider: React.FC<{
   })
   // Vrai compte : chaque changement est enregistré (sur le téléphone, puis en ligne)
   React.useEffect(() => {
-    persist?.({ shop: { name: shop.name }, persons, movements, monthStates })
-  }, [shop.name, persons, movements, monthStates])
+    persist?.({ shop: { name: shop.name, modules }, persons, movements, monthStates })
+  }, [shop.name, modules, persons, movements, monthStates])
   // Nouveau mois : chaque employé actif commence le mois avec son salaire entier
   React.useEffect(() => {
     const extra = missingMonths(persons, movements, monthStates)

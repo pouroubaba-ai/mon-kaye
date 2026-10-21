@@ -17,7 +17,7 @@ import { SetupScreen } from '@/components/screens/SetupScreen'
 import { Button } from '@/components/ui/button'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth, authError, createShop, loadShop, logOut, makePersister, resetPassword, signInApple, signInEmail, signInGoogle, signUpEmail } from '@/lib/firebase'
-import type { StoreData } from '@/data/store'
+import { resetModulesLocal, type StoreData } from '@/data/store'
 import { SplashScreen } from '@/components/splash-screen'
 import { PullToRefresh } from '@/components/pull-to-refresh'
 import { EmployeesMonthScreen } from '@/components/screens/EmployeesMonthScreen'
@@ -135,10 +135,10 @@ export function App() {
       setPhase({ k: 'loading' })
       // Ouvre l'app avec un compte chargé
       const open = (d: Awaited<ReturnType<typeof loadShop>> & object, v: number) => {
-        const data: StoreData = { shop: { name: d.shop.name }, persons: d.persons, movements: d.movements, monthStates: d.monthStates }
+        const data: StoreData = { shop: { name: d.shop.name, modules: d.shop.modules }, persons: d.persons, movements: d.movements, monthStates: d.monthStates }
         const p = makePersister(user.uid, d)
         // L'ancien code PIN, s'il existe encore en ligne, est effacé au premier enregistrement
-        const persist = Object.assign((x: StoreData) => p({ ...x, shop: { name: x.shop.name, createdAt: d.shop.createdAt } }), { touched: p.touched })
+        const persist = Object.assign((x: StoreData) => p({ ...x, shop: { name: x.shop.name, createdAt: d.shop.createdAt, modules: x.shop.modules } }), { touched: p.touched })
         setPhase({ k: 'ready', uid: user.uid, v, data, persist })
         return persist
       }
@@ -153,7 +153,7 @@ export function App() {
           loadShop(user.uid, 'server')
             .then(online => {
               if (!online || persist.touched()) return
-              const same = (x: typeof local) => JSON.stringify([x.shop.name, x.persons, x.movements, x.monthStates])
+              const same = (x: typeof local) => JSON.stringify([x.shop.name, x.shop.modules, x.persons, x.movements, x.monthStates])
               if (same(online) !== same(local)) open(online, 1)
             })
             .catch(() => {})
@@ -222,10 +222,12 @@ export function App() {
         onDone={async name => {
           // Enregistré tout de suite sur le téléphone ; part en ligne dès que possible (on n'attend pas le réseau)
           createShop(uid, name).catch(e => console.error('[Kayé] Création de la boutique', e))
-          const empty = { shop: { name }, persons: [], movements: [], monthStates: {} }
+          // Compte neuf : Partenaires seulement, même si ce téléphone a servi à un autre compte
+          resetModulesLocal()
+          const empty = { shop: { name, createdAt: new Date().toISOString(), modules: { personnes: true, employes: false } }, persons: [], movements: [], monthStates: {} }
           const persist = makePersister(uid, empty)
           window.history.replaceState(null, '', '/')
-          setPhase({ k: 'ready', uid, data: empty, persist: (x: StoreData) => persist({ ...x, shop: { ...x.shop } }) })
+          setPhase({ k: 'ready', uid, data: empty, persist: (x: StoreData) => persist({ ...x, shop: { ...x.shop, createdAt: empty.shop.createdAt } }) })
         }}
       />
     )
