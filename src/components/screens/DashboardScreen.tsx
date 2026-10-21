@@ -1,12 +1,12 @@
 import React from 'react'
-import { Label, Pie, PieChart, Sector, type PieSectorDataItem } from 'recharts'
+import { Label, Pie, PieChart } from 'recharts'
 import { ArrowDownLeft, ArrowUpRight, ChevronRight } from 'lucide-react'
 
 import { useStore } from '@/data/store'
 import { payrollOf } from '@/data/payroll'
 import { PaidLine } from '@/components/paid-line'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
+import { ChartContainer, type ChartConfig } from '@/components/ui/chart'
 import { formatFCFA } from '@/lib/utils'
 
 // Tableau de bord léger :
@@ -110,7 +110,9 @@ function DonutCard({
       <CardContent className="flex flex-col gap-5">
         <ChartContainer
           config={config}
-          className="mx-auto aspect-square h-[220px]"
+          // Simple lecture : pas de toucher sur le graphique (sur iPhone, un graphique qui réagit au
+          // toucher obligeait à toucher deux fois les onglets du bas)
+          className="pointer-events-none mx-auto aspect-square h-[220px]"
           style={{ filter: `drop-shadow(0 0 18px color-mix(in oklch, ${base} 28%, transparent))` }}
         >
           <PieChart>
@@ -122,7 +124,6 @@ function DonutCard({
                 </linearGradient>
               ))}
             </defs>
-            <ChartTooltip cursor={false} content={<ChartTooltipContent formatter={formatFCFA} />} />
             {/* Fond : l'anneau complet, très discret */}
             <Pie
               data={[{ key: 'fond', value: 1 }]}
@@ -145,7 +146,6 @@ function DonutCard({
               paddingAngle={data.length > 1 ? 4 : 0}
               cornerRadius={data.length > 1 ? 10 : 0}
               stroke="none"
-              activeShape={(props: PieSectorDataItem) => <Sector {...props} outerRadius={(props.outerRadius ?? 96) + 6} />}
               isAnimationActive
               animationBegin={delay + 150}
               animationDuration={1000}
@@ -204,7 +204,7 @@ export const DashboardScreen: React.FC = () => {
 
   const partners = persons.filter(p => p.type === 'partner')
   const employees = persons.filter(p => p.type === 'employee')
-  const PEOPLE: [string, string] = ['personne', 'personnes']
+  const PEOPLE: [string, string] = ['partenaire', 'partenaires']
   const STAFF: [string, string] = ['employé', 'employés']
   // Un module coupé n'apparaît pas (ses données restent)
   const nOwesMe = modules.personnes ? partners.filter(p => (p.owesMe || 0) > 0).length : 0
@@ -249,7 +249,7 @@ export const DashboardScreen: React.FC = () => {
           unit={modules.personnes ? PEOPLE : STAFF}
           people={owesMePeople}
           slices={[
-            { key: 'partenaires', label: 'Personnes', value: totals.partnersOwesMe, color: 'var(--color-credit)', count: nOwesMe, unit: PEOPLE },
+            { key: 'partenaires', label: 'Partenaires', value: totals.partnersOwesMe, color: 'var(--color-credit)', count: nOwesMe, unit: PEOPLE },
             { key: 'avances', label: 'Avances', value: totals.employeesAdvanceOwed, color: modules.personnes ? 'color-mix(in oklch, var(--color-credit) 45%, transparent)' : 'var(--color-credit)', count: nAdvances, unit: STAFF },
           ].filter(s => on(s.key))}
         />
@@ -260,7 +260,7 @@ export const DashboardScreen: React.FC = () => {
           unit={modules.personnes ? PEOPLE : STAFF}
           people={iOwePeople}
           slices={[
-            { key: 'partenaires', label: 'Personnes', value: totals.partnersIOwe, color: 'var(--color-debt)', count: nIOwe, unit: PEOPLE },
+            { key: 'partenaires', label: 'Partenaires', value: totals.partnersIOwe, color: 'var(--color-debt)', count: nIOwe, unit: PEOPLE },
             { key: 'salaires', label: 'Salaires', value: totals.employeesSalaryDue, color: modules.personnes ? 'color-mix(in oklch, var(--color-debt) 45%, transparent)' : 'var(--color-debt)', count: nSalaries, unit: STAFF },
           ].filter(s => on(s.key))}
         />
