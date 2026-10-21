@@ -22,6 +22,9 @@ export function PullToRefresh() {
   React.useEffect(() => {
     if (!standalone()) return
     const onStart = (e: TouchEvent) => {
+      // Un toucher sur la barre du bas (onglets, « + ») ou un champ n'est jamais un geste d'actualisation
+      const t = e.target as Element | null
+      if (t?.closest?.('nav, input, textarea, select')) return
       if (window.scrollY > 0 || document.querySelector('[role="dialog"]') || e.touches.length !== 1) return
       start.current = e.touches[0].clientY
     }
@@ -29,10 +32,14 @@ export function PullToRefresh() {
       if (start.current === null) return
       const d = e.touches[0].clientY - start.current
       if (d <= 0 || window.scrollY > 0) {
-        pullRef.current = 0
-        setPull(0)
+        if (pullRef.current !== 0) {
+          pullRef.current = 0
+          setPull(0)
+        }
         return
       }
+      // Un léger tremblement du doigt n'est pas un geste : rien ne bouge avant 15 px
+      if (d < 15 && pullRef.current === 0) return
       // Résistance : le cercle descend moins vite que le doigt
       const v = Math.min(MAX, d * 0.5)
       pullRef.current = v
@@ -45,15 +52,15 @@ export function PullToRefresh() {
         setBusy(true)
         setPull(THRESHOLD)
         window.setTimeout(() => window.location.reload(), 250)
-      } else {
+      } else if (pullRef.current !== 0) {
         pullRef.current = 0
         setPull(0)
       }
     }
     window.addEventListener('touchstart', onStart, { passive: true })
     window.addEventListener('touchmove', onMove, { passive: true })
-    window.addEventListener('touchend', onEnd)
-    window.addEventListener('touchcancel', onEnd)
+    window.addEventListener('touchend', onEnd, { passive: true })
+    window.addEventListener('touchcancel', onEnd, { passive: true })
     return () => {
       window.removeEventListener('touchstart', onStart)
       window.removeEventListener('touchmove', onMove)
