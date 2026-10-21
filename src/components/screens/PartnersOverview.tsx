@@ -17,11 +17,11 @@ const PEOPLE: [string, string] = ['personne', 'personnes']
 export const PartnersOverview: React.FC<{ side: 'leurs' | 'mes' }> = ({ side }) => {
   const { persons, movements } = useStore()
   // Dernier versement encore valable (un versement annulé ne compte pas)
-  const lastPay = (p: (typeof persons)[number], type: 'il_m_a_verse' | 'je_lui_ai_verse', fallback?: string) => {
-    const mine = movements.filter(m => m.personId === p.id && m.type === type)
-    const live = mine.filter(m => !m.isCancelled).sort((a, b) => toTime(b.date) - toTime(a.date))
-    return live[0]?.date ?? (mine.length ? undefined : fallback)
-  }
+  // Toujours d'après l'historique : aucun versement → « jamais »
+  const lastPay = (p: (typeof persons)[number], type: 'il_m_a_verse' | 'je_lui_ai_verse') =>
+    movements
+      .filter(m => m.personId === p.id && m.type === type && !m.isCancelled)
+      .sort((a, b) => toTime(b.date) - toTime(a.date))[0]?.date
   // Déjà versé sur un compte (versements encore valables)
   const paidOf = (p: (typeof persons)[number], type: 'il_m_a_verse' | 'je_lui_ai_verse') =>
     movements.filter(m => m.personId === p.id && m.type === type && !m.isCancelled).reduce((a, m) => a + m.amount, 0)
@@ -32,11 +32,11 @@ export const PartnersOverview: React.FC<{ side: 'leurs' | 'mes' }> = ({ side }) 
 
   const owesMeRows: DayRow[] = selected
     .filter(p => (p.owesMe || 0) > 0)
-    .map(p => ({ id: p.id, name: p.name, days: daysSince(lastPay(p, 'il_m_a_verse', p.lastPaymentDate)) ?? -1, amount: p.owesMe || 0, role: p.role, paid: paidOf(p, 'il_m_a_verse') }))
+    .map(p => ({ id: p.id, name: p.name, days: daysSince(lastPay(p, 'il_m_a_verse')) ?? -1, amount: p.owesMe || 0, role: p.role, paid: paidOf(p, 'il_m_a_verse') }))
 
   const iOweRows: DayRow[] = selected
     .filter(p => (p.iOweHim || 0) > 0)
-    .map(p => ({ id: p.id, name: p.name, days: daysSince(lastPay(p, 'je_lui_ai_verse', p.lastPaidByMeDate)) ?? -1, amount: p.iOweHim || 0, role: p.role, paid: paidOf(p, 'je_lui_ai_verse') }))
+    .map(p => ({ id: p.id, name: p.name, days: daysSince(lastPay(p, 'je_lui_ai_verse')) ?? -1, amount: p.iOweHim || 0, role: p.role, paid: paidOf(p, 'je_lui_ai_verse') }))
 
   return (
     <div className="flex flex-col gap-4">

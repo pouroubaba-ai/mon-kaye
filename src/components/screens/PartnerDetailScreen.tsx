@@ -50,9 +50,10 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
     const [dd, mm, yy] = d.split('/').map(Number)
     return new Date(yy, mm - 1, dd).getTime()
   }
-  const lastDateOf = (t: string, fallback?: string) => {
+  // Toujours d'après l'historique (annulés exclus)
+  const lastDateOf = (t: string) => {
     const dates = partnerMovements.filter(m => m.type === t && !m.isCancelled).map(m => m.date)
-    if (!dates.length) return fallback
+    if (!dates.length) return undefined
     return dates.sort((a, b) => toTime(b) - toTime(a))[0]
   }
   const days = (d?: string) => (d ? daysSince(d) : null)
@@ -102,8 +103,8 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
             onClick={() => setView('lui')}
             remaining={owesMe}
             paid={paidToMe}
-            totalDays={days(lastDateOf('il_a_pris_credit', partner.lastCreditToHimDate))}
-            paidDays={days(lastDateOf('il_m_a_verse', partner.lastPaymentDate))}
+            totalDays={days(lastDateOf('il_a_pris_credit'))}
+            paidDays={days(lastDateOf('il_m_a_verse'))}
           />
           <BalanceCard
             title="Mon compte"
@@ -112,8 +113,8 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
             onClick={() => setView('moi')}
             remaining={iOweHim}
             paid={paidByMe}
-            totalDays={days(lastDateOf('j_ai_pris_credit', partner.lastCreditFromHimDate))}
-            paidDays={days(lastDateOf('je_lui_ai_verse', partner.lastPaidByMeDate))}
+            totalDays={days(lastDateOf('j_ai_pris_credit'))}
+            paidDays={days(lastDateOf('je_lui_ai_verse'))}
           />
         </div>
         </>

@@ -17,13 +17,13 @@ export const EmployeesOverview: React.FC<{ side: 'leurs' | 'mes' }> = ({ side })
 
   const advanceRows: DayRow[] = selected
     .filter(p => (p.advanceBalance || 0) > 0)
-    .map(p => ({ id: p.id, name: p.name, days: daysSince(p.lastAdvanceRepaymentDate) ?? 0, amount: p.advanceBalance || 0, role: p.role,
+    .map(p => ({ id: p.id, name: p.name, days: daysSince(p.lastAdvanceRepaymentDate) ?? -1, amount: p.advanceBalance || 0, role: p.role,
       paid: payrollOf(p.id, movements, monthStates).advances.filter(a => a.etat === 'En cours').reduce((a, r) => a + r.rendu, 0) }))
     .sort((a, b) => b.days - a.days)
 
   const salaryRows: DayRow[] = selected
     .filter(p => p.status === 'actif' && (p.currentSalaryDue || 0) > 0)
-    .map(p => ({ id: p.id, name: p.name, days: daysSince(p.lastSalaryPaymentDate) ?? 0, amount: p.currentSalaryDue || 0, role: p.role,
+    .map(p => ({ id: p.id, name: p.name, days: daysSince(p.lastSalaryPaymentDate) ?? -1, amount: p.currentSalaryDue || 0, role: p.role,
       paid: payrollOf(p.id, movements, monthStates).months.filter(m => m.reste > 0 && m.state !== 'en_cours').reduce((a, m) => a + m.verse, 0) }))
     .sort((a, b) => b.days - a.days)
 

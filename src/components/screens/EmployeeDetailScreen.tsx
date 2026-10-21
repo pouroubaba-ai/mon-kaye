@@ -29,7 +29,7 @@ import { cn, formatFCFA } from '@/lib/utils'
 const TAB = 'gap-1 px-1.5 text-[13px] min-[400px]:text-sm'
 const ago = (d?: string) => {
   const n = d ? daysSince(d) : null
-  return n === null || n === undefined ? '—' : n === 0 ? "aujourd'hui" : n === 1 ? 'hier' : `il y a ${n} j`
+  return n === null || n === undefined ? 'jamais' : n === 0 ? "aujourd'hui" : n === 1 ? 'hier' : `il y a ${n} j`
 }
 
 const ETAT_STYLE: Record<string, string> = {

@@ -308,6 +308,7 @@ export function payrollOf(
     advances: advRows.reverse(),
     repayments: [...repayments].sort(byDateDesc),
     advanceReste,
+    // Le dernier versement de l'historique des remboursements (annulés exclus)
     lastRepayment: lastOf(repayments),
     surplus,
     plannedRetenue,
@@ -327,8 +328,9 @@ export function syncEmployee(p: Person, movements: Movement[], monthStates: Reco
     // n'est due qu'à son échéance (la même règle partout : fiche, tableau de bord, page Salaires).
     currentSalaryDue: pr.dueReste,
     advanceBalance: pr.advanceReste,
-    lastSalaryPaymentDate: pr.lastPayment ?? p.lastSalaryPaymentDate,
-    lastAdvanceRepaymentDate: pr.lastRepayment ?? p.lastAdvanceRepaymentDate,
+    // Toujours d'après l'historique ; aucun versement → rien (affiché « jamais »)
+    lastSalaryPaymentDate: pr.lastPayment,
+    lastAdvanceRepaymentDate: pr.lastRepayment,
   }
 }
 
