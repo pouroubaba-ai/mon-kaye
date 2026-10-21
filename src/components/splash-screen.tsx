@@ -21,22 +21,18 @@ const FADE_MS = 200
 // Décidé une seule fois, au chargement de l'app
 const SHOW_SPLASH = firstOpenOfSession()
 
-// ready : l'app a fini de charger (compte et données). L'écran « kayé » reste affiché tant qu'elle
-// n'est pas prête : un seul écran au démarrage, jamais deux à la suite.
+// ready : l'app a fini de charger (compte et données). À l'ouverture de l'app, l'écran « kayé » reste
+// affiché tant qu'elle n'est pas prête (un seul écran, jamais deux à la suite).
+// En actualisant : pas d'écran « kayé » du tout.
 export function SplashScreen({ ready = true }: { ready?: boolean }) {
   const [minDone, setMinDone] = React.useState(!SHOW_SPLASH)
-  const [phase, setPhase] = React.useState<'on' | 'fading' | 'off'>(SHOW_SPLASH || !ready ? 'on' : 'off')
+  const [phase, setPhase] = React.useState<'on' | 'fading' | 'off'>(SHOW_SPLASH ? 'on' : 'off')
 
   React.useEffect(() => {
     if (minDone) return
     const t = setTimeout(() => setMinDone(true), SHOW_MS)
     return () => clearTimeout(t)
   }, [])
-
-  // Pas encore prête (même en actualisant) : l'écran revient ou reste
-  React.useEffect(() => {
-    if (!ready && phase === 'off') setPhase('on')
-  }, [ready])
 
   // Prête et le temps minimum passé : l'écran s'efface
   React.useEffect(() => {
