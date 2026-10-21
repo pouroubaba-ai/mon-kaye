@@ -1,7 +1,4 @@
 /**
- * Types publics du module Employes
+ * Types publics du module Employés
  */
-
-export interface IEmployesModule {
-  id?: string;
-}
+export type { PayMonthRow, AdvanceRow, Payroll } from './payroll'

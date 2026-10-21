@@ -1,6 +1,7 @@
 /**
- * Module Employes - API Publique
- * Ce module est étanche : les autres modules ne passent que par ses fonctions publiques exportées ici.
+ * Module Employés : salaires, périodes de paie, avances, départs.
+ * Les autres modules ne passent que par ce qui est exporté ici.
  */
-
-export * from './types';
+export * from './payroll'
+export * from './actions'
+export * from './types'

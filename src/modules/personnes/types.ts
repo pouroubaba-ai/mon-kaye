@@ -1,7 +1,4 @@
 /**
  * Types publics du module Personnes
  */
-
-export interface IPersonnesModule {
-  id?: string;
-}
+export type { Person } from '@/data/mockData'

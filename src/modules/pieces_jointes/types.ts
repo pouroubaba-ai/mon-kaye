@@ -1,7 +1,5 @@
 /**
- * Types publics du module Pieces_jointes
+ * Types publics du module Pièces jointes
  */
-
-export interface IPieces_jointesModule {
-  id?: string;
-}
+// La photo est gardée dans l'opération elle-même (Movement.receiptPhoto, en data URL).
+export type ReceiptPhoto = string

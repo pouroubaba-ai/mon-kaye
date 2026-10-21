@@ -1,7 +1,4 @@
 /**
  * Types publics du module Mouvements
  */
-
-export interface IMouvementsModule {
-  id?: string;
-}
+export type { Movement, MovementItem } from '@/data/mockData'

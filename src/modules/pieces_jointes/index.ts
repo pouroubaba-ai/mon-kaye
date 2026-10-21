@@ -1,6 +1,5 @@
 /**
- * Module Pieces_jointes - API Publique
- * Ce module est étanche : les autres modules ne passent que par ses fonctions publiques exportées ici.
+ * Module Pièces jointes : photo d'une opération (appareil photo ou galerie), réduite avant d'être gardée.
  */
-
-export * from './types';
+export { compressImage } from '@/lib/utils'
+export * from './types'

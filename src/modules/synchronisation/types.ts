@@ -1,7 +1,4 @@
 /**
  * Types publics du module Synchronisation
  */
-
-export interface ISynchronisationModule {
-  id?: string;
-}
+export type { CloudData, ShopDoc } from '@/lib/firebase'

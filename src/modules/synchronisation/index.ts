@@ -1,6 +1,6 @@
 /**
- * Module Synchronisation - API Publique
- * Ce module est étanche : les autres modules ne passent que par ses fonctions publiques exportées ici.
+ * Module Synchronisation : enregistrement en ligne (Firebase) et sur le téléphone.
+ * Le code est dans src/lib/firebase.ts ; les autres modules passent par ce qui est exporté ici.
  */
-
-export * from './types';
+export { loadShop, createShop, makePersister, type CloudData, type ShopDoc } from '@/lib/firebase'
+export * from './types'

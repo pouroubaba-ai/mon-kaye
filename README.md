@@ -1,32 +1,31 @@
-# React + TypeScript + Vite
+# Kayé — Mon kayé de compte
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Carnet de crédits, dettes et paie pour les commerçants. React 19 + TypeScript + Vite, Firebase (Auth + Firestore), déployé sur Vercel (mon-kaye.vercel.app).
 
-Currently, two official plugins are available:
+## Commandes
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm run dev      # l'app en local
+npm test         # les tests automatiques (soldes, compensations, paie, dates)
+npm run build    # vérification des types + version de production
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+`?demo` dans l'adresse ouvre l'app avec des données de démonstration, `?demo=vide` un compte neuf.
+
+## Organisation du code
+
+Les règles du métier sont dans `src/modules`, en fonctions sans effet (elles reçoivent l'état et rendent le nouvel état) :
+
+| Module | Contenu |
+| --- | --- |
+| `modules/personnes` | comptes des partenaires : crédits, versements, retours, trop versé, compensation |
+| `modules/employes` | paie : périodes (d'une échéance à l'autre), salaires, avances, retenues, arrêt, départ |
+| `modules/mouvements` | dates, identifiants, annulation (jamais de suppression), export CSV |
+| `modules/navigation` | adresses des écrans, bouton retour du téléphone |
+| `modules/reglages` | modules allumés (enregistrés dans le compte), thème |
+| `modules/synchronisation` | enregistrement Firebase (code dans `lib/firebase.ts`) |
+| `modules/pieces_jointes` | photo d'une opération |
+
+`src/data/store.tsx` relie tout : il garde l'état de l'app et applique les résultats des modules. Les écrans sont dans `src/components`.
+
+Avant chaque mise en ligne : `npm test` doit passer. Une nouvelle règle de calcul arrive avec son test (`src/test`).
