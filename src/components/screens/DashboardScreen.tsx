@@ -188,7 +188,7 @@ function DonutCard({
                   <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
                     <div className="h-full rounded-full transition-[width] duration-1000" style={{ width: `${pct}%`, background: s.color }} />
                   </div>
-                  <span className="w-9 shrink-0 text-right text-xs tabular-nums text-muted-foreground">{pct} %</span>
+                  <span className="w-11 shrink-0 text-right text-xs whitespace-nowrap tabular-nums text-muted-foreground">{pct} %</span>
                 </div>
               </div>
             )

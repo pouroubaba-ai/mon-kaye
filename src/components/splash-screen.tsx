@@ -57,7 +57,7 @@ export function SplashScreen({ ready = true }: { ready?: boolean }) {
         @keyframes kaye-in { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: none } }
         @keyframes kaye-gold { from { opacity: 0; filter: brightness(1.6) } to { opacity: 1; filter: none } }
       `}</style>
-      <div className="text-7xl leading-none font-extrabold tracking-tight" style={{ animation: 'kaye-in 300ms ease-out both' }}>
+      <div className="text-7xl leading-none font-extrabold tracking-tight" style={{ animation: 'kaye-in 300ms ease-out both', fontFamily: "'Urbanist Variable', sans-serif" }}>
         <span className="bg-[linear-gradient(135deg,#F2F4F7_0%,#B9BEC6_55%,#DDE1E6_100%)] bg-clip-text text-transparent">kay</span>
         <span
           className="bg-[linear-gradient(160deg,#FFF1BE_0%,#F2C14E_35%,#B9821F_62%,#F7D774_82%,#FFE9A0_100%)] bg-clip-text text-transparent"

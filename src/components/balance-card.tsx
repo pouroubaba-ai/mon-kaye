@@ -59,10 +59,10 @@ export function BalanceCard({
           </span>
           {title}
         </CardDescription>
-        <CardTitle className="text-3xl font-bold tabular-nums" style={{ color }}>
+        <CardTitle className="col-span-2 text-3xl font-bold whitespace-nowrap tabular-nums" style={{ color }}>
           {formatFCFA(remaining)}
         </CardTitle>
-        <CardAction className="flex items-center gap-1">
+        <CardAction className="row-span-1 flex items-center gap-1">
           <Badge variant="outline" className="tabular-nums">{total === 0 ? 'À jour' : `${paidPct} % ${paidLabel}`}</Badge>
           {onClick && <ChevronRight className="-mr-1 size-4 text-muted-foreground" />}
         </CardAction>

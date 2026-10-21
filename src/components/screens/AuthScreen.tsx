@@ -15,7 +15,7 @@ export type AuthMode = 'connexion' | 'inscription'
 
 export function Wordmark({ size = 'text-6xl' }: { size?: string }) {
   return (
-    <div className={`${size} leading-none font-extrabold tracking-tight`} aria-label="kayé">
+    <div className={`${size} leading-none font-extrabold tracking-tight`} style={{ fontFamily: "'Urbanist Variable', sans-serif" }} aria-label="kayé">
       <span className="bg-[linear-gradient(135deg,#F2F4F7_0%,#B9BEC6_55%,#DDE1E6_100%)] bg-clip-text text-transparent">kay</span>
       <span className="bg-[linear-gradient(160deg,#FFF1BE_0%,#F2C14E_35%,#B9821F_62%,#F7D774_82%,#FFE9A0_100%)] bg-clip-text text-transparent">é</span>
     </div>

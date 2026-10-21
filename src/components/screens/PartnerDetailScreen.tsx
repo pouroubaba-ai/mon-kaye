@@ -83,8 +83,8 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
           >
             <Scale className={net >= 0 ? 'size-5 shrink-0 text-credit' : 'size-5 shrink-0 text-debt'} />
             <p className="min-w-0 flex-1 text-sm">
-              {net > 0 && <>Au total, <span className="font-semibold text-credit">il vous doit {formatFCFA(net)}</span></>}
-              {net < 0 && <>Au total, <span className="font-semibold text-debt">vous lui devez {formatFCFA(-net)}</span></>}
+              {net > 0 && <>Au total, <span className="font-semibold text-credit">il vous doit <span className="whitespace-nowrap">{formatFCFA(net)}</span></span></>}
+              {net < 0 && <>Au total, <span className="font-semibold text-debt">vous lui devez <span className="whitespace-nowrap">{formatFCFA(-net)}</span></span></>}
               {net === 0 && <span className="font-semibold">Vous êtes quittes</span>}
             </p>
             <Button variant="secondary" size="sm" onClick={() => openCompensation(partner.id)}>
