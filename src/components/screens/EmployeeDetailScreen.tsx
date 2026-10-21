@@ -16,6 +16,7 @@ import { DueLine } from '@/components/paid-line'
 import { ColumnTable, type Column } from '@/components/column-table'
 import { MonthDialog } from '@/components/modals/MonthDialog'
 import { DeletePerson } from '@/components/delete-person'
+import { Segmented } from '@/components/segmented'
 import { cn, formatFCFA } from '@/lib/utils'
 
 // Fiche employé : trois onglets au même niveau, comme la fiche d'une personne.
@@ -98,7 +99,6 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
       const prev = moved.get(p.mov.id)
       moved.set(p.mov.id, { amount: (prev?.amount ?? 0) + p.amount, to: p.to, month: r.label })
     }
-  const chip = (on: boolean) => (on ? 'secondary' : 'ghost') as 'secondary' | 'ghost'
 
   return (
     <div className="flex flex-col gap-4">
@@ -165,15 +165,15 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
               </div>
             </CardContent>
           </Card>
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex gap-1">
-              <Button size="sm" variant={chip(salaryList === 'mois')} className="rounded-full" onClick={() => setSalaryList('mois')}>
-                Mois <span className="text-xs text-muted-foreground">{pr.months.length}</span>
-              </Button>
-              <Button size="sm" variant={chip(salaryList === 'versements')} className="rounded-full" onClick={() => setSalaryList('versements')}>
-                Versements <span className="text-xs text-muted-foreground">{pr.payments.filter(m => m.type !== 'surplus_salaire').length}</span>
-              </Button>
-            </div>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Segmented
+              options={[
+                { value: 'mois' as const, label: 'Mois', count: pr.months.length },
+                { value: 'versements' as const, label: 'Versements', count: pr.payments.filter(m => m.type !== 'surplus_salaire').length },
+              ]}
+              value={salaryList}
+              onChange={setSalaryList}
+            />
             {(active || salaryReste > 0) && (
               <Button size="sm" onClick={() => openNewMovement(emp.id, 'je_lui_ai_verse')}>
                 <Plus /> Verser
@@ -233,15 +233,15 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
               <PlanRow value={emp.advanceDeductionPerPeriod || 0} label={plan} editable={active} onSave={v => setAdvancePlan(emp.id, v)} />
             </CardContent>
           </Card>
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex gap-1">
-              <Button size="sm" variant={chip(advList === 'avances')} className="rounded-full" onClick={() => setAdvList('avances')}>
-                Avances <span className="text-xs text-muted-foreground">{pr.advances.length}</span>
-              </Button>
-              <Button size="sm" variant={chip(advList === 'remboursements')} className="rounded-full" onClick={() => setAdvList('remboursements')}>
-                Remboursements <span className="text-xs text-muted-foreground">{pr.repayments.length}</span>
-              </Button>
-            </div>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Segmented
+              options={[
+                { value: 'avances' as const, label: 'Avances', count: pr.advances.length },
+                { value: 'remboursements' as const, label: 'Remboursements', count: pr.repayments.length },
+              ]}
+              value={advList}
+              onChange={setAdvList}
+            />
             {active && (
               <Button size="sm" onClick={() => openNewMovement(emp.id, 'avance_salaire')}>
                 <Plus /> Avance

@@ -12,6 +12,7 @@ import { formatFCFA } from '@/lib/utils'
 import { daysSince } from '@/data/payHistory'
 import { DeletePerson } from '@/components/delete-person'
 import { StatementDialog } from '@/components/modals/StatementDialog'
+import { Segmented } from '@/components/segmented'
 
 // Fiche d'une personne, inspirée des cartes « Payroll » :
 // - bandeau en haut, seulement si chacun doit quelque chose à l'autre : qui doit à qui, au net ;
@@ -153,22 +154,11 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
                   </Button>
                 }
                 toolbar={
-                  <div className="flex gap-2">
-                    {chips.map(c => (
-                      <Button
-                        key={c.value}
-                        size="sm"
-                        variant={kind === c.value ? 'secondary' : 'ghost'}
-                        className="rounded-full"
-                        onClick={() => setKind(c.value)}
-                      >
-                        {c.label}
-                        <span className="text-xs text-muted-foreground tabular-nums">
-                          {partnerMovements.filter(m => m.type === typeOf(c.value)).length}
-                        </span>
-                      </Button>
-                    ))}
-                  </div>
+                  <Segmented
+                    options={chips.map(c => ({ value: c.value, label: c.label, count: partnerMovements.filter(m => m.type === typeOf(c.value)).length }))}
+                    value={kind}
+                    onChange={setKind}
+                  />
                 }
               />
             )
