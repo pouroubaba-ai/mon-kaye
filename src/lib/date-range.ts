@@ -1,7 +1,7 @@
 // Filtre par date : « Toute la période », « Aujourd'hui », « 7 derniers jours », « Ce mois »,
-// « Le mois dernier », ou « Du … au … ». Les dates des opérations sont au format jj/mm/aaaa.
+// « Cette année », ou « Du … au … ». Les dates des opérations sont au format jj/mm/aaaa.
 
-export type RangeKey = 'tout' | 'jour' | '7j' | 'mois' | 'mois_prec' | 'perso'
+export type RangeKey = 'tout' | 'jour' | '7j' | 'mois' | 'annee' | 'mois_prec' | 'perso'
 // from / to : « aaaa-mm-jj » (champ date du téléphone), seulement pour « Du … au … »
 export type DateRange = { key: RangeKey; from?: string; to?: string }
 export const ALL_TIME: DateRange = { key: 'tout' }
@@ -30,6 +30,8 @@ export function rangeBounds(r: DateRange, today = new Date()): { start: Date | n
       return { start: new Date(t.getFullYear(), t.getMonth(), t.getDate() - 6), end: t }
     case 'mois':
       return { start: new Date(t.getFullYear(), t.getMonth(), 1), end: t }
+    case 'annee':
+      return { start: new Date(t.getFullYear(), 0, 1), end: t }
     case 'mois_prec':
       return { start: new Date(t.getFullYear(), t.getMonth() - 1, 1), end: new Date(t.getFullYear(), t.getMonth(), 0) }
     case 'perso': {
@@ -61,6 +63,8 @@ export function rangeLabel(r: DateRange, today = new Date()) {
       return '7 derniers jours'
     case 'mois':
       return 'Ce mois'
+    case 'annee':
+      return 'Cette année'
     case 'mois_prec': {
       const d = new Date(today.getFullYear(), today.getMonth() - 1, 1)
       const m = MONTHS[d.getMonth()]

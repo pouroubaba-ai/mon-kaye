@@ -200,8 +200,8 @@ export const NewMovementModal: React.FC = () => {
     if (!person) return null
     if (person.type === 'partner') {
       if (t === 'il_m_a_verse' || t === 'il_a_pris_credit')
-        return { label: 'Son compte', value: person.owesMe || 0, tone: 'credit', isPayment: t === 'il_m_a_verse' }
-      return { label: 'Mon compte', value: person.iOweHim || 0, tone: 'debt', isPayment: t === 'je_lui_ai_verse' }
+        return { label: 'Client', value: person.owesMe || 0, tone: 'credit', isPayment: t === 'il_m_a_verse' }
+      return { label: 'Fournisseur', value: person.iOweHim || 0, tone: 'debt', isPayment: t === 'je_lui_ai_verse' }
     }
     if (t === 'je_lui_ai_verse') {
       // Salaire dû : seulement les périodes arrivées à échéance. La période en cours ne se paie pas
@@ -272,7 +272,12 @@ export const NewMovementModal: React.FC = () => {
 
   const back = () => {
     if (step === 'detail') setStep('combien')
-    else if (step === 'combien') setStep('quoi')
+    else if (step === 'combien') {
+      // Retour à « Quelle opération ? » : le montant saisi (ou son détail) est effacé
+      setAmountStr('0')
+      setItems(null)
+      setStep('quoi')
+    }
     else if (step === 'quoi' && !newMovementTargetPersonId) setStep('qui')
   }
 
@@ -319,30 +324,19 @@ export const NewMovementModal: React.FC = () => {
   const visible = (activeGroup === 'partner' ? partnersList : employeesList)
     .filter(p => matchesPerson(p, search))
 
+  // Sous le nom : « Client 830 078 000 » (montant en vert), « Fournisseur 25 000 » (montant en orange) (un côté à zéro n'est pas affiché)
   const sub = (p: (typeof persons)[number]) => {
     if (p.type === 'employee') return p.role || 'Employé'
-    // Les deux comptes séparément, comme sur sa fiche (jamais leur différence)
     // Les deux à la fois : sans « FCFA » pour que la ligne tienne sur un téléphone
     const both = !!p.owesMe && !!p.iOweHim
     const amt = (v: number) => (both ? formatFCFA(v).replace(/\s?FCFA$/, '') : formatFCFA(v))
-    const parts = [
-      p.owesMe ? `Son compte : ${amt(p.owesMe)}` : '',
-      p.iOweHim ? `Mon compte : ${amt(p.iOweHim)}` : '',
-    ].filter(Boolean)
-    return parts.length ? parts.join(' · ') : 'À jour'
-  }
-
-  // Mini icône : flèche verte (on me doit) ou orange (je dois), comme sur le tableau de bord.
-  const icon = (p: (typeof persons)[number]) => {
-    const net = (p.owesMe || 0) - (p.iOweHim || 0)
-    if (p.type === 'employee') return null
-    const tone = net > 0 ? 'credit' : net < 0 ? 'debt' : null
-    if (!tone) return null
-    const Icon = tone === 'credit' ? ArrowDownLeft : ArrowUpRight
+    if (!p.owesMe && !p.iOweHim) return 'À jour'
     return (
-      <span className={cn('flex size-6 shrink-0 items-center justify-center rounded-md bg-muted', tone === 'credit' ? 'text-credit' : 'text-debt')}>
-        <Icon className="size-3.5" />
-      </span>
+      <>
+        {!!p.owesMe && <>Client <span className="text-credit">{amt(p.owesMe)}</span></>}
+        {both && ' · '}
+        {!!p.iOweHim && <>Fournisseur <span className="text-debt">{amt(p.iOweHim)}</span></>}
+      </>
     )
   }
 
@@ -409,7 +403,6 @@ export const NewMovementModal: React.FC = () => {
                     <p className="truncate text-sm font-medium">{p.name}</p>
                     <p className="truncate text-xs text-muted-foreground">{sub(p)}</p>
                   </div>
-                  {icon(p)}
                   <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
                 </button>
               ))}
@@ -429,13 +422,13 @@ export const NewMovementModal: React.FC = () => {
                 puis son montant et ses deux boutons côte à côte. */}
             <Tabs value={opSide} onValueChange={v => setOpSide(v as 'credit' | 'debt')}>
               <TabsList className="w-full">
-                <TabsTrigger value="credit"><ArrowDownLeft className="text-credit" /> Son compte</TabsTrigger>
-                <TabsTrigger value="debt"><ArrowUpRight className="text-debt" /> Mon compte</TabsTrigger>
+                <TabsTrigger value="credit"><ArrowDownLeft className="text-credit" /> Client</TabsTrigger>
+                <TabsTrigger value="debt"><ArrowUpRight className="text-debt" /> Fournisseur</TabsTrigger>
               </TabsList>
             </Tabs>
             {([
-              { title: 'Son compte', value: person.owesMe || 0, tone: 'credit' as const, ops: OPS.partner.filter(o => o.tone === 'credit') },
-              { title: 'Mon compte', value: person.iOweHim || 0, tone: 'debt' as const, ops: OPS.partner.filter(o => o.tone === 'debt') },
+              { title: 'Client', value: person.owesMe || 0, tone: 'credit' as const, ops: OPS.partner.filter(o => o.tone === 'credit') },
+              { title: 'Fournisseur', value: person.iOweHim || 0, tone: 'debt' as const, ops: OPS.partner.filter(o => o.tone === 'debt') },
             ]).filter(col => col.tone === opSide).map(col => (
               <div key={col.title} className="grid grid-cols-2 gap-2">
                 <div className="col-span-2 px-1">

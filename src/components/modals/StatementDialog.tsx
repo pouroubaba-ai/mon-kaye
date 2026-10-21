@@ -53,8 +53,8 @@ export function StatementDialog({
   const today = new Date().toLocaleDateString('fr-FR')
 
   const sides: Side[] = [
-    { title: 'Son compte', hint: 'ce qu’il a pris chez moi', credit: 'il_a_pris_credit', pay: 'il_m_a_verse', ret: 'il_a_retourne', reste: person.owesMe || 0 },
-    { title: 'Mon compte', hint: 'ce que j’ai pris chez lui', credit: 'j_ai_pris_credit', pay: 'je_lui_ai_verse', ret: 'j_ai_retourne', reste: person.iOweHim || 0 },
+    { title: 'Client', hint: 'ce qu’il a pris chez moi', credit: 'il_a_pris_credit', pay: 'il_m_a_verse', ret: 'il_a_retourne', reste: person.owesMe || 0 },
+    { title: 'Fournisseur', hint: 'ce que j’ai pris chez lui', credit: 'j_ai_pris_credit', pay: 'je_lui_ai_verse', ret: 'j_ai_retourne', reste: person.iOweHim || 0 },
   ]
   // Retour : on rappelle le crédit concerné, sa date et sa valeur → « Retour (08/10/26 · 65 000 FCFA) »
   const retourLabel = (m: Movement) => {
@@ -114,7 +114,7 @@ export function StatementDialog({
     })
     .filter(x => x.lines.length > 0 || (x.report ?? 0) > 0)
   // Sans filtre : ce qui reste aujourd'hui ; avec un filtre : à la fin de la période
-  const net = filtered ? shown.reduce((a, x) => a + (x.s.title === 'Son compte' ? x.reste : -x.reste), 0) : (person.owesMe || 0) - (person.iOweHim || 0)
+  const net = filtered ? shown.reduce((a, x) => a + (x.s.title === 'Client' ? x.reste : -x.reste), 0) : (person.owesMe || 0) - (person.iOweHim || 0)
   const atEnd = filtered && end && end.getTime() < new Date(new Date().toDateString()).getTime() ? `Au ${shortDate(end.toLocaleDateString('fr-FR'))}` : 'Au total'
   const netText = net > 0 ? `${atEnd}, il vous doit ${formatFCFA(net)}` : net < 0 ? `${atEnd}, vous lui devez ${formatFCFA(-net)}` : 'Vous êtes quittes'
   const periodText = filtered ? `Période : ${rangeLabel(range)}${range.key === 'perso' ? '' : ` (${rangeSpan(range)})`}` : ''

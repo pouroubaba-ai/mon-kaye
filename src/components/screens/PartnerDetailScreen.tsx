@@ -71,8 +71,8 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
         <TabsList className="w-full">
           {/* Même icône que les cartes, devant le libellé ; sur un très petit écran (< 360 px), les icônes s'effacent pour que tout tienne. */}
           <TabsTrigger value="ensemble" className={TAB}>Vue d'ensemble</TabsTrigger>
-          <TabsTrigger value="lui" className={TAB}><ArrowDownLeft className="text-credit max-[359px]:hidden" /> Son compte</TabsTrigger>
-          <TabsTrigger value="moi" className={TAB}><ArrowUpRight className="text-debt max-[359px]:hidden" /> Mon compte</TabsTrigger>
+          <TabsTrigger value="lui" className={TAB}><ArrowDownLeft className="text-credit max-[359px]:hidden" /> Client</TabsTrigger>
+          <TabsTrigger value="moi" className={TAB}><ArrowUpRight className="text-debt max-[359px]:hidden" /> Fournisseur</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -101,7 +101,7 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <BalanceCard
-            title="Son compte"
+            title="Client"
             Icon={ArrowDownLeft}
             tone="credit"
             onClick={() => setView('lui')}
@@ -111,7 +111,7 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
             paidDays={days(lastDateOf('il_m_a_verse'))}
           />
           <BalanceCard
-            title="Mon compte"
+            title="Fournisseur"
             Icon={ArrowUpRight}
             tone="debt"
             onClick={() => setView('moi')}
@@ -144,7 +144,7 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
             return (
               <MovementHistory
                 key={`${side}-${kind}`}
-                title={side === 'lui' ? 'Son compte' : 'Mon compte'}
+                title={side === 'lui' ? 'Client' : 'Fournisseur'}
                 movements={shown}
                 empty={isFiltered(range) ? 'Rien sur cette période.' : 'Aucun mouvement.'}
                 hideLabel

@@ -40,11 +40,11 @@ export const CompensationModal: React.FC = () => {
             </p>
             <div className="grid grid-cols-2 gap-2">
               <div className="p-2 rounded-lg bg-credit/10 border border-credit/20">
-                <span className="text-muted-foreground block text-[11px]">Son compte actuel :</span>
+                <span className="text-muted-foreground block text-[11px]">Client actuel :</span>
                 <span className="font-bold text-credit text-sm">{formatFCFA(owesMe)}</span>
               </div>
               <div className="p-2 rounded-lg bg-debt/10 border border-debt/20">
-                <span className="text-muted-foreground block text-[11px]">Mon compte actuel :</span>
+                <span className="text-muted-foreground block text-[11px]">Fournisseur actuel :</span>
                 <span className="font-bold text-debt text-sm">{formatFCFA(iOweHim)}</span>
               </div>
             </div>
@@ -65,11 +65,11 @@ export const CompensationModal: React.FC = () => {
               Situation après compensation :
             </span>
             <div className="flex justify-between items-center text-credit">
-              <span>Nouveau « Son compte » :</span>
+              <span>Nouveau « Client » :</span>
               <span className="font-bold">{formatFCFA(newOwesMe)}</span>
             </div>
             <div className="flex justify-between items-center text-debt">
-              <span>Nouveau « Mon compte » :</span>
+              <span>Nouveau « Fournisseur » :</span>
               <span className="font-bold">{formatFCFA(newIOweHim)}</span>
             </div>
             <p className="text-[11px] text-muted-foreground pt-1 border-t">

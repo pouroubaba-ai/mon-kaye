@@ -160,7 +160,7 @@ export function planCompensation(partner: Person, date: string, stamp: number) {
     amount,
     date,
     paymentMethod: 'compensation',
-    note: `Compensation de ${amount.toLocaleString('fr-FR')} FCFA entre son compte et mon compte`,
+    note: `Compensation de ${amount.toLocaleString('fr-FR')} FCFA entre Client et Fournisseur`,
     linkedMovementId: id2,
   }
   const m2: Movement = { ...m1, id: id2, type: 'je_lui_ai_verse', linkedMovementId: id1 }

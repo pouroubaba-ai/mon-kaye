@@ -8,7 +8,7 @@ import { formatFCFA } from '@/lib/utils'
 import { opTime, rangeBounds, type DateRange } from '@/lib/date-range'
 
 // Graphiques en aires (courbes lissées), empilés l'un sous l'autre :
-// - partenaires : « Ils prennent chez moi » puis « Je prends chez eux », avec Total (ce qui est pris),
+// - partenaires : « Clients » (ils prennent chez moi) puis « Fournisseurs » (je prends chez eux), avec Total (ce qui est pris),
 //   Versements, et Retours (seulement s'il y en a) ; ils suivent le filtre par date
 //   (par jour sur une courte période, par semaine, ou par mois) ;
 // - employés : Salaires et Avances, une période de paie par point (voir le tableau de bord).
@@ -28,31 +28,67 @@ export function FlowChart({ movements, range, side }: { movements: Movement[]; r
   const t = TYPES[side]
   const live = movements.filter(m => !m.isCancelled && (m.type === t.credit || m.type === t.pay || m.type === t.ret))
 
-  // Début et fin du graphique
+  // Début et fin du graphique, et la taille des cases selon le filtre :
+  // 7 derniers jours → les 7 jours ; Ce mois → les semaines ; Cette année → les 12 mois ;
+  // Toute la période → les années ; Aujourd'hui → les heures ; dates choisies → jours, semaines ou mois selon la durée.
   const today = new Date(new Date().toDateString())
   const b = rangeBounds(range)
-  const end = b.end ?? today
-  const first = live.length ? Math.min(...live.map(m => opTime(m.date))) : today.getTime() - 29 * DAY
-  const start = b.start ?? new Date(Math.min(first, end.getTime() - 6 * DAY))
-  const days = Math.round((end.getTime() - start.getTime()) / DAY) + 1
-  const by: 'jour' | 'semaine' | 'mois' = days <= 31 ? 'jour' : days <= 120 ? 'semaine' : 'mois'
+  const first = live.length ? Math.min(...live.map(m => opTime(m.date))) : today.getTime()
+  let start: Date
+  let end = b.end ?? today
+  let by: 'heure' | 'jour' | 'semaine' | 'mois' | 'annee'
+  if (range.key === 'jour') {
+    by = 'heure'
+    start = today
+  } else if (range.key === 'tout') {
+    by = 'annee'
+    const y0 = new Date(first).getFullYear()
+    // au moins deux années, pour que la courbe se voie
+    start = new Date(Math.min(y0, today.getFullYear() - 1), 0, 1)
+  } else if (range.key === 'annee') {
+    by = 'mois'
+    start = new Date(today.getFullYear(), 0, 1)
+    end = today // les mois déjà arrivés
+  } else if (range.key === 'mois') {
+    by = 'semaine'
+    start = b.start!
+  } else {
+    start = b.start ?? new Date(Math.min(first, end.getTime() - 6 * DAY))
+    const days = Math.round((end.getTime() - start.getTime()) / DAY) + 1
+    by = days <= 31 ? 'jour' : days <= 120 ? 'semaine' : 'mois'
+  }
 
-  // Les cases du graphique (jours, semaines ou mois)
+  // L'heure d'une opération : elle n'est pas écrite à part, mais l'identifiant des opérations
+  // enregistrées dans l'app contient le moment exact (mov-1792586727800-…). Sans lui : 0 h.
+  const hourOf = (m: Movement) => {
+    const ms = m.id.match(/\d{13}/)?.[0]
+    return ms ? new Date(Number(ms)).getHours() : 0
+  }
+  // Les cases du graphique (heures, jours, semaines, mois ou années)
   const buckets: { key: number; label: string }[] = []
   const keyOf = (time: number) => {
     const d = new Date(time)
     if (by === 'jour') return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
     if (by === 'semaine') {
       const monday = new Date(d.getFullYear(), d.getMonth(), d.getDate() - ((d.getDay() + 6) % 7))
-      return monday.getTime()
+      return Math.max(monday.getTime(), start.getTime()) // la première semaine commence au début du filtre
     }
+    if (by === 'annee') return new Date(d.getFullYear(), 0, 1).getTime()
     return new Date(d.getFullYear(), d.getMonth(), 1).getTime()
   }
   const years = start.getFullYear() !== end.getFullYear()
-  for (let k = keyOf(start.getTime()); k <= end.getTime(); ) {
+  // Aujourd'hui : une case par heure, de 0 h à l'heure qu'il est
+  if (by === 'heure') for (let h = 0; h <= new Date().getHours(); h++) buckets.push({ key: h, label: `${h}h` })
+  else for (let k = keyOf(start.getTime()); k <= end.getTime(); ) {
     const d = new Date(k)
-    buckets.push({ key: k, label: by === 'mois' ? `${MONTHS[d.getMonth()]}${years ? ` ${String(d.getFullYear()).slice(2)}` : ''}` : dd(d) })
-    k = by === 'jour' ? new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime() : by === 'semaine' ? new Date(d.getFullYear(), d.getMonth(), d.getDate() + 7).getTime() : new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime()
+    buckets.push({
+      key: k,
+      label: by === 'annee' ? String(d.getFullYear()) : by === 'mois' ? `${MONTHS[d.getMonth()]}${years ? ` ${String(d.getFullYear()).slice(2)}` : ''}` : dd(d),
+    })
+    if (by === 'jour') k = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime()
+    else if (by === 'semaine') k = new Date(d.getFullYear(), d.getMonth(), d.getDate() - ((d.getDay() + 6) % 7) + 7).getTime()
+    else if (by === 'annee') k = new Date(d.getFullYear() + 1, 0, 1).getTime()
+    else k = new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime()
   }
   const rows = buckets.map(x => ({ label: x.label, credit: 0, verse: 0, retour: 0, key: x.key }))
   const index = new Map(rows.map((r, i) => [r.key, i]))
@@ -62,7 +98,7 @@ export function FlowChart({ movements, range, side }: { movements: Movement[]; r
   for (const m of live) {
     const time = opTime(m.date)
     if (time < start.getTime() || time > end.getTime()) continue
-    const i = index.get(keyOf(time))
+    const i = by === 'heure' ? hourOf(m) : index.get(keyOf(time))
     if (i === undefined) continue
     if (m.type === t.credit) (rows[i].credit += m.amount), (tc += m.amount)
     else if (m.type === t.pay) (rows[i].verse += m.amount), (tv += m.amount)
@@ -70,14 +106,13 @@ export function FlowChart({ movements, range, side }: { movements: Movement[]; r
   }
 
   // Couleurs écrites en clair : le dessin du graphique (SVG) ne lit pas les variables CSS
-  // Couleurs écrites en clair : le dessin du graphique (SVG) ne lit pas les variables CSS
   const main = side === 'chez_moi' ? '#16a34a' : '#ea580c'
   const series: Serie[] = [
     { key: 'credit', label: 'Total', color: main, total: tc },
     { key: 'verse', label: 'Versements', color: '#38bdf8', total: tv },
     ...(tr > 0 ? [{ key: 'retour', label: 'Retours', color: '#a78bfa', total: tr }] : []),
   ]
-  return <AreaCard title={`${side === 'chez_moi' ? 'Ils prennent chez moi' : 'Je prends chez eux'}${by !== 'jour' ? ` · par ${by}` : ''}`} rows={rows} series={series} />
+  return <AreaCard title={`${side === 'chez_moi' ? 'Clients' : 'Fournisseurs'}${by === 'jour' ? '' : ` · par ${by === 'annee' ? 'année' : by}`}`} rows={rows} series={series} />
 }
 
 export type Serie = { key: string; label: string; color: string; total: number }
@@ -87,7 +122,7 @@ export function AreaCard({
   title,
   rows,
   series,
-  maxLabels = 6,
+  maxLabels = 7,
 }: {
   title: string
   rows: ({ label: string } & Record<string, number | string>)[]
@@ -98,6 +133,8 @@ export function AreaCard({
   const uid = React.useId().replace(/:/g, '')
   // Pas trop d'étiquettes sous le graphique
   const step = Math.max(1, Math.ceil(rows.length / maxLabels))
+  // Étiquettes longues (peu d'étiquettes) : la première et la dernière s'alignent sur les bords
+  const edges = maxLabels <= 3
 
   return (
     <Card>
@@ -107,7 +144,7 @@ export function AreaCard({
       <CardContent className="flex flex-col gap-4">
         {/* Simple lecture : pas de toucher sur le graphique (sur iPhone, un graphique qui réagit au toucher gêne les onglets du bas) */}
         <ChartContainer config={config} className="pointer-events-none aspect-auto h-[200px] w-full">
-          <AreaChart data={rows} margin={{ left: 16, right: 16, top: 8 }}>
+          <AreaChart data={rows} margin={{ left: 18, right: 18, top: 8 }}>
             <defs>
               {series.map(s => (
                 <linearGradient key={s.key} id={`${uid}-${s.key}`} x1="0" y1="0" x2="0" y2="1">
@@ -125,7 +162,7 @@ export function AreaCard({
               interval={0}
               tick={({ x, y, payload, index }) =>
                 index === rows.length - 1 || (index % step === 0 && rows.length - 1 - index >= step * 0.7) ? (
-                  <text x={x} y={Number(y) + 10} textAnchor={index === 0 && rows.length > 1 ? 'start' : index === rows.length - 1 && rows.length > 1 ? 'end' : 'middle'} className="fill-muted-foreground text-[10px]">
+                  <text x={x} y={Number(y) + 10} textAnchor={edges && index === 0 && rows.length > 1 ? 'start' : edges && index === rows.length - 1 && rows.length > 1 ? 'end' : 'middle'} className="fill-muted-foreground text-[10px]">
                     {payload.value}
                   </text>
                 ) : (
