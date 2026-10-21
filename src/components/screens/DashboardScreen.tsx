@@ -3,7 +3,12 @@ import { Label, Pie, PieChart } from 'recharts'
 import { ArrowDownLeft, ArrowUpRight, ChevronRight } from 'lucide-react'
 
 import { useStore } from '@/data/store'
-import { payrollOf } from '@/data/payroll'
+import { dueDayOf, payrollOf, periodBounds, toTime } from '@/data/payroll'
+import { Segmented } from '@/components/segmented'
+import { DateFilter, FilterOption, FilterPill } from '@/components/date-filter'
+import { FlowChart } from '@/components/flow-chart'
+import { ALL_TIME, inRange, isFiltered, type DateRange } from '@/lib/date-range'
+import type { Person } from '@/data/mockData'
 import { PaidLine } from '@/components/paid-line'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartContainer, type ChartConfig } from '@/components/ui/chart'
@@ -24,10 +29,13 @@ function StatCard({
   tone,
   Icon,
   onClick,
+  line,
 }: {
   label: string
   value: number
   paid: number
+  // Ligne sous le montant à la place de « Total · Versé » (tableau de bord filtré)
+  line?: React.ReactNode
   tone: 'credit' | 'debt'
   Icon: React.ComponentType<{ className?: string }>
   onClick: () => void
@@ -66,9 +74,7 @@ function StatCard({
           <span className="whitespace-nowrap text-xl font-semibold tabular-nums leading-none sm:text-2xl">
             {amount(value)} <span className="text-xs font-normal text-muted-foreground sm:text-sm">FCFA</span>
           </span>
-          {value > 0 && (
-            <PaidLine remaining={value} paid={paid} tone={tone} className="mt-1.5" />
-          )}
+          {line ?? (value > 0 && <PaidLine remaining={value} paid={paid} tone={tone} className="mt-1.5" />)}
         </div>
       </CardContent>
     </Card>
@@ -199,8 +205,17 @@ function DonutCard({
   )
 }
 
-export const DashboardScreen: React.FC = () => {
-  const { totals, persons, movements, monthStates, setAccountsView, modules } = useStore()
+// Tableau de bord sans filtre (tout, ou un seul module) : ce qui reste dû aujourd'hui
+const CurrentDashboard: React.FC<{ only?: 'partner' | 'employee'; extra?: React.ReactNode }> = ({ only, extra }) => {
+  const store = useStore()
+  const { totals: allTotals, persons, movements, monthStates, setAccountsView } = store
+  // Un seul module choisi en haut : on fait comme si l'autre était coupé
+  const modules = only ? { personnes: only === 'partner', employes: only === 'employee' } : store.modules
+  const totals = {
+    ...allTotals,
+    totalOwesMe: (modules.personnes ? allTotals.partnersOwesMe : 0) + (modules.employes ? allTotals.employeesAdvanceOwed : 0),
+    totalIOwe: (modules.personnes ? allTotals.partnersIOwe : 0) + (modules.employes ? allTotals.employeesSalaryDue : 0),
+  }
 
   const partners = persons.filter(p => p.type === 'partner')
   const employees = persons.filter(p => p.type === 'employee')
@@ -241,6 +256,8 @@ export const DashboardScreen: React.FC = () => {
         <StatCard label="Je dois" value={totals.totalIOwe} paid={paidByMe} tone="debt" Icon={ArrowUpRight} onClick={() => setAccountsView({ dir: 'mes', group: firstGroup })} />
       </div>
 
+      {extra}
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <DonutCard
           title="Leurs comptes"
@@ -265,6 +282,190 @@ export const DashboardScreen: React.FC = () => {
           ].filter(s => on(s.key))}
         />
       </div>
+    </div>
+  )
+}
+
+// Petite ligne « ● Versé 45 000 ● Retours 5 000 » sous un montant de période
+function DotLine({ items }: { items: { label: string; value: number; color: string }[] }) {
+  return (
+    <span className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[10px] font-semibold leading-none whitespace-nowrap text-muted-foreground tabular-nums">
+      {items.map(i => (
+        <span key={i.label} className="flex items-center gap-1">
+          <span className="size-1.5 shrink-0 rounded-full" style={{ background: i.color }} />
+          {i.label} {amount(i.value)}
+        </span>
+      ))}
+    </span>
+  )
+}
+
+// Partenaires, avec un filtre par date : ce qui s'est passé pendant la période
+const PartnerPeriod: React.FC<{ range: DateRange }> = ({ range }) => {
+  const { persons, movements, setAccountsView } = useStore()
+  const ids = new Set(persons.filter(p => p.type === 'partner').map(p => p.id))
+  const inP = movements.filter(m => ids.has(m.personId) && !m.isCancelled && inRange(m.date, range))
+  const sum = (t: string) => inP.filter(m => m.type === t).reduce((a, m) => a + m.amount, 0)
+  const line = (pay: string, ret: string, tone: 'credit' | 'debt') => {
+    const base = tone === 'credit' ? 'var(--color-credit)' : 'var(--color-debt)'
+    return (
+      <DotLine
+        items={[
+          { label: 'Versé', value: sum(pay), color: base },
+          ...(sum(ret) > 0 ? [{ label: 'Retours', value: sum(ret), color: '#a78bfa' }] : []),
+        ]}
+      />
+    )
+  }
+  return (
+    <div className="grid grid-cols-2 gap-3 md:gap-4">
+      <StatCard label="Ils ont pris" value={sum('il_a_pris_credit')} paid={0} tone="credit" Icon={ArrowDownLeft} onClick={() => setAccountsView({ dir: 'leurs', group: 'partner' })} line={line('il_m_a_verse', 'il_a_retourne', 'credit')} />
+      <StatCard label="J'ai pris" value={sum('j_ai_pris_credit')} paid={0} tone="debt" Icon={ArrowUpRight} onClick={() => setAccountsView({ dir: 'mes', group: 'partner' })} line={line('je_lui_ai_verse', 'j_ai_retourne', 'debt')} />
+    </div>
+  )
+}
+
+// ——— Employés : filtre par période de paie ———
+const MONTH_NAMES = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
+// « Septembre – Octobre » (paie le 25) ; « Octobre » (paie le dernier jour du mois). La période porte le mois de son échéance.
+function periodName(period: string, emps: Person[]) {
+  const [y, m] = period.split('-').map(Number)
+  const year = y !== new Date().getFullYear() ? ` ${y}` : ''
+  const allLastDay = emps.length > 0 && emps.every(e => dueDayOf(e.id) >= 29)
+  if (allLastDay) return `${MONTH_NAMES[m - 1]}${year}`
+  return `${MONTH_NAMES[(m + 10) % 12]} – ${MONTH_NAMES[m - 1]}${year}`
+}
+
+function usePayPeriods() {
+  const { persons, movements, monthStates } = useStore()
+  const employees = persons.filter(p => p.type === 'employee')
+  const rows = employees.map(e => ({ e, pr: payrollOf(e.id, movements, monthStates) }))
+  const periods = [...new Set(rows.flatMap(r => r.pr.months.map(m => m.period)))].sort().reverse()
+  return { rows, periods, nameOf: (p: string) => periodName(p, rows.filter(r => r.pr.months.some(m => m.period === p)).map(r => r.e)) }
+}
+
+function PeriodFilter({ value, onChange }: { value: string | null; onChange: (p: string | null) => void }) {
+  const [open, setOpen] = React.useState(false)
+  const { periods, nameOf } = usePayPeriods()
+  const pick = (p: string | null) => {
+    onChange(p)
+    setOpen(false)
+  }
+  return (
+    <FilterPill label={value ? nameOf(value) : 'Toutes les périodes'} active={!!value} onClear={() => onChange(null)} open={open} onOpenChange={setOpen}>
+      <div className="flex max-h-72 flex-col overflow-y-auto">
+        <FilterOption label="Toutes les périodes" selected={!value} onClick={() => pick(null)} />
+        {periods.map(p => (
+          <FilterOption key={p} label={nameOf(p)} selected={value === p} onClick={() => pick(p)} />
+        ))}
+      </div>
+    </FilterPill>
+  )
+}
+
+// Employés, sur une période de paie : avances données et rendues, salaires à payer et versés
+const EmployeePeriod: React.FC<{ period: string }> = ({ period }) => {
+  const { movements, setAccountsView } = useStore()
+  const { rows } = usePayPeriods()
+  let brut = 0
+  let verse = 0
+  let reste = 0
+  let given = 0
+  let rendu = 0
+  for (const { e, pr } of rows) {
+    const row = pr.months.find(m => m.period === period)
+    if (!row) continue
+    if (row.state !== 'annule') {
+      brut += row.brut
+      verse += row.verse
+      reste += row.reste
+    }
+    const { start, end } = periodBounds(period, dueDayOf(e.id))
+    const inside = (d: string) => toTime(d) >= start.getTime() && toTime(d) < end.getTime()
+    for (const m of movements) {
+      if (m.personId !== e.id || m.isCancelled) continue
+      if (m.type === 'avance_salaire' && inside(m.date)) given += m.amount
+      if (m.type === 'remboursement_direct' && inside(m.date)) rendu += m.amount
+      // Retenue : seulement quand le salaire de la période est tombé
+      if (m.type === 'retenue_salaire' && m.period === period && row.state !== 'en_cours') rendu += m.amount
+    }
+  }
+  return (
+    <div className="grid grid-cols-2 gap-3 md:gap-4">
+      <StatCard
+        label="Avances données"
+        value={given}
+        paid={0}
+        tone="credit"
+        Icon={ArrowDownLeft}
+        onClick={() => setAccountsView({ dir: 'leurs', group: 'employee' })}
+        line={<DotLine items={[{ label: 'Rendu', value: rendu, color: 'var(--color-credit)' }]} />}
+      />
+      <StatCard
+        label="Salaires"
+        value={brut}
+        paid={0}
+        tone="debt"
+        Icon={ArrowUpRight}
+        onClick={() => setAccountsView({ dir: 'mes', group: 'employee' })}
+        line={
+          <DotLine
+            items={[
+              { label: 'Versé', value: verse, color: 'var(--color-debt)' },
+              { label: 'Reste', value: reste, color: 'color-mix(in srgb, var(--color-debt) 45%, transparent)' },
+            ]}
+          />
+        }
+      />
+    </div>
+  )
+}
+
+// Tableau de bord :
+// - deux modules allumés : « Tout » (comme avant), « Partenaires » ou « Employés » ; le filtre n'apparaît
+//   qu'avec un seul module (les partenaires se comptent en jours, les employés en périodes de paie) ;
+// - Partenaires : filtre par date + graphique ; Employés : filtre par période de paie.
+export const DashboardScreen: React.FC = () => {
+  const { modules, movements, persons } = useStore()
+  const both = modules.personnes && modules.employes
+  const [pick, setPick] = React.useState<'tout' | 'partner' | 'employee'>('tout')
+  const scope = both ? pick : modules.personnes ? 'partner' : 'employee'
+  const [range, setRange] = React.useState<DateRange>(ALL_TIME)
+  const [period, setPeriod] = React.useState<string | null>(null)
+  const partnerIds = new Set(persons.filter(p => p.type === 'partner').map(p => p.id))
+  const partnerMovs = movements.filter(m => partnerIds.has(m.personId))
+
+  return (
+    <div className="flex flex-col gap-4">
+      {(both || scope !== 'tout') && (
+        <div className="flex flex-wrap items-center gap-2">
+          {both && (
+            <Segmented
+              options={[
+                { value: 'tout', label: 'Tout' },
+                { value: 'partner', label: 'Partenaires' },
+                { value: 'employee', label: 'Employés' },
+              ]}
+              value={pick}
+              onChange={setPick}
+            />
+          )}
+          {scope === 'partner' && <DateFilter value={range} onChange={setRange} />}
+          {scope === 'employee' && <PeriodFilter value={period} onChange={setPeriod} />}
+        </div>
+      )}
+
+      {scope === 'tout' && <CurrentDashboard />}
+      {scope === 'partner' &&
+        (isFiltered(range) ? (
+          <div className="flex flex-col gap-6">
+            <PartnerPeriod range={range} />
+            <FlowChart movements={partnerMovs} range={range} />
+          </div>
+        ) : (
+          <CurrentDashboard only="partner" extra={<FlowChart movements={partnerMovs} range={range} />} />
+        ))}
+      {scope === 'employee' && (period ? <EmployeePeriod period={period} /> : <CurrentDashboard only="employee" />)}
     </div>
   )
 }

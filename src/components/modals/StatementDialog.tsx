@@ -8,6 +8,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from '@/components/ui/button'
 import { PAYMENT_LABELS } from '@/components/movement-history'
 import { formatFCFA } from '@/lib/utils'
+import { DateFilter } from '@/components/date-filter'
+import { ALL_TIME, inRange, isFiltered, rangeBounds, rangeLabel, rangeSpan, type DateRange } from '@/lib/date-range'
 
 // Fiche de compte avec une personne (client, fournisseur…), comme une feuille de papier :
 // 1. en-tête : la boutique, « Fiche de compte », la date ; le client dans un encadré ;
@@ -18,15 +20,33 @@ import { formatFCFA } from '@/lib/utils'
 
 type Side = { title: string; hint: string; credit: Movement['type']; pay: Movement['type']; ret: Movement['type']; reste: number }
 type Row = { m: Movement; minus: boolean; label: string; solde: number; off: boolean }
+// Avec un filtre : le solde reporté d'avant la période, puis les lignes de la période
+type Shown = { s: Side; lines: Row[]; total: number; verse: number; retours: number; report: number | null; reste: number }
 
 const shortDate = (d: string) => `${d.slice(0, 6)}${d.slice(8, 10)}` // 05/10/2026 → 05/10/26
 const amount = (v: number) => formatFCFA(v).replace(/\s?FCFA$/, '')
 // Pour le PDF : espaces ordinaires (les polices du PDF ne connaissent pas l'espace fine) et vrai signe moins
 const pdfText = (s: string) => s.replace(/[  ]/g, ' ').replace(/−/g, '-')
 
-export function StatementDialog({ person, open, onOpenChange }: { person: Person; open: boolean; onOpenChange: (o: boolean) => void }) {
+export function StatementDialog({
+  person,
+  open,
+  onOpenChange,
+  initialRange = ALL_TIME,
+}: {
+  person: Person
+  open: boolean
+  onOpenChange: (o: boolean) => void
+  initialRange?: DateRange
+}) {
   const { movements, shop } = useStore()
   const [busy, setBusy] = React.useState(false)
+  // La fiche suit le filtre de la fiche de la personne ; on peut le changer ici
+  const [range, setRange] = React.useState<DateRange>(initialRange)
+  React.useEffect(() => {
+    if (open) setRange(initialRange)
+  }, [open])
+  const filtered = isFiltered(range)
   // Les versements annulés restent sur la fiche (barrés, sans changer le solde) ; les autres annulés n'y sont pas.
   const isPay = (m: Movement) => m.type === 'il_m_a_verse' || m.type === 'je_lui_ai_verse'
   const mine = movements.filter(m => m.personId === person.id && (!m.isCancelled || isPay(m)))
@@ -68,15 +88,36 @@ export function StatementDialog({ person, open, onOpenChange }: { person: Person
         return { m, minus, label, solde, off }
       })
   }
-  const shown = sides
+  const { start, end } = rangeBounds(range)
+  const shown: Shown[] = sides
     .map(s => {
-      const lines = linesOf(s)
+      const all = linesOf(s)
+      if (!filtered) {
+        const sum = (t: Movement['type']) => all.filter(l => l.m.type === t && !l.off).reduce((a, l) => a + l.m.amount, 0)
+        return { s, lines: all, total: sum(s.credit), verse: sum(s.pay), retours: sum(s.ret), report: null, reste: s.reste }
+      }
+      // On part de ce qui reste aujourd'hui et on remonte le temps : le solde à la fin de la période,
+      // et le solde reporté (avant la période). Ainsi un ancien compte sans opérations compte aussi.
+      const change = (l: Row) => (l.off ? 0 : l.minus ? -l.m.amount : l.m.amount)
+      const after = (t: number) => all.filter(l => toTime(l.m.date) > t).reduce((a, l) => a + change(l), 0)
+      const reste = Math.max(0, s.reste - (end ? after(end.getTime()) : 0))
+      const report = start ? Math.max(0, s.reste - after(start.getTime() - 1)) : 0
+      const lines = all
+        .filter(l => inRange(l.m.date, range))
+        // le solde de chaque ligne repart du solde reporté
+        .reduce<Row[]>((acc, l) => {
+          const prev = acc.length ? acc[acc.length - 1].solde : report
+          return [...acc, { ...l, solde: Math.max(0, prev + change(l)) }]
+        }, [])
       const sum = (t: Movement['type']) => lines.filter(l => l.m.type === t && !l.off).reduce((a, l) => a + l.m.amount, 0)
-      return { s, lines, total: sum(s.credit), verse: sum(s.pay), retours: sum(s.ret) }
+      return { s, lines, total: sum(s.credit), verse: sum(s.pay), retours: sum(s.ret), report: report > 0 ? report : null, reste }
     })
-    .filter(x => x.lines.length > 0)
-  const net = (person.owesMe || 0) - (person.iOweHim || 0)
-  const netText = net > 0 ? `Au total, il vous doit ${formatFCFA(net)}` : net < 0 ? `Au total, vous lui devez ${formatFCFA(-net)}` : 'Vous êtes quittes'
+    .filter(x => x.lines.length > 0 || (x.report ?? 0) > 0)
+  // Sans filtre : ce qui reste aujourd'hui ; avec un filtre : à la fin de la période
+  const net = filtered ? shown.reduce((a, x) => a + (x.s.title === 'Son compte' ? x.reste : -x.reste), 0) : (person.owesMe || 0) - (person.iOweHim || 0)
+  const atEnd = filtered && end && end.getTime() < new Date(new Date().toDateString()).getTime() ? `Au ${shortDate(end.toLocaleDateString('fr-FR'))}` : 'Au total'
+  const netText = net > 0 ? `${atEnd}, il vous doit ${formatFCFA(net)}` : net < 0 ? `${atEnd}, vous lui devez ${formatFCFA(-net)}` : 'Vous êtes quittes'
+  const periodText = filtered ? `Période : ${rangeLabel(range)}${range.key === 'perso' ? '' : ` (${rangeSpan(range)})`}` : ''
 
   // ——— Le PDF (A4), dessiné ligne par ligne ———
   const makePdf = async () => {
@@ -105,6 +146,7 @@ export function StatementDialog({ person, open, onOpenChange }: { person: Person
     txt(shop.name, M, 15, { size: 16, bold: true, color: [242, 244, 247] })
     txt('Fiche de compte', M, 23, { size: 11, color: [242, 193, 78] })
     txt(`Faite le ${today}`, W - M, 15, { align: 'right', size: 9, color: [185, 190, 198] })
+    if (periodText) txt(periodText, W - M, 23, { align: 'right', size: 9, color: [242, 193, 78] })
     y = 44
     // Le client
     doc.setDrawColor(225, 227, 230)
@@ -114,14 +156,14 @@ export function StatementDialog({ person, open, onOpenChange }: { person: Person
     const info = [person.role, person.phone].filter(Boolean).join(' · ')
     if (info) txt(info, M + 5, y + 13.5, { size: 9, color: grey })
     y += 28
-    if (shown.length === 0) txt('Aucune opération pour l’instant.', M, y, { color: grey })
-    for (const { s, lines, total, verse, retours } of shown) {
+    if (shown.length === 0) txt(filtered ? 'Aucune opération sur cette période.' : 'Aucune opération pour l’instant.', M, y, { color: grey })
+    for (const { s, lines, total, verse, retours, report, reste } of shown) {
       page(40)
       txt(s.title.toUpperCase(), M, y, { size: 11, bold: true })
       txt(s.hint, M + doc.getTextWidth(pdfText(s.title.toUpperCase())) + 4, y, { size: 9, color: grey })
       y += 5
       // Résumé : Total · Versé (· Retours) · Reste
-      const boxes: [string, number, boolean?][] = [['Total', total], ['Versé', verse], ...(retours ? ([['Retours', retours]] as [string, number][]) : []), ['Reste', s.reste, true]]
+      const boxes: [string, number, boolean?][] = [['Total', total], ['Versé', verse], ...(retours ? ([['Retours', retours]] as [string, number][]) : []), ['Reste', reste, true]]
       const bw = (W - 2 * M - (boxes.length - 1) * 3) / boxes.length
       boxes.forEach(([label, v, strong], i) => {
         const x = M + i * (bw + 3)
@@ -141,6 +183,15 @@ export function StatementDialog({ person, open, onOpenChange }: { person: Person
       txt('Montant', cx.mt, y + 4.8, { size: 8, bold: true, color: [242, 244, 247], align: 'right' })
       txt('Solde', cx.so, y + 4.8, { size: 8, bold: true, color: [242, 244, 247], align: 'right' })
       y += 7
+      // Solde reporté d'avant la période
+      if (report !== null) {
+        doc.setFillColor(253, 246, 226)
+        doc.rect(M, y, W - 2 * M, 7, 'F')
+        txt(start ? shortDate(start.toLocaleDateString('fr-FR')) : '', cx.date, y + 4.8, { size: 9, color: grey })
+        txt('Solde reporté', cx.op, y + 4.8, { size: 9, bold: true })
+        txt(amount(report), cx.so, y + 4.8, { size: 9, align: 'right', bold: true })
+        y += 7
+      }
       lines.forEach((l, i) => {
         page(8)
         if (i % 2 === 1) {
@@ -210,6 +261,7 @@ export function StatementDialog({ person, open, onOpenChange }: { person: Person
             <DialogTitle className="text-left">Fiche de compte</DialogTitle>
             <DialogDescription className="text-left">{person.name}</DialogDescription>
           </DialogHeader>
+          <DateFilter value={range} onChange={setRange} />
 
           {/* La feuille */}
           <div className="overflow-hidden rounded-xl bg-white text-sm text-neutral-900 shadow-sm">
@@ -218,7 +270,10 @@ export function StatementDialog({ person, open, onOpenChange }: { person: Person
                 <p className="truncate font-semibold text-white">{shop.name}</p>
                 <p className="text-xs text-[#F2C14E]">Fiche de compte</p>
               </div>
-              <p className="shrink-0 text-right text-[11px] text-neutral-400">Faite le {today}</p>
+              <div className="shrink-0 text-right text-[11px]">
+                <p className="text-neutral-400">Faite le {today}</p>
+                {filtered && <p className="text-[#F2C14E]">{rangeLabel(range)}</p>}
+              </div>
             </div>
 
             <div className="flex flex-col gap-4 p-4">
@@ -227,16 +282,17 @@ export function StatementDialog({ person, open, onOpenChange }: { person: Person
                 {(person.role || person.phone) && <p className="text-xs text-neutral-500">{[person.role, person.phone].filter(Boolean).join(' · ')}</p>}
               </div>
 
-              {shown.length === 0 && <p className="text-neutral-500">Aucune opération pour l’instant.</p>}
+              {filtered && <p className="-mt-2 text-xs text-neutral-500">{periodText}</p>}
+              {shown.length === 0 && <p className="text-neutral-500">{filtered ? 'Aucune opération sur cette période.' : 'Aucune opération pour l’instant.'}</p>}
 
-              {shown.map(({ s, lines, total, verse, retours }) => (
+              {shown.map(({ s, lines, total, verse, retours, report, reste }) => (
                 <div key={s.title} className="flex flex-col gap-2">
                   <p className="text-xs font-semibold tracking-wide uppercase">
                     {s.title} <span className="font-normal tracking-normal normal-case text-neutral-500">{s.hint}</span>
                   </p>
                   {/* Résumé */}
                   <div className={`grid gap-1.5 ${retours ? 'grid-cols-4' : 'grid-cols-3'}`}>
-                    {([['Total', total], ['Versé', verse], ...(retours ? [['Retours', retours]] : []), ['Reste', s.reste]] as [string, number][]).map(([label, v], i, arr) => (
+                    {([['Total', total], ['Versé', verse], ...(retours ? [['Retours', retours]] : []), ['Reste', reste]] as [string, number][]).map(([label, v], i, arr) => (
                       <div key={label} className={`rounded-lg px-2 py-1.5 ${i === arr.length - 1 ? 'bg-amber-50' : 'bg-neutral-100'}`}>
                         <p className="text-[10px] text-neutral-500">{label}</p>
                         <p className={`text-xs font-bold tabular-nums ${i === arr.length - 1 ? 'text-amber-700' : ''}`}>{amount(v)}</p>
@@ -251,6 +307,14 @@ export function StatementDialog({ person, open, onOpenChange }: { person: Person
                       <span className="text-right">Montant</span>
                       <span className="w-14 text-right">Solde</span>
                     </div>
+                    {report !== null && (
+                      <div className="grid grid-cols-[3.2rem_1fr_auto_auto] items-baseline gap-2 bg-amber-50 px-2 py-1.5">
+                        <span className="text-neutral-500 tabular-nums">{start ? shortDate(start.toLocaleDateString('fr-FR')) : ''}</span>
+                        <span className="font-semibold">Solde reporté</span>
+                        <span />
+                        <span className="w-14 text-right font-semibold tabular-nums">{amount(report)}</span>
+                      </div>
+                    )}
                     {lines.map((l, i) => (
                       <div key={l.m.id} className={`grid grid-cols-[3.2rem_1fr_auto_auto] items-baseline gap-2 px-2 py-1.5 ${i % 2 ? 'bg-neutral-50' : ''}`}>
                         <span className="text-neutral-500 tabular-nums">{shortDate(l.m.date)}</span>

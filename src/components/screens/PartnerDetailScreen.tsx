@@ -13,6 +13,8 @@ import { daysSince } from '@/data/payHistory'
 import { DeletePerson } from '@/components/delete-person'
 import { StatementDialog } from '@/components/modals/StatementDialog'
 import { Segmented } from '@/components/segmented'
+import { DateFilter } from '@/components/date-filter'
+import { ALL_TIME, inRange, isFiltered, type DateRange } from '@/lib/date-range'
 
 // Fiche d'une personne, inspirée des cartes « Payroll » :
 // - bandeau en haut, seulement si chacun doit quelque chose à l'autre : qui doit à qui, au net ;
@@ -31,6 +33,8 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
   const side: 'lui' | 'moi' = view === 'moi' ? 'moi' : 'lui'
   const [kind, setKind] = React.useState<'credit' | 'versement' | 'retour'>('credit')
   const [statement, setStatement] = React.useState(false) // fiche de compte ouverte
+  // Filtre par date : le même pour Son compte et Mon compte (et repris par la fiche de compte)
+  const [range, setRange] = React.useState<DateRange>(ALL_TIME)
   const setView = (v: 'ensemble' | 'lui' | 'moi') => {
     setViewRaw(v)
     setKind('credit')
@@ -127,8 +131,10 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
             const payType = side === 'lui' ? 'il_m_a_verse' : 'je_lui_ai_verse'
             const returnType = side === 'lui' ? 'il_a_retourne' : 'j_ai_retourne'
             const typeOf = (k: 'credit' | 'versement' | 'retour') => (k === 'credit' ? creditType : k === 'versement' ? payType : returnType)
+            const inPeriod = partnerMovements.filter(m => inRange(m.date, range))
             const nReturns = partnerMovements.filter(m => m.type === returnType).length
-            const shown = partnerMovements.filter(m => m.type === typeOf(kind))
+            const shown = inPeriod.filter(m => m.type === typeOf(kind))
+            const periodTotal = shown.filter(m => !m.isCancelled).reduce((a, m) => a + m.amount, 0)
             // « Retours » n'apparaît que s'il y en a.
             const chips: { value: 'credit' | 'versement' | 'retour'; label: string }[] = [
               { value: 'credit', label: side === 'lui' ? 'Crédits' : 'Dettes' },
@@ -140,6 +146,7 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
                 key={`${side}-${kind}`}
                 title={side === 'lui' ? 'Son compte' : 'Mon compte'}
                 movements={shown}
+                empty={isFiltered(range) ? 'Rien sur cette période.' : 'Aucun mouvement.'}
                 hideLabel
                 sub={m => {
                   if (m.type !== creditType) return undefined
@@ -155,11 +162,22 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
                   </Button>
                 }
                 toolbar={
-                  <Segmented
-                    options={chips.map(c => ({ value: c.value, label: c.label, count: partnerMovements.filter(m => m.type === typeOf(c.value)).length }))}
-                    value={kind}
-                    onChange={setKind}
-                  />
+                  <div className="flex flex-col gap-3">
+                    <Segmented
+                      options={chips.map(c => ({ value: c.value, label: c.label, count: inPeriod.filter(m => m.type === typeOf(c.value)).length }))}
+                      value={kind}
+                      onChange={setKind}
+                    />
+                    {/* Filtre par date ; filtré, le total de la période à côté */}
+                    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                      <DateFilter value={range} onChange={setRange} />
+                      {isFiltered(range) && (
+                        <span className="text-sm text-muted-foreground">
+                          Total <span className={`font-semibold tabular-nums ${side === 'lui' ? 'text-credit' : 'text-debt'}`}>{formatFCFA(periodTotal)}</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 }
               />
             )
@@ -177,7 +195,7 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
           <FileText /> Fiche de compte
         </Button>
       )}
-      <StatementDialog person={partner} open={statement} onOpenChange={setStatement} />
+      <StatementDialog person={partner} open={statement} onOpenChange={setStatement} initialRange={range} />
       {view === 'ensemble' && <DeletePerson personId={partner.id} />}
     </div>
   )

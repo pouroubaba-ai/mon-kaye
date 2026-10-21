@@ -30,6 +30,7 @@ export function MovementHistory({
   hideLabel,
   sub,
   struck,
+  empty = 'Aucun mouvement.',
 }: {
   movements: Movement[]
   filters?: Filter[]
@@ -46,6 +47,7 @@ export function MovementHistory({
   sub?: (m: Movement) => React.ReactNode
   // Ligne à barrer même si elle n'est pas annulée (ex. versement d'un mois annulé, passé en avance)
   struck?: (m: Movement) => boolean
+  empty?: string
 }) {
   const [filter, setFilter] = React.useState('all')
   const active = filters?.find(f => f.value === filter)
@@ -77,7 +79,7 @@ export function MovementHistory({
         )}
 
         {shown.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">Aucun mouvement.</p>
+          <p className="py-6 text-center text-sm text-muted-foreground">{empty}</p>
         ) : (
           <div className="flex flex-col divide-y rounded-lg border">
             {shown.map(m => (
