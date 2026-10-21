@@ -307,21 +307,28 @@ const PartnerPeriod: React.FC<{ range: DateRange }> = ({ range }) => {
   const ids = new Set(persons.filter(p => p.type === 'partner').map(p => p.id))
   const inP = movements.filter(m => ids.has(m.personId) && !m.isCancelled && inRange(m.date, range))
   const sum = (t: string) => inP.filter(m => m.type === t).reduce((a, m) => a + m.amount, 0)
-  const line = (pay: string, ret: string, tone: 'credit' | 'debt') => {
+  // Le grand chiffre : ce qui reste de la période (total − versé − retours) ; dessous : Total · Versé · Retours
+  const card = (credit: string, pay: string, ret: string, tone: 'credit' | 'debt') => {
     const base = tone === 'credit' ? 'var(--color-credit)' : 'var(--color-debt)'
-    return (
+    const total = sum(credit)
+    const reste = Math.max(0, total - sum(pay) - sum(ret))
+    const line = (
       <DotLine
         items={[
+          { label: 'Total', value: total, color: `color-mix(in srgb, ${base} 45%, transparent)` },
           { label: 'Versé', value: sum(pay), color: base },
           ...(sum(ret) > 0 ? [{ label: 'Retours', value: sum(ret), color: '#a78bfa' }] : []),
         ]}
       />
     )
+    return { reste, line }
   }
+  const c = card('il_a_pris_credit', 'il_m_a_verse', 'il_a_retourne', 'credit')
+  const f = card('j_ai_pris_credit', 'je_lui_ai_verse', 'j_ai_retourne', 'debt')
   return (
     <div className="grid grid-cols-2 gap-3 md:gap-4">
-      <StatCard label="Ils ont pris" value={sum('il_a_pris_credit')} paid={0} tone="credit" Icon={ArrowDownLeft} onClick={() => setAccountsView({ dir: 'leurs', group: 'partner' })} line={line('il_m_a_verse', 'il_a_retourne', 'credit')} />
-      <StatCard label="J'ai pris" value={sum('j_ai_pris_credit')} paid={0} tone="debt" Icon={ArrowUpRight} onClick={() => setAccountsView({ dir: 'mes', group: 'partner' })} line={line('je_lui_ai_verse', 'j_ai_retourne', 'debt')} />
+      <StatCard label="Clients" value={c.reste} paid={0} tone="credit" Icon={ArrowDownLeft} onClick={() => setAccountsView({ dir: 'leurs', group: 'partner' })} line={c.line} />
+      <StatCard label="Fournisseurs" value={f.reste} paid={0} tone="debt" Icon={ArrowUpRight} onClick={() => setAccountsView({ dir: 'mes', group: 'partner' })} line={f.line} />
     </div>
   )
 }
