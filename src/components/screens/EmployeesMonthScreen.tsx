@@ -78,6 +78,8 @@ export const EmployeesMonthScreen: React.FC = () => {
 
   // Salaires des périodes en cours (le salaire, sans les retenues)
   const total = current.reduce((a, l) => a + l.row.brut, 0)
+  // Total des retenues des périodes en cours (retenues d'avance et autres retenues)
+  const retenues = current.reduce((a, l) => a + l.row.retenues, 0)
 
   return (
     <div className="flex flex-col gap-4">
@@ -85,6 +87,12 @@ export const EmployeesMonthScreen: React.FC = () => {
         <CardContent className="flex flex-col gap-1 px-4">
           <p className="text-xs text-muted-foreground">Salaires du mois</p>
           <p className="text-xl font-semibold tabular-nums">{formatFCFA(total)}</p>
+          {retenues > 0 && (
+            <p className="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground tabular-nums">
+              <span className="size-1.5 shrink-0 rounded-full" style={{ background: 'var(--color-debt)' }} />
+              Retenues {formatFCFA(retenues).replace(/\s?FCFA$/, '')}
+            </p>
+          )}
           <Badge variant="outline" className="self-start tabular-nums">{current.length} employé{current.length > 1 ? 's' : ''}</Badge>
         </CardContent>
       </Card>
