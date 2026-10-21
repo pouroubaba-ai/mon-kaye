@@ -922,26 +922,52 @@ export const StoreProvider: React.FC<{
     document.body.removeChild(link)
   }
 
-  // Adresse ⇄ écran. Changer d'écran ajoute une adresse à l'historique ; le bouton retour
-  // (téléphone ou navigateur) revient à l'adresse d'avant, et l'écran suit.
+  // Adresse ⇄ écran, et la pile de retour de Safari / du téléphone.
+  // - Descendre (ouvrir une fiche, « Leurs/Mes comptes », Réglages › Modules) ajoute un écran à la pile :
+  //   le retour (ou le glissement depuis le bord) remonte à l'écran d'où l'on vient.
+  // - Changer d'écran principal (barre du bas, menu) remplace l'écran du dessus : les onglets ne
+  //   s'empilent pas, donc sur un écran principal le glissement ne saute pas vers un autre onglet.
+  // - Remonter avec le fil d'Ariane revient d'un cran dans la pile (comme le geste retour).
   const screen: Screen = { tab: activeTab, person: selectedPersonId, accounts: accountsView, settings: settingsView }
   const path = buildPath(screen, persons)
+  const depth = (selectedPersonId ? 1 : 0) + (accountsView ? 1 : 0) + (settingsView === 'modules' ? 1 : 0)
   const fromHistory = React.useRef(false)
+  const prevDepth = React.useRef(depth)
+  type Entry = { kaye: number; parent: string | null }
+  const url = (p: string) => p + window.location.search
   React.useEffect(() => {
+    const before = prevDepth.current
+    prevDepth.current = depth
+    const cur = (window.history.state ?? null) as Entry | null
     if (fromHistory.current) {
       fromHistory.current = false
-      if (window.location.pathname !== path) window.history.replaceState(null, '', path + window.location.search)
+      if (window.location.pathname !== path) window.history.replaceState({ kaye: depth, parent: cur?.parent ?? null }, '', url(path))
       return
     }
     const here = window.location.pathname
-    if (here === path) return
-    // Onglet Personnes / Employés de « Leurs/Mes comptes » : même écran, l'adresse change sans ajouter de retour
-    const sameScreen = (x: string) => x.match(/^\/comptes\/(leurs|mes)/)?.[1]
-    if (sameScreen(here) && sameScreen(here) === sameScreen(path)) window.history.replaceState(null, '', path + window.location.search)
-    else window.history.pushState(null, '', path + window.location.search)
+    if (here === path) {
+      if (!cur || cur.kaye === undefined) window.history.replaceState({ kaye: depth, parent: null }, '', url(path))
+      return
+    }
+    if (depth > before) {
+      // On descend : nouvel écran sur la pile, qui se souvient de l'écran d'où l'on vient
+      window.history.pushState({ kaye: depth, parent: here }, '', url(path))
+    } else if (depth < before && cur?.parent === path) {
+      // On remonte vers l'écran d'où l'on venait : un cran en arrière dans la pile
+      fromHistory.current = true
+      window.history.back()
+    } else {
+      // Même niveau (changement d'onglet) : on remplace, rien ne s'empile
+      window.history.replaceState({ kaye: depth, parent: depth > 0 ? (cur?.parent ?? null) : null }, '', url(path))
+    }
   }, [path])
   const pathRef = React.useRef(path)
   pathRef.current = path
+  // L'entrée de pile de l'écran affiché (pour la remettre si le retour a seulement fermé une fenêtre)
+  const lastEntry = React.useRef<unknown>(null)
+  React.useEffect(() => {
+    lastEntry.current = window.history.state
+  })
   const modulesRef = React.useRef(modules)
   modulesRef.current = modules
   const personsRef = React.useRef(persons)
@@ -951,13 +977,15 @@ export const StoreProvider: React.FC<{
       // Fenêtre ouverte : le retour ferme la fenêtre (comme Échap), l'écran ne bouge pas
       if (document.querySelector('[role="dialog"]')) {
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-        window.history.pushState(null, '', pathRef.current + window.location.search)
+        window.history.pushState(lastEntry.current, '', pathRef.current + window.location.search)
         return
       }
       const next = parsePath(window.location.pathname, modulesRef.current, personsRef.current)
       const nextPath = buildPath(next, personsRef.current)
       if (nextPath === pathRef.current) {
-        // Adresse inconnue ou même écran : on corrige seulement l'adresse
+        // Même écran (par exemple après un retour demandé par le fil d'Ariane) ou adresse inconnue :
+        // on corrige seulement l'adresse
+        fromHistory.current = false
         if (window.location.pathname !== nextPath) window.history.replaceState(null, '', nextPath + window.location.search)
         return
       }
