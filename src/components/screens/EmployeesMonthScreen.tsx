@@ -86,7 +86,7 @@ export const EmployeesMonthScreen: React.FC = () => {
       <Card className="gap-1 py-4">
         <CardContent className="flex flex-col gap-1 px-4">
           <p className="text-xs text-muted-foreground">Salaires du mois</p>
-          <p className="text-xl font-semibold tabular-nums">{formatFCFA(total)}</p>
+          <p className="text-xl font-semibold tabular-nums text-debt">{formatFCFA(total)}</p>
           {retenues > 0 && (
             <p className="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground tabular-nums">
               <span className="size-1.5 shrink-0 rounded-full" style={{ background: 'var(--color-debt)' }} />

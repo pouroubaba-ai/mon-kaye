@@ -66,7 +66,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
   const crumb = openPerson
     ? { label: openPerson.name, back: () => setSelectedPersonId(null) }
     : accountsView && activeTab === 'accueil'
-      ? { label: accountsView.dir === 'leurs' ? 'Leurs comptes' : 'Mes comptes', back: () => setAccountsView(null) }
+      ? { label: accountsView.dir === 'leurs' ? 'On me doit' : 'Je dois', back: () => setAccountsView(null) }
       : activeTab === 'reglages' && settingsView === 'modules'
         ? { label: 'Modules', back: () => setSettingsView('main') }
         : null

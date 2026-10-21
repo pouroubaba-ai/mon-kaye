@@ -1,5 +1,4 @@
 import React from 'react'
-import { Label, Pie, PieChart } from 'recharts'
 import { ArrowDownLeft, ArrowUpRight, ChevronRight } from 'lucide-react'
 
 import { useStore } from '@/data/store'
@@ -11,7 +10,6 @@ import { ALL_TIME, inRange, isFiltered, type DateRange } from '@/lib/date-range'
 import type { Person } from '@/data/mockData'
 import { PaidLine } from '@/components/paid-line'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ChartContainer, type ChartConfig } from '@/components/ui/chart'
 import { formatFCFA } from '@/lib/utils'
 
 // Tableau de bord léger :
@@ -82,7 +80,7 @@ function StatCard({
         </div>
         <div className="flex flex-col gap-1">
           <span className="text-sm text-muted-foreground">{label}</span>
-          <span className="whitespace-nowrap text-xl font-semibold tabular-nums leading-none sm:text-2xl">
+          <span className="whitespace-nowrap text-xl font-semibold tabular-nums leading-none sm:text-2xl" style={{ color: base }}>
             {amount(value)} <span className="text-xs font-normal text-muted-foreground sm:text-sm">FCFA</span>
           </span>
           {line ?? (value > 0 && <PaidLine remaining={value} paid={paid} tone={tone} className="mt-1.5" />)}
@@ -94,15 +92,15 @@ function StatCard({
 
 type Slice = { key: string; label: string; value: number; color: string; count: number; unit: [string, string] }
 
-// Anneau « percutant » : anneau fin et large, fond complet discret, parts arrondies et séparées,
-// léger dégradé et halo de la couleur du compte, part survolée qui grossit,
-// légende avec une barre de proportion sous chaque ligne.
+// Anneau « percutant » : anneau large, fond complet discret, parts arrondies et séparées,
+// léger dégradé et halo de la couleur du compte, légende avec une barre de proportion sous chaque ligne.
+// Dessiné en SVG simple (sans bibliothèque de graphiques ni filtre) : sur iPhone, l'ancien anneau
+// « avalait » le premier toucher sur la page (il fallait toucher deux fois les onglets du bas).
 function DonutCard({
   title,
   slices,
   people,
   tone,
-  delay = 0,
   unit = ['partenaire', 'partenaires'],
 }: {
   title: string
@@ -114,25 +112,40 @@ function DonutCard({
 }) {
   const total = slices.reduce((a, s) => a + s.value, 0)
   const shown = slices.filter(s => s.value > 0)
-  const config = Object.fromEntries(slices.map(s => [s.key, { label: s.label, color: s.color }])) satisfies ChartConfig
   const uid = React.useId().replace(/:/g, '')
-  const data = shown.map(s => ({ key: s.key, value: s.value, fill: `url(#${uid}-${s.key})` }))
   const base = tone === 'credit' ? 'var(--color-credit)' : 'var(--color-debt)'
+  // L'anneau se remplit en douceur juste après l'affichage
+  const [ready, setReady] = React.useState(false)
+  React.useEffect(() => {
+    const t = window.setTimeout(() => setReady(true), 60)
+    return () => window.clearTimeout(t)
+  }, [])
+
+  const SIZE = 220
+  const STROKE = 24
+  const R = (SIZE - STROKE) / 2
+  const C = 2 * Math.PI * R
+  const multi = shown.length > 1
+  // Avec des bouts arrondis, chaque part déborde de STROKE/2 de chaque côté : l'écart en tient compte
+  const gap = multi ? STROKE + 8 : 0
+  let offset = 0
+  const arcs = shown.map(s => {
+    const len = total > 0 ? (s.value / total) * C : 0
+    const arc = { s, start: offset, len: Math.max(0, len - gap) }
+    offset += len
+    return arc
+  })
 
   return (
-    <Card className="animate-in fade-in slide-in-from-bottom-3 fill-mode-both duration-500" style={{ animationDelay: `${delay}ms` }}>
+    <Card>
       <CardHeader>
         <CardTitle className="text-sm font-normal text-muted-foreground">{title}</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
-        <ChartContainer
-          config={config}
-          // Simple lecture : pas de toucher sur le graphique (sur iPhone, un graphique qui réagit au
-          // toucher obligeait à toucher deux fois les onglets du bas)
-          className="pointer-events-none mx-auto aspect-square h-[220px]"
-          style={{ filter: `drop-shadow(0 0 18px color-mix(in oklch, ${base} 28%, transparent))` }}
-        >
-          <PieChart>
+        <div className="pointer-events-none relative mx-auto" style={{ width: SIZE, height: SIZE }}>
+          {/* Halo doux derrière l'anneau (dégradé, sans filtre) */}
+          <div aria-hidden className="absolute -inset-4 rounded-full" style={{ background: `radial-gradient(circle closest-side, transparent 62%, color-mix(in srgb, ${base} 30%, transparent) 84%, transparent 100%)` }} />
+          <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} className="relative -rotate-90">
             <defs>
               {shown.map(s => (
                 <linearGradient key={s.key} id={`${uid}-${s.key}`} x1="0" y1="0" x2="1" y2="1">
@@ -141,50 +154,28 @@ function DonutCard({
                 </linearGradient>
               ))}
             </defs>
-            {/* Fond : l'anneau complet, très discret */}
-            <Pie
-              data={[{ key: 'fond', value: 1 }]}
-              dataKey="value"
-              innerRadius={72}
-              outerRadius={96}
-              fill="var(--muted)"
-              stroke="none"
-              isAnimationActive={false}
-              tooltipType="none"
-            />
-            <Pie
-              data={data}
-              dataKey="value"
-              nameKey="key"
-              innerRadius={72}
-              outerRadius={96}
-              startAngle={90}
-              endAngle={-270}
-              paddingAngle={data.length > 1 ? 4 : 0}
-              cornerRadius={data.length > 1 ? 10 : 0}
-              stroke="none"
-              isAnimationActive
-              animationBegin={delay + 150}
-              animationDuration={1000}
-              animationEasing="ease-out"
-            >
-              <Label
-                content={({ viewBox }) =>
-                  viewBox && 'cx' in viewBox && 'cy' in viewBox ? (
-                    <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
-                      <tspan x={viewBox.cx} y={(viewBox.cy || 0) - 4} className="fill-foreground text-4xl font-semibold">
-                        {people}
-                      </tspan>
-                      <tspan x={viewBox.cx} y={(viewBox.cy || 0) + 22} className="fill-muted-foreground text-xs">
-                        {people > 1 ? unit[1] : unit[0]}
-                      </tspan>
-                    </text>
-                  ) : null
-                }
+            <circle cx={SIZE / 2} cy={SIZE / 2} r={R} fill="none" stroke="var(--muted)" strokeWidth={STROKE} />
+            {arcs.map(a => (
+              <circle
+                key={a.s.key}
+                cx={SIZE / 2}
+                cy={SIZE / 2}
+                r={R}
+                fill="none"
+                stroke={`url(#${uid}-${a.s.key})`}
+                strokeWidth={STROKE}
+                strokeLinecap={multi ? 'round' : 'butt'}
+                strokeDasharray={`${ready ? a.len : 0} ${C}`}
+                strokeDashoffset={-(a.start + gap / 2)}
+                style={{ transition: 'stroke-dasharray 1s ease-out' }}
               />
-            </Pie>
-          </PieChart>
-        </ChartContainer>
+            ))}
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-4xl font-semibold text-foreground">{people}</span>
+            <span className="text-xs text-muted-foreground">{people > 1 ? unit[1] : unit[0]}</span>
+          </div>
+        </div>
 
         <div className="flex flex-col gap-4">
           {total === 0 && <p className="text-center text-sm text-muted-foreground">Rien pour l'instant.</p>}
@@ -196,7 +187,7 @@ function DonutCard({
                 <div className="flex items-baseline gap-2 text-sm">
                   <span className="size-2.5 shrink-0 translate-y-px rounded-full" style={{ background: s.color }} />
                   <span className="flex-1 text-muted-foreground">{s.label}</span>
-                  <span className="font-medium tabular-nums">{formatFCFA(s.value)}</span>
+                  <span className="font-medium tabular-nums" style={{ color: base }}>{formatFCFA(s.value)}</span>
                 </div>
                 <div className="flex items-center gap-2 pl-[18px]">
                   <span className="w-20 shrink-0 text-xs text-muted-foreground/70">
@@ -266,13 +257,13 @@ const CurrentDashboard: React.FC<{ only?: 'partner' | 'employee'; extra?: React.
         {/* Employés : les salaires d'abord, c'est le plus important */}
         {only === 'employee' ? (
           <>
-          <StatCard count={iOwePeople} label="Salaires" value={totals.totalIOwe} paid={paidByMe} tone="debt" Icon={ArrowUpRight} onClick={() => setAccountsView({ dir: 'mes', group: firstGroup })} />
-          <StatCard count={owesMePeople} label="Avances" value={totals.totalOwesMe} paid={paidToMe} tone="credit" Icon={ArrowDownLeft} onClick={() => setAccountsView({ dir: 'leurs', group: firstGroup })} />
+          <StatCard count={iOwePeople} label="Salaires" value={totals.totalIOwe} paid={paidByMe} tone="debt" Icon={ArrowUpRight} onClick={() => setAccountsView({ dir: 'mes', group: firstGroup, only: !!only })} />
+          <StatCard count={owesMePeople} label="Avances" value={totals.totalOwesMe} paid={paidToMe} tone="credit" Icon={ArrowDownLeft} onClick={() => setAccountsView({ dir: 'leurs', group: firstGroup, only: !!only })} />
           </>
         ) : (
           <>
-          <StatCard count={owesMePeople} label={only === 'partner' ? 'Clients' : 'On me doit'} value={totals.totalOwesMe} paid={paidToMe} tone="credit" Icon={ArrowDownLeft} onClick={() => setAccountsView({ dir: 'leurs', group: firstGroup })} />
-          <StatCard count={iOwePeople} label={only === 'partner' ? 'Fournisseurs' : 'Je dois'} value={totals.totalIOwe} paid={paidByMe} tone="debt" Icon={ArrowUpRight} onClick={() => setAccountsView({ dir: 'mes', group: firstGroup })} />
+          <StatCard count={owesMePeople} label={only === 'partner' ? 'Clients' : 'On me doit'} value={totals.totalOwesMe} paid={paidToMe} tone="credit" Icon={ArrowDownLeft} onClick={() => setAccountsView({ dir: 'leurs', group: firstGroup, only: !!only })} />
+          <StatCard count={iOwePeople} label={only === 'partner' ? 'Fournisseurs' : 'Je dois'} value={totals.totalIOwe} paid={paidByMe} tone="debt" Icon={ArrowUpRight} onClick={() => setAccountsView({ dir: 'mes', group: firstGroup, only: !!only })} />
           </>
         )}
       </div>
@@ -350,8 +341,8 @@ const PartnerPeriod: React.FC<{ range: DateRange }> = ({ range }) => {
   const f = card('j_ai_pris_credit', 'je_lui_ai_verse', 'j_ai_retourne', 'debt')
   return (
     <div className="grid grid-cols-2 gap-3 md:gap-4">
-      <StatCard count={who('il_a_pris_credit', 'il_m_a_verse', 'il_a_retourne')} label="Clients" value={c.reste} paid={0} tone="credit" Icon={ArrowDownLeft} onClick={() => setAccountsView({ dir: 'leurs', group: 'partner' })} line={c.line} />
-      <StatCard count={who('j_ai_pris_credit', 'je_lui_ai_verse', 'j_ai_retourne')} label="Fournisseurs" value={f.reste} paid={0} tone="debt" Icon={ArrowUpRight} onClick={() => setAccountsView({ dir: 'mes', group: 'partner' })} line={f.line} />
+      <StatCard count={who('il_a_pris_credit', 'il_m_a_verse', 'il_a_retourne')} label="Clients" value={c.reste} paid={0} tone="credit" Icon={ArrowDownLeft} onClick={() => setAccountsView({ dir: 'leurs', group: 'partner', only: true })} line={c.line} />
+      <StatCard count={who('j_ai_pris_credit', 'je_lui_ai_verse', 'j_ai_retourne')} label="Fournisseurs" value={f.reste} paid={0} tone="debt" Icon={ArrowUpRight} onClick={() => setAccountsView({ dir: 'mes', group: 'partner', only: true })} line={f.line} />
     </div>
   )
 }
@@ -440,7 +431,7 @@ const EmployeePeriod: React.FC<{ period: string }> = ({ period }) => {
         paid={0}
         tone="debt"
         Icon={ArrowUpRight}
-        onClick={() => setAccountsView({ dir: 'mes', group: 'employee' })}
+        onClick={() => setAccountsView({ dir: 'mes', group: 'employee', only: true })}
         line={
           <DotLine
             items={[
@@ -457,7 +448,7 @@ const EmployeePeriod: React.FC<{ period: string }> = ({ period }) => {
         paid={0}
         tone="credit"
         Icon={ArrowDownLeft}
-        onClick={() => setAccountsView({ dir: 'leurs', group: 'employee' })}
+        onClick={() => setAccountsView({ dir: 'leurs', group: 'employee', only: true })}
         line={<DotLine items={[{ label: 'Rendu', value: rendu, color: 'var(--color-credit)' }]} />}
       />
     </div>
@@ -517,13 +508,20 @@ const EmployeeCharts: React.FC<{ period: string | null }> = ({ period }) => {
 // - deux modules allumés : « Tout » (comme avant), « Partenaires » ou « Employés » ; le filtre n'apparaît
 //   qu'avec un seul module (les partenaires se comptent en jours, les employés en périodes de paie) ;
 // - Partenaires : filtre par date + graphique ; Employés : filtre par période de paie.
+const memo: { pick: 'tout' | 'partner' | 'employee'; range: DateRange; period: string | null } = { pick: 'tout', range: ALL_TIME, period: null }
+
 export const DashboardScreen: React.FC = () => {
   const { modules, movements, persons } = useStore()
   const both = modules.personnes && modules.employes
-  const [pick, setPick] = React.useState<'tout' | 'partner' | 'employee'>('tout')
+  // Le choix (Tout / Partenaires / Employés) et les filtres sont gardés pendant la visite :
+  // en revenant d'un écran ouvert depuis une carte, on retrouve le tableau de bord comme on l'a laissé.
+  const [pick, setPickRaw] = React.useState<'tout' | 'partner' | 'employee'>(() => memo.pick)
+  const setPick = (v: 'tout' | 'partner' | 'employee') => setPickRaw((memo.pick = v))
   const scope = both ? pick : modules.personnes ? 'partner' : 'employee'
-  const [range, setRange] = React.useState<DateRange>(ALL_TIME)
-  const [period, setPeriod] = React.useState<string | null>(null)
+  const [range, setRangeRaw] = React.useState<DateRange>(() => memo.range)
+  const setRange = (r: DateRange) => setRangeRaw((memo.range = r))
+  const [period, setPeriodRaw] = React.useState<string | null>(() => memo.period)
+  const setPeriod = (p: string | null) => setPeriodRaw((memo.period = p))
   const partnerIds = new Set(persons.filter(p => p.type === 'partner').map(p => p.id))
   const partnerMovs = movements.filter(m => partnerIds.has(m.personId))
 

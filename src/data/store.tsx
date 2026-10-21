@@ -172,7 +172,8 @@ export const StoreProvider: React.FC<{
   const show = (s: Screen) => {
     setActiveTabRaw(s.tab)
     setSelectedPersonId(s.person)
-    setAccountsView(s.accounts)
+    // Même écran de comptes qu'avant : on garde « only » (l'adresse ne le contient pas)
+    setAccountsView(prev => (s.accounts && prev && prev.dir === s.accounts.dir && prev.group === s.accounts.group ? { ...s.accounts, only: prev.only } : s.accounts))
     setSettingsView(s.settings)
   }
 

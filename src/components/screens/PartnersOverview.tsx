@@ -49,21 +49,21 @@ export const PartnersOverview: React.FC<{ side: 'leurs' | 'mes' }> = ({ side }) 
         emptyText="Aucun partenaire trouvé."
       />
       {side === 'leurs' && <DaysCard
-        title="Leurs comptes"
+        title="Clients"
         rows={owesMeRows}
         tone="credit"
         amountLabel="Client"
-        totalLabel="On me doit"
+        totalLabel=""
         showCount={showCount}
         unit={PEOPLE}
         empty="Personne ne vous doit d'argent."
       />}
       {side === 'mes' && <DaysCard
-        title="Mes comptes"
+        title="Fournisseurs"
         rows={iOweRows}
         tone="debt"
         amountLabel="Fournisseur"
-        totalLabel="Je dois"
+        totalLabel=""
         showCount={showCount}
         unit={PEOPLE}
         empty="Vous ne devez rien à personne."

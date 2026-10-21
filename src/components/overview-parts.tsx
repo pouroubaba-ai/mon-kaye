@@ -167,9 +167,10 @@ export function DaysCard({
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {/* 2. Le total, en grand */}
-        {totalLabel && rows.length > 0 && (
+        {/* totalLabel vide : le total s'affiche sans petit titre au-dessus */}
+        {totalLabel !== undefined && rows.length > 0 && (
           <div className="flex flex-col gap-0.5">
-            <span className="text-xs text-muted-foreground">{totalLabel}</span>
+            {totalLabel && <span className="text-xs text-muted-foreground">{totalLabel}</span>}
             <span className={cn('text-2xl font-semibold tabular-nums', tone === 'credit' ? 'text-credit' : 'text-debt')}>
               {formatFCFA(rawRows.reduce((a, r) => a + r.amount, 0))}
             </span>
@@ -303,7 +304,7 @@ function RoleDonut({ rows, tone, unit }: { rows: DayRow[]; tone: 'credit' | 'deb
               <span className="truncate text-muted-foreground">{s.label}</span>
               <span className="text-xs text-muted-foreground/70">{countLabel(s.people, unit)}</span>
             </span>
-            <span className="font-medium tabular-nums">{formatFCFA(s.value)}</span>
+            <span className={cn('font-medium tabular-nums', tone === 'credit' ? 'text-credit' : 'text-debt')}>{formatFCFA(s.value)}</span>
             <span className="w-10 text-right text-xs tabular-nums text-muted-foreground">
               {total > 0 ? Math.round((s.value / total) * 100) : 0} %
             </span>

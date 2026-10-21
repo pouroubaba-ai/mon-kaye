@@ -30,7 +30,7 @@ export function FlowChart({ movements, range, side }: { movements: Movement[]; r
 
   // Début et fin du graphique, et la taille des cases selon le filtre :
   // 7 derniers jours → les 7 jours ; Ce mois → les semaines ; Cette année → les 12 mois ;
-  // Toute la période → les années ; Aujourd'hui → les heures ; dates choisies → jours, semaines ou mois selon la durée.
+  // Toute la période → les années (depuis la première opération) ; Aujourd'hui → les heures ; dates choisies → jours, semaines ou mois selon la durée.
   const today = new Date(new Date().toDateString())
   const b = rangeBounds(range)
   const first = live.length ? Math.min(...live.map(m => opTime(m.date))) : today.getTime()
@@ -41,10 +41,9 @@ export function FlowChart({ movements, range, side }: { movements: Movement[]; r
     by = 'heure'
     start = today
   } else if (range.key === 'tout') {
+    // Les années, depuis l'année de la première opération (aucune année vide avant)
     by = 'annee'
-    const y0 = new Date(first).getFullYear()
-    // au moins deux années, pour que la courbe se voie
-    start = new Date(Math.min(y0, today.getFullYear() - 1), 0, 1)
+    start = new Date(new Date(first).getFullYear(), 0, 1)
   } else if (range.key === 'annee') {
     by = 'mois'
     start = new Date(today.getFullYear(), 0, 1)
@@ -178,6 +177,8 @@ export function AreaCard({
                 stroke={s.color}
                 strokeWidth={2}
                 fill={`url(#${uid}-${s.key})`}
+                // Une seule case (par exemple une seule année) : un point, sinon rien ne se verrait
+                dot={rows.length === 1 ? { r: 5, fill: s.color, strokeWidth: 0 } : false}
                 isAnimationActive
                 animationDuration={800}
               />

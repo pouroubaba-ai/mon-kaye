@@ -33,7 +33,7 @@ export const EmployeesOverview: React.FC<{ side: 'leurs' | 'mes' }> = ({ side })
 
       {side === 'leurs' && <DaysCard
         title="Avances à rendre"
-        totalLabel="On me doit"
+        totalLabel=""
         showCount={who === 'tous'}
         rows={advanceRows}
         tone="credit"
@@ -41,8 +41,8 @@ export const EmployeesOverview: React.FC<{ side: 'leurs' | 'mes' }> = ({ side })
         empty="Aucune avance en cours."
       />}
       {side === 'mes' && <DaysCard
-        title="Salaires dus"
-        totalLabel="Je dois"
+        title="Salaires"
+        totalLabel=""
         showCount={who === 'tous'}
         rows={salaryRows}
         tone="debt"

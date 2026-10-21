@@ -9,7 +9,8 @@ import type { Person } from '@/data/mockData'
 import type { Modules } from '@/modules/reglages/preferences'
 
 export type Tab = 'accueil' | 'personnes' | 'employes' | 'salaires' | 'reglages'
-export type AccountsView = { dir: 'leurs' | 'mes'; group: 'partner' | 'employee' }
+// only : ouvert depuis la vue Partenaires ou Employés du tableau de bord : on reste de ce côté (pas d'interrupteur)
+export type AccountsView = { dir: 'leurs' | 'mes'; group: 'partner' | 'employee'; only?: boolean }
 export type Screen = {
   tab: Tab
   person: string | null

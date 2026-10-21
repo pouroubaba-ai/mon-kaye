@@ -5,7 +5,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PartnersOverview } from '@/components/screens/PartnersOverview'
 import { EmployeesOverview } from '@/components/screens/EmployeesOverview'
 
-// « Leurs comptes » (ce qu'on me doit) ou « Mes comptes » (ce que je dois), ouvert en touchant
+// « On me doit » ou « Je dois », ouvert en touchant
 // le total sur le tableau de bord. D'abord le sens de l'argent, ensuite seulement
 // Personnes / Employés, comme un simple choix en haut.
 export const AccountsScreen: React.FC = () => {
@@ -17,10 +17,11 @@ export const AccountsScreen: React.FC = () => {
   return (
     <div className="flex flex-col gap-4">
       {/* Les deux côtés seulement si les deux modules sont allumés */}
-      {modules.personnes && modules.employes && (
+      {/* Ouvert depuis la vue Partenaires ou Employés : on reste de ce côté */}
+      {modules.personnes && modules.employes && !accountsView.only && (
       <Tabs value={group} onValueChange={g => setAccountsView({ dir, group: g as 'partner' | 'employee' })}>
         <TabsList className="w-full">
-          <TabsTrigger value="partner">Partenaires</TabsTrigger>
+          <TabsTrigger value="partner">{dir === 'leurs' ? 'Clients' : 'Fournisseurs'}</TabsTrigger>
           <TabsTrigger value="employee">Employés</TabsTrigger>
         </TabsList>
       </Tabs>
