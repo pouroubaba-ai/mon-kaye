@@ -113,7 +113,7 @@ export function PersonFormDialog({
     onOpenChange(false)
   }
 
-  const title = person ? 'Modifier' : isEmployee ? 'Nouvel employé' : 'Nouvelle personne'
+  const title = person ? 'Modifier' : isEmployee ? 'Nouvel employé' : 'Nouveau partenaire'
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange} dirty={dirty} dirtyKind={person ? 'modification' : 'ajout'}>

@@ -30,7 +30,10 @@ function StatCard({
   Icon,
   onClick,
   line,
+  count,
 }: {
+  // Pastille en haut à droite : le nombre de personnes concernées
+  count?: number
   label: string
   value: number
   paid: number
@@ -63,6 +66,14 @@ function StatCard({
       />
       <CardContent className="relative flex flex-col gap-6 px-4">
         <ChevronRight className="absolute top-0 right-3 size-5 text-muted-foreground" />
+        {!!count && (
+          <span
+            className="absolute -top-0.5 right-9 flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold leading-none text-white tabular-nums"
+            style={{ background: base }}
+          >
+            {count}
+          </span>
+        )}
         <div
           className="flex size-10 items-center justify-center rounded-xl text-white"
           style={{ background: base, boxShadow: `0 6px 18px -4px color-mix(in srgb, ${base} 60%, transparent)` }}
@@ -92,7 +103,7 @@ function DonutCard({
   people,
   tone,
   delay = 0,
-  unit = ['personne', 'personnes'],
+  unit = ['partenaire', 'partenaires'],
 }: {
   title: string
   slices: Slice[]
@@ -252,8 +263,18 @@ const CurrentDashboard: React.FC<{ only?: 'partner' | 'employee'; extra?: React.
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-2 gap-3 md:gap-4">
-        <StatCard label={only === 'partner' ? 'Clients' : 'On me doit'} value={totals.totalOwesMe} paid={paidToMe} tone="credit" Icon={ArrowDownLeft} onClick={() => setAccountsView({ dir: 'leurs', group: firstGroup })} />
-        <StatCard label={only === 'partner' ? 'Fournisseurs' : 'Je dois'} value={totals.totalIOwe} paid={paidByMe} tone="debt" Icon={ArrowUpRight} onClick={() => setAccountsView({ dir: 'mes', group: firstGroup })} />
+        {/* Employés : les salaires d'abord, c'est le plus important */}
+        {only === 'employee' ? (
+          <>
+          <StatCard count={iOwePeople} label="Salaires" value={totals.totalIOwe} paid={paidByMe} tone="debt" Icon={ArrowUpRight} onClick={() => setAccountsView({ dir: 'mes', group: firstGroup })} />
+          <StatCard count={owesMePeople} label="Avances" value={totals.totalOwesMe} paid={paidToMe} tone="credit" Icon={ArrowDownLeft} onClick={() => setAccountsView({ dir: 'leurs', group: firstGroup })} />
+          </>
+        ) : (
+          <>
+          <StatCard count={owesMePeople} label={only === 'partner' ? 'Clients' : 'On me doit'} value={totals.totalOwesMe} paid={paidToMe} tone="credit" Icon={ArrowDownLeft} onClick={() => setAccountsView({ dir: 'leurs', group: firstGroup })} />
+          <StatCard count={iOwePeople} label={only === 'partner' ? 'Fournisseurs' : 'Je dois'} value={totals.totalIOwe} paid={paidByMe} tone="debt" Icon={ArrowUpRight} onClick={() => setAccountsView({ dir: 'mes', group: firstGroup })} />
+          </>
+        )}
       </div>
 
       {extra}
@@ -307,6 +328,8 @@ const PartnerPeriod: React.FC<{ range: DateRange }> = ({ range }) => {
   const ids = new Set(persons.filter(p => p.type === 'partner').map(p => p.id))
   const inP = movements.filter(m => ids.has(m.personId) && !m.isCancelled && inRange(m.date, range))
   const sum = (t: string) => inP.filter(m => m.type === t).reduce((a, m) => a + m.amount, 0)
+  // Nombre de partenaires qui ont bougé de ce côté pendant la période
+  const who = (...types: string[]) => new Set(inP.filter(m => types.includes(m.type)).map(m => m.personId)).size
   // Le grand chiffre : ce qui reste de la période (total − versé − retours) ; dessous : Total · Versé · Retours
   const card = (credit: string, pay: string, ret: string, tone: 'credit' | 'debt') => {
     const base = tone === 'credit' ? 'var(--color-credit)' : 'var(--color-debt)'
@@ -327,8 +350,8 @@ const PartnerPeriod: React.FC<{ range: DateRange }> = ({ range }) => {
   const f = card('j_ai_pris_credit', 'je_lui_ai_verse', 'j_ai_retourne', 'debt')
   return (
     <div className="grid grid-cols-2 gap-3 md:gap-4">
-      <StatCard label="Clients" value={c.reste} paid={0} tone="credit" Icon={ArrowDownLeft} onClick={() => setAccountsView({ dir: 'leurs', group: 'partner' })} line={c.line} />
-      <StatCard label="Fournisseurs" value={f.reste} paid={0} tone="debt" Icon={ArrowUpRight} onClick={() => setAccountsView({ dir: 'mes', group: 'partner' })} line={f.line} />
+      <StatCard count={who('il_a_pris_credit', 'il_m_a_verse', 'il_a_retourne')} label="Clients" value={c.reste} paid={0} tone="credit" Icon={ArrowDownLeft} onClick={() => setAccountsView({ dir: 'leurs', group: 'partner' })} line={c.line} />
+      <StatCard count={who('j_ai_pris_credit', 'je_lui_ai_verse', 'j_ai_retourne')} label="Fournisseurs" value={f.reste} paid={0} tone="debt" Icon={ArrowUpRight} onClick={() => setAccountsView({ dir: 'mes', group: 'partner' })} line={f.line} />
     </div>
   )
 }
@@ -379,10 +402,13 @@ function periodStats(period: string, rows: ReturnType<typeof usePayPeriods>['row
   let given = 0
   let rendu = 0
   let retenues = 0
+  let nSal = 0 // employés qui ont un salaire sur cette période
+  const advIds = new Set<string>() // employés qui ont reçu ou rendu une avance pendant la période
   for (const { e, pr } of rows) {
     const row = pr.months.find(m => m.period === period)
     if (!row) continue
     if (row.state !== 'annule') {
+      if (row.brut > 0) nSal++
       brut += row.brut
       verse += row.verse
       reste += row.reste
@@ -391,32 +417,24 @@ function periodStats(period: string, rows: ReturnType<typeof usePayPeriods>['row
     const inside = (d: string) => toTime(d) >= start.getTime() && toTime(d) < end.getTime()
     for (const m of movements) {
       if (m.personId !== e.id || m.isCancelled) continue
-      if (m.type === 'avance_salaire' && inside(m.date)) given += m.amount
-      if (m.type === 'remboursement_direct' && inside(m.date)) rendu += m.amount
+      if (m.type === 'avance_salaire' && inside(m.date)) (given += m.amount), advIds.add(e.id)
+      if (m.type === 'remboursement_direct' && inside(m.date)) (rendu += m.amount), advIds.add(e.id)
       // Retenue : seulement quand le salaire de la période est tombé
-      if (m.type === 'retenue_salaire' && m.period === period && row.state !== 'en_cours') rendu += m.amount
+      if (m.type === 'retenue_salaire' && m.period === period && row.state !== 'en_cours') (rendu += m.amount), advIds.add(e.id)
     }
     if (row.state !== 'annule') retenues += row.retenues
   }
-  return { brut, verse, reste, given, rendu, retenues }
+  return { brut, verse, reste, given, rendu, retenues, nSal, nAdv: advIds.size }
 }
 
 const EmployeePeriod: React.FC<{ period: string }> = ({ period }) => {
   const { movements, setAccountsView } = useStore()
   const { rows } = usePayPeriods()
-  const { brut, verse, reste, given, rendu } = periodStats(period, rows, movements)
+  const { brut, verse, reste, given, rendu, nSal, nAdv } = periodStats(period, rows, movements)
   return (
     <div className="grid grid-cols-2 gap-3 md:gap-4">
       <StatCard
-        label="Avances données"
-        value={given}
-        paid={0}
-        tone="credit"
-        Icon={ArrowDownLeft}
-        onClick={() => setAccountsView({ dir: 'leurs', group: 'employee' })}
-        line={<DotLine items={[{ label: 'Rendu', value: rendu, color: 'var(--color-credit)' }]} />}
-      />
-      <StatCard
+        count={nSal}
         label="Salaires"
         value={brut}
         paid={0}
@@ -431,6 +449,16 @@ const EmployeePeriod: React.FC<{ period: string }> = ({ period }) => {
             ]}
           />
         }
+      />
+      <StatCard
+        count={nAdv}
+        label="Avances données"
+        value={given}
+        paid={0}
+        tone="credit"
+        Icon={ArrowDownLeft}
+        onClick={() => setAccountsView({ dir: 'leurs', group: 'employee' })}
+        line={<DotLine items={[{ label: 'Rendu', value: rendu, color: 'var(--color-credit)' }]} />}
       />
     </div>
   )
@@ -461,17 +489,15 @@ const EmployeeCharts: React.FC<{ period: string | null }> = ({ period }) => {
   if (list.length === 0) return null
   const data = list.map(p => ({ p, label: shortPeriod(nameOf(p)), ...periodStats(p, rows, movements) }))
   const total = (k: 'brut' | 'verse' | 'retenues' | 'given' | 'rendu') => data.reduce((a, d) => a + d[k], 0)
-  const retenues = total('retenues')
   return (
     <div className="flex flex-col gap-4">
       <AreaCard
         title="Salaires · par période de paie"
         maxLabels={3}
-        rows={data.map(d => ({ label: d.label, total: d.brut, verse: d.verse, retenues: d.retenues }))}
+        rows={data.map(d => ({ label: d.label, total: d.brut, verse: d.verse }))}
         series={[
           { key: 'total', label: 'Total', color: '#ea580c', total: total('brut') },
           { key: 'verse', label: 'Versé', color: '#38bdf8', total: total('verse') },
-          ...(retenues > 0 ? [{ key: 'retenues', label: 'Retenues', color: '#a78bfa', total: retenues }] : []),
         ]}
       />
       <AreaCard

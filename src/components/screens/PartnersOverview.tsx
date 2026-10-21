@@ -12,7 +12,7 @@ import { DaysCard, PersonPicker, type DayRow } from '@/components/overview-parts
 // - « Dernier versement reçu » : les gens qui me doivent, jours depuis leur dernier versement.
 // - « Dernier versement fait » : les gens à qui je dois, jours depuis mon dernier versement.
 
-const PEOPLE: [string, string] = ['personne', 'personnes']
+const PEOPLE: [string, string] = ['partenaire', 'partenaires']
 
 export const PartnersOverview: React.FC<{ side: 'leurs' | 'mes' }> = ({ side }) => {
   const { persons, movements } = useStore()
@@ -44,9 +44,9 @@ export const PartnersOverview: React.FC<{ side: 'leurs' | 'mes' }> = ({ side }) 
         people={partners}
         value={who}
         onChange={setWho}
-        allLabel="Toutes les personnes"
+        allLabel="Tous les partenaires"
         searchPlaceholder="Nom ou numéro"
-        emptyText="Aucune personne trouvée."
+        emptyText="Aucun partenaire trouvé."
       />
       {side === 'leurs' && <DaysCard
         title="Leurs comptes"

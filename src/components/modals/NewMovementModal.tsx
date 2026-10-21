@@ -367,14 +367,14 @@ export const NewMovementModal: React.FC = () => {
             {bothGroups && (
               <Tabs value={activeGroup} onValueChange={v => { setGroup(v as 'partner' | 'employee'); setSearch('') }}>
                 <TabsList className="w-full">
-                  <TabsTrigger value="partner">Personnes</TabsTrigger>
+                  <TabsTrigger value="partner">Partenaires</TabsTrigger>
                   <TabsTrigger value="employee">Employés</TabsTrigger>
                 </TabsList>
               </Tabs>
             )}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder={activeGroup === 'employee' ? 'Chercher un employé' : 'Chercher une personne'} value={search} onChange={e => setSearch(e.target.value)} className="pr-10 pl-9" />
+              <Input placeholder={activeGroup === 'employee' ? 'Chercher un employé' : 'Chercher un partenaire'} value={search} onChange={e => setSearch(e.target.value)} className="pr-10 pl-9" />
               {search && (
                 <button
                   type="button"
@@ -406,7 +406,7 @@ export const NewMovementModal: React.FC = () => {
                   <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
                 </button>
               ))}
-              {visible.length === 0 && <p className="p-3 text-sm text-muted-foreground">Aucune personne trouvée.</p>}
+              {visible.length === 0 && <p className="p-3 text-sm text-muted-foreground">Aucun partenaire trouvé.</p>}
             </div>
             </div>
           </div>

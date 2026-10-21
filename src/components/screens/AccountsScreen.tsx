@@ -20,7 +20,7 @@ export const AccountsScreen: React.FC = () => {
       {modules.personnes && modules.employes && (
       <Tabs value={group} onValueChange={g => setAccountsView({ dir, group: g as 'partner' | 'employee' })}>
         <TabsList className="w-full">
-          <TabsTrigger value="partner">Personnes</TabsTrigger>
+          <TabsTrigger value="partner">Partenaires</TabsTrigger>
           <TabsTrigger value="employee">Employés</TabsTrigger>
         </TabsList>
       </Tabs>

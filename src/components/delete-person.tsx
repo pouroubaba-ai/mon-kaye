@@ -30,7 +30,7 @@ export function DeletePerson({ personId }: { personId: string }) {
   return (
     <>
       <Button variant="ghost" className="mt-4 h-11 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => setAsk(true)}>
-        <Trash2 /> Supprimer {person.type === 'employee' ? "l'employé" : 'la personne'}
+        <Trash2 /> Supprimer {person.type === 'employee' ? "l'employé" : 'le partenaire'}
       </Button>
       <Dialog open={ask} onOpenChange={setAsk}>
         <DialogContent>

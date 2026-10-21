@@ -28,7 +28,7 @@ export const SettingsScreen: React.FC = () => {
   const [saved, setSaved] = useState(false)
   const [askLogout, setAskLogout] = useState(false)
 
-  const onNames = [modules.personnes && 'Personnes', modules.employes && 'Employés'].filter(Boolean).join(' · ')
+  const onNames = [modules.personnes && 'Partenaires', modules.employes && 'Employés'].filter(Boolean).join(' · ')
 
   // On n'enregistre que si le nom n'est pas vide
   const nameOk = shopNameInput.trim().length > 0
@@ -52,7 +52,7 @@ export const SettingsScreen: React.FC = () => {
   // Liste des modules : on allume ou coupe chacun. Couper ne supprime rien.
   if (view === 'modules') {
     const MODS = [
-      { key: 'personnes', title: 'Personnes', hint: 'Clients, fournisseurs : leurs comptes et les miens', Icon: Users },
+      { key: 'personnes', title: 'Partenaires', hint: 'Clients, fournisseurs : leurs comptes et les miens', Icon: Users },
       { key: 'employes', title: 'Employés', hint: 'Salaires, avances et la page Salaires', Icon: Briefcase },
     ] as const
     return (

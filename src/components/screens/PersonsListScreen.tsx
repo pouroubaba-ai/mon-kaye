@@ -72,7 +72,7 @@ export const PersonsListScreen: React.FC = () => {
           {filteredPersons.length}{' '}
           {activeTab === 'employes'
             ? filteredPersons.length > 1 ? 'employés' : 'employé'
-            : filteredPersons.length > 1 ? 'personnes' : 'personne'}
+            : filteredPersons.length > 1 ? 'partenaires' : 'partenaire'}
         </p>
         <Button size="sm" onClick={() => setAdding(true)}>
           <Plus /> Ajouter
@@ -90,7 +90,7 @@ export const PersonsListScreen: React.FC = () => {
         {filteredPersons.length === 0 ? (
           <Card className="border shadow-sm p-8 text-center space-y-3">
             <p className="text-muted-foreground text-sm">
-              Aucune personne ne correspond à votre recherche.
+              Aucun partenaire ne correspond à votre recherche.
             </p>
             <Button variant="outline" size="sm" onClick={() => setSearchQuery('')}>
               Effacer la recherche

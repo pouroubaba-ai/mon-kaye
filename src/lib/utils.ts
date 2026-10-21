@@ -39,7 +39,7 @@ export function nameTaken(persons: { id: string; name: string; type: string }[],
   if (!k) return ''
   const same = persons.find(p => p.id !== exceptId && nameKey(p.name) === k)
   if (!same) return ''
-  return `« ${same.name} » existe déjà dans ${same.type === 'employee' ? 'Employés' : 'Personnes'}. Choisissez un autre nom.`
+  return `« ${same.name} » existe déjà dans ${same.type === 'employee' ? 'Employés' : 'Partenaires'}. Choisissez un autre nom.`
 }
 const digitsOf = (s: string) => s.replace(/\D/g, '')
 // Numéro sans espaces ni indicatif : « 06 444 », « 064445566 » et « +242 06 444 55 66 » se trouvent l'un l'autre.
