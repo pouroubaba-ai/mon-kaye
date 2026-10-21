@@ -50,7 +50,8 @@ export function SplashScreen({ ready = true }: { ready?: boolean }) {
     <div
       aria-hidden="true"
       className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-3 bg-[#0B0C0F] transition-opacity"
-      style={{ opacity: phase === 'fading' ? 0 : 1, transitionDuration: `${FADE_MS}ms` }}
+      // Pendant qu'il s'efface, l'écran laisse passer les touchers (sinon le premier toucher serait perdu)
+      style={{ opacity: phase === 'fading' ? 0 : 1, transitionDuration: `${FADE_MS}ms`, pointerEvents: phase === 'fading' ? 'none' : undefined }}
     >
       <style>{`
         @keyframes kaye-in { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: none } }
