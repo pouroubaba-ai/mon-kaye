@@ -21,7 +21,7 @@ type Tab = 'accueil' | 'personnes' | 'employes' | 'salaires' | 'reglages'
 
 const TITLES: Record<Tab, string> = {
   accueil: 'Tableau de bord',
-  personnes: 'Personnes',
+  personnes: 'Cahier de compte',
   employes: 'Employés',
   salaires: 'Salaires',
   reglages: 'Réglages',
@@ -76,7 +76,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
   type NavTab = { tab: Tab; label: string; icon: React.ComponentType<{ className?: string }> }
   const allTabs: NavTab[] = [
     { tab: 'accueil', label: 'Accueil', icon: LayoutDashboard },
-    { tab: 'personnes', label: 'Personnes', icon: Users },
+    { tab: 'personnes', label: 'Cahier', icon: Users },
     { tab: 'employes', label: 'Employés', icon: Briefcase },
     { tab: 'salaires', label: 'Salaires', icon: Coins },
   ]

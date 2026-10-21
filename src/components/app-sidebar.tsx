@@ -25,7 +25,7 @@ type Tab = "accueil" | "personnes" | "employes" | "salaires" | "reglages"
 
 const NAV: { tab: Tab; title: string; icon: React.ComponentType }[] = [
   { tab: "accueil", title: "Accueil", icon: LayoutDashboard },
-  { tab: "personnes", title: "Personnes", icon: Users },
+  { tab: "personnes", title: "Cahier", icon: Users },
   { tab: "employes", title: "Employés", icon: Briefcase },
   { tab: "salaires", title: "Salaires", icon: Coins },
   { tab: "reglages", title: "Réglages", icon: Settings },
