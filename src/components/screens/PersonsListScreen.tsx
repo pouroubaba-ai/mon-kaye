@@ -74,8 +74,9 @@ export const PersonsListScreen: React.FC = () => {
             ? filteredPersons.length > 1 ? 'employés' : 'employé'
             : filteredPersons.length > 1 ? 'partenaires' : 'partenaire'}
         </p>
-        <Button size="sm" onClick={() => setAdding(true)}>
-          <Plus /> Ajouter
+        {/* Bouton bien visible : c'est la première chose qu'on fait dans la liste */}
+        <Button size="lg" className="h-11 rounded-xl px-5 text-base font-semibold" onClick={() => setAdding(true)}>
+          <Plus className="size-5" strokeWidth={2.5} /> Ajouter
         </Button>
       </div>
       {activeTab === 'employes' ? (
