@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Coins,
   Delete,
+  Eye,
   HandCoins,
   Plus,
   Search,
@@ -17,9 +18,10 @@ import {
 } from 'lucide-react'
 
 import { useStore } from '@/data/store'
-import { currentPeriod, payrollOf } from '@/data/payroll'
+import { currentPeriod, payrollOf, toTime } from '@/data/payroll'
 import type { Movement, MovementItem } from '@/data/mockData'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/responsive-dialog'
+import * as Center from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -105,6 +107,10 @@ export const NewMovementModal: React.FC = () => {
   const [photo, setPhoto] = useState<string | null>(null) // photo jointe (image compressée)
   const photoInput = React.useRef<HTMLInputElement>(null)
   const [showMore, setShowMore] = useState(false)
+  // Versé tout de suite au moment d'un crédit (ou d'une dette) : caché dans « Ajouter… », pour les cas où le client paie une partie
+  const [paidNowOn, setPaidNowOn] = useState(false)
+  const [paidNowStr, setPaidNowStr] = useState('0')
+  const [target, setTarget] = useState<'amount' | 'paid'>('amount') // le montant que le pavé remplit
   const [search, setSearch] = useState('')
   const [group, setGroup] = useState<'partner' | 'employee'>('partner')
   // Détail en tableau (crédit ou dette seulement) : les lignes confirmées, et le brouillon en cours.
@@ -126,6 +132,9 @@ export const NewMovementModal: React.FC = () => {
     setNote('')
     setPhoto(null)
     setShowMore(false)
+    setPaidNowOn(false)
+    setPaidNowStr('0')
+    setTarget('amount')
     setSearch('')
     setGroup('partner')
     setItems(null)
@@ -139,8 +148,11 @@ export const NewMovementModal: React.FC = () => {
   // Le tableau n'existe que pour un crédit ou une dette ; avec un tableau, le montant vient de ses lignes.
   const isAdjust = PAY_ADJUST.has(type)
   const isAddition = type === 'il_a_pris_credit' || type === 'j_ai_pris_credit' || isAdjust
+  const isCredit = person?.type === 'partner' && (type === 'il_a_pris_credit' || type === 'j_ai_pris_credit')
+  const paidNow = isCredit && paidNowOn ? parseInt(paidNowStr, 10) || 0 : 0
   const hasItems = isAddition && !!items && items.length > 0
   const amount = hasItems ? items!.reduce((a, l) => a + l.total, 0) : parseInt(amountStr, 10) || 0
+  const paidTooMuch = paidNow > 0 && paidNow > amount
   const draftSum = draft.reduce((a, l) => a + lineTotal(l, draftCalc), 0)
 
   const openDetail = () => {
@@ -224,6 +236,9 @@ export const NewMovementModal: React.FC = () => {
   const tooMuch = !salaryPay && !!balance?.isPayment && amount > balance.value
   // Question « pas encore dû → avance ? » : ce qui est versé sur le salaire dû, et ce qui part en avance
   const [askAdvance, setAskAdvance] = useState<{ due: number; adv: number } | null>(null)
+  // L'œil devant le montant d'un compte : son détail (total, versé, retours, reste) ; côté Client ou Fournisseur
+  const [showAccount, setShowAccount] = useState<'credit' | 'debt' | null>(null)
+  const accountShown = useKept(showAccount)
   const advShown = useKept(askAdvance)
   // Versement de salaire qui dépasse « salaire moins retenue » : il prend sur la retenue d'avance du mois.
   const planned = person?.type === 'employee' && type === 'je_lui_ai_verse' ? payrollOf(person.id, movements, monthStates) : null
@@ -237,9 +252,10 @@ export const NewMovementModal: React.FC = () => {
   }
 
   const press = (k: string) => {
-    if (k === 'del') return setAmountStr(s => (s.length <= 1 ? '0' : s.slice(0, -1)))
-    if (k === '000') return setAmountStr(s => (s === '0' ? '0' : (s + '000').slice(0, 9)))
-    setAmountStr(s => (s === '0' ? k : (s + k).slice(0, 9)))
+    const set = target === 'paid' ? setPaidNowStr : setAmountStr
+    if (k === 'del') return set(s => (s.length <= 1 ? '0' : s.slice(0, -1)))
+    if (k === '000' || k === '00') return set(s => (s === '0' ? '0' : (s + k).slice(0, 9)))
+    set(s => (s === '0' ? k : (s + k).slice(0, 9)))
   }
 
   // Clavier d'ordinateur sur l'écran « Combien ? » (sans détail ni saisie dans un champ) : chiffres et effacement
@@ -276,6 +292,9 @@ export const NewMovementModal: React.FC = () => {
       // Retour à « Quelle opération ? » : le montant saisi (ou son détail) est effacé
       setAmountStr('0')
       setItems(null)
+      setPaidNowOn(false)
+      setPaidNowStr('0')
+      setTarget('amount')
       setStep('quoi')
     }
     else if (step === 'quoi' && !newMovementTargetPersonId) setStep('qui')
@@ -313,6 +332,17 @@ export const NewMovementModal: React.FC = () => {
       receiptPhoto: photo ?? undefined,
       items: hasItems ? items! : undefined,
     })
+    // Une partie versée tout de suite : un versement à part, le même jour, pour que l'historique reste juste
+    if (isCredit && paidNow > 0)
+      addMovement({
+        personId: person.id,
+        personName: person.name,
+        type: type === 'il_a_pris_credit' ? 'il_m_a_verse' : 'je_lui_ai_verse',
+        label: LABELS[type === 'il_a_pris_credit' ? 'il_m_a_verse' : 'je_lui_ai_verse'] ?? 'Versement',
+        amount: paidNow,
+        paymentMethod: payment,
+        note: 'Versé au moment du crédit',
+      })
     closeNewMovement()
   }
 
@@ -433,8 +463,16 @@ export const NewMovementModal: React.FC = () => {
               <div key={col.title} className="grid grid-cols-2 gap-2">
                 <div className="col-span-2 px-1">
                   <p className="text-xs text-muted-foreground">{col.title}</p>
-                  <p className={cn('text-base font-semibold tabular-nums', col.tone === 'credit' ? 'text-credit' : 'text-debt')}>
+                  <p className={cn('flex items-center text-base font-semibold tabular-nums', col.tone === 'credit' ? 'text-credit' : 'text-debt')}>
                     {formatFCFA(col.value)}
+                    <button
+                      type="button"
+                      aria-label="Voir le détail du compte"
+                      onClick={() => setShowAccount(col.tone)}
+                      className="ml-1.5 inline-flex size-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                    >
+                      <Eye className="size-4" />
+                    </button>
                   </p>
                 </div>
                 {col.ops.map(o => (
@@ -499,6 +537,16 @@ export const NewMovementModal: React.FC = () => {
                   <span className={cn('font-medium tabular-nums', balance.tone === 'credit' ? 'text-credit' : 'text-debt')}>
                     {formatFCFA(balance.value)}
                   </span>
+                  {person.type === 'partner' && (
+                    <button
+                      type="button"
+                      aria-label="Voir le détail du compte"
+                      onClick={() => setShowAccount(balance.tone)}
+                      className="ml-1.5 inline-flex size-7 translate-y-0.5 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                    >
+                      <Eye className="size-4" />
+                    </button>
+                  )}
                   {planned && planned.plannedRetenue > 0 && (
                     <span className="block text-xs text-muted-foreground tabular-nums">dont {formatFCFA(planned.plannedRetenue)} retenus pour l'avance</span>
                   )}
@@ -507,10 +555,43 @@ export const NewMovementModal: React.FC = () => {
             </div>
 
             <div className="shrink-0 text-center">
-              <span className={cn('text-4xl font-semibold tabular-nums tracking-tight', tooMuch && 'text-destructive')}>
+              <button type="button" onClick={() => setTarget('amount')} className={cn('rounded-lg px-2', paidNowOn && target === 'amount' && 'bg-muted')}>
+              <span className={cn('text-4xl font-semibold tabular-nums tracking-tight', tooMuch && 'text-destructive', paidNowOn && target !== 'amount' && 'text-muted-foreground')}>
                 {formatFCFA(amount).replace(/\s?FCFA$/, '')}
               </span>
               <span className="ml-2 text-base text-muted-foreground">FCFA</span>
+              </button>
+              {/* Versé maintenant : on touche ce montant pour le taper avec le même pavé */}
+              {paidNowOn && (
+                <div className="mt-1 flex flex-col items-center gap-0.5 text-sm">
+                  <span className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setTarget('paid')}
+                      className={cn('rounded-md px-2 py-0.5 tabular-nums', target === 'paid' ? 'bg-muted text-foreground' : 'text-muted-foreground')}
+                    >
+                      Versé maintenant : <span className="font-semibold">{formatFCFA(paidNow)}</span>
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Enlever le versement"
+                      onClick={() => {
+                        setPaidNowOn(false)
+                        setPaidNowStr('0')
+                        setTarget('amount')
+                      }}
+                      className="flex size-6 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </span>
+                  {paidTooMuch ? (
+                    <span className="text-xs text-destructive">Pas plus que le crédit</span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground tabular-nums">Reste à crédit : {formatFCFA(amount - paidNow)}</span>
+                  )}
+                </div>
+              )}
               {tooMuch && balance && (
                 <p className="mt-1 text-xs text-destructive">Pas plus de {formatFCFA(balance.value)}</p>
               )}
@@ -520,7 +601,7 @@ export const NewMovementModal: React.FC = () => {
             </div>
 
             {/* Avec un détail : le montant vient du tableau, le pavé laisse la place aux lignes */}
-            {hasItems ? (
+            {hasItems && target !== 'paid' ? (
               <div className="flex min-h-44 flex-1 flex-col gap-2 overflow-hidden rounded-xl border p-3">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs text-muted-foreground">
@@ -545,14 +626,15 @@ export const NewMovementModal: React.FC = () => {
                 </div>
               </div>
             ) : (
-            /* Pavé : les 4 rangées se partagent la hauteur disponible */
-            <div className="grid min-h-44 flex-1 grid-cols-3 grid-rows-4 gap-1">
-              {['1', '2', '3', '4', '5', '6', '7', '8', '9', '000', '0', 'del'].map(k => (
+            /* Pavé, comme une calculatrice : les 4 rangées se partagent la hauteur disponible.
+               1 2 3 ⌫ / 4 5 6 00 / 7 8 9 000 (sur deux rangées) / 0 (large) */
+            <div className="grid min-h-44 flex-1 grid-cols-4 grid-rows-4 gap-1">
+              {['1', '2', '3', 'del', '4', '5', '6', '00', '7', '8', '9', '000', '0'].map(k => (
                 <Button
                   key={k}
                   type="button"
                   variant="ghost"
-                  className="h-full min-h-10 touch-none text-2xl font-normal select-none"
+                  className={cn('h-full min-h-10 touch-none text-2xl font-normal select-none', k === '000' && 'row-span-2', k === '0' && 'col-span-3')}
                   onClick={() => {
                     if (k === 'del' && heldLong.current) {
                       heldLong.current = false
@@ -621,6 +703,18 @@ export const NewMovementModal: React.FC = () => {
                       <Camera /> Ajouter une photo
                     </Button>
                   )}
+                  {isCredit && !paidNowOn && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setPaidNowOn(true)
+                        setTarget('paid')
+                      }}
+                    >
+                      <HandCoins /> Versé maintenant
+                    </Button>
+                  )}
                   {/* Détail ligne par ligne : seulement pour un crédit ou une dette */}
                   {isAddition && !hasItems && (
                     <Button type="button" variant="outline" onClick={openDetail}>
@@ -634,7 +728,7 @@ export const NewMovementModal: React.FC = () => {
                 </Button>
               )}
 
-              <Button size="lg" className="h-12 text-base" disabled={amount <= 0 || tooMuch} onClick={() => {
+              <Button size="lg" className="h-12 text-base" disabled={amount <= 0 || tooMuch || paidTooMuch} onClick={() => {
                 if (toAdvance > 0) setAskAdvance({ due: amount - toAdvance, adv: toAdvance })
                 else if (eatsRetenue > 0) {
                   const v = { from: planned?.plannedRetenue ?? 0, to: (planned?.plannedRetenue ?? 0) - eatsRetenue }
@@ -778,6 +872,53 @@ export const NewMovementModal: React.FC = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* L'œil devant le montant du compte : total pris, versé, retours et reste, au centre de l'écran */}
+      {person && person.type === 'partner' && (() => {
+        const side = (showAccount ?? accountShown) !== 'debt'
+        const reste = side ? person.owesMe || 0 : person.iOweHim || 0
+        const t = side ? { credit: 'il_a_pris_credit', pay: 'il_m_a_verse', ret: 'il_a_retourne' } : { credit: 'j_ai_pris_credit', pay: 'je_lui_ai_verse', ret: 'j_ai_retourne' }
+        const mine = (type: string) => movements.filter(m => m.personId === person.id && m.type === type && !m.isCancelled)
+        const sum = (type: string) => mine(type).reduce((a, m) => a + m.amount, 0)
+        // Date de la dernière opération de ce type, par rapport à aujourd'hui (« aujourd'hui », « hier », « il y a 5 j », « jamais »)
+        const ago = (type: string) => {
+          const last = mine(type).map(m => toTime(m.date)).sort((x, y) => y - x)[0]
+          if (last === undefined) return 'jamais'
+          const n = Math.round((new Date(new Date().toDateString()).getTime() - last) / 86_400_000)
+          return n <= 0 ? "aujourd'hui" : n === 1 ? 'hier' : `il y a ${n} j`
+        }
+        // Total = reste + versé + retours, comme sur les cartes (un ancien solde sans opération compte aussi)
+        const rows: [string, number, string][] = [
+          ['Total', reste + sum(t.pay) + sum(t.ret), ago(t.credit)],
+          ['Versé', sum(t.pay), ago(t.pay)],
+          ...(sum(t.ret) > 0 ? ([['Retours', sum(t.ret), ago(t.ret)]] as [string, number, string][]) : []),
+        ]
+        return (
+          <Center.Dialog open={showAccount !== null} onOpenChange={o => !o && setShowAccount(null)}>
+            <Center.DialogContent className="w-[calc(100%-2rem)] max-w-sm gap-4">
+              <Center.DialogHeader className="text-left">
+                <Center.DialogTitle>{side ? 'Client' : 'Fournisseur'}</Center.DialogTitle>
+                <Center.DialogDescription>{person.name}</Center.DialogDescription>
+              </Center.DialogHeader>
+              <div className="flex flex-col divide-y rounded-lg border text-sm">
+                {rows.map(([label, v, when]) => (
+                  <div key={label} className="flex items-center justify-between gap-3 px-3 py-2.5">
+                    <span className="flex flex-col">
+                      <span className="text-muted-foreground">{label}</span>
+                      <span className="text-xs text-muted-foreground/70">{when}</span>
+                    </span>
+                    <span className="font-medium tabular-nums">{formatFCFA(v)}</span>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between px-3 py-2.5">
+                  <span className="font-medium">Reste</span>
+                  <span className={cn('font-semibold tabular-nums', side ? 'text-credit' : 'text-debt')}>{formatFCFA(reste)}</span>
+                </div>
+              </div>
+            </Center.DialogContent>
+          </Center.Dialog>
+        )
+      })()}
 
       {/* Salaire pas encore dû : on ne peut pas payer une période avant son échéance. Ce qui dépasse devient une avance. */}
       <Dialog open={askAdvance !== null} onOpenChange={o => !o && setAskAdvance(null)}>

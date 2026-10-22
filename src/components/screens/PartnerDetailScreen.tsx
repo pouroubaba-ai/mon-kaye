@@ -195,7 +195,7 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
           <FileText /> Fiche de compte
         </Button>
       )}
-      <StatementDialog person={partner} open={statement} onOpenChange={setStatement} initialRange={range} />
+      <StatementDialog person={partner} open={statement} onOpenChange={setStatement} />
       {view === 'ensemble' && <DeletePerson personId={partner.id} />}
     </div>
   )

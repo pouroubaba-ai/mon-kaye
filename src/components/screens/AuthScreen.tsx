@@ -4,6 +4,8 @@ import { Eye, EyeOff } from 'lucide-react'
 import { FcGoogle } from 'react-icons/fc'
 import { FaApple } from 'react-icons/fa'
 
+const APPLE = false // connexion Apple pas encore prête
+
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -65,6 +67,13 @@ export function AuthScreen({ mode, onSwitch, actions }: { mode: AuthMode; onSwit
   const pwdOk = pwd.length >= 6
   const ok = emailOk && pwdOk && (!signup || shop.trim().length > 0)
 
+  // Touche Entrée (ou « Suivant » du clavier du téléphone) : aller au champ suivant au lieu d'envoyer
+  const goNext = (id: string) => (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter') return
+    e.preventDefault()
+    document.getElementById(id)?.focus()
+  }
+
   return (
     <div className="min-h-dvh bg-background text-foreground">
       <div className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center gap-8 px-5 py-10">
@@ -85,9 +94,12 @@ export function AuthScreen({ mode, onSwitch, actions }: { mode: AuthMode; onSwit
           <Button type="button" size="lg" disabled={busy} onClick={() => run(actions.google)} className="h-12 bg-white text-base text-neutral-900 hover:bg-neutral-100">
             <FcGoogle className="size-5" aria-hidden="true" /> Continuer avec Google
           </Button>
-          <Button type="button" size="lg" variant="outline" disabled={busy} onClick={() => run(actions.apple)} className="h-12 text-base">
-            <FaApple className="size-5" aria-hidden="true" /> Continuer avec Apple
-          </Button>
+          {/* Apple : caché tant que la connexion Apple n'est pas réglée (compte Apple Developer) ; passer APPLE à true pour le remettre */}
+          {APPLE && (
+            <Button type="button" size="lg" variant="outline" disabled={busy} onClick={() => run(actions.apple)} className="h-12 text-base">
+              <FaApple className="size-5" aria-hidden="true" /> Continuer avec Apple
+            </Button>
+          )}
         </div>
 
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -96,6 +108,7 @@ export function AuthScreen({ mode, onSwitch, actions }: { mode: AuthMode; onSwit
           <span className="h-px flex-1 bg-border" />
         </div>
 
+        {/* Entrée dans un champ : on passe au champ suivant ; dans le mot de passe : on valide */}
         <form
           className="flex flex-col gap-4"
           onSubmit={e => {
@@ -106,12 +119,12 @@ export function AuthScreen({ mode, onSwitch, actions }: { mode: AuthMode; onSwit
           {signup && (
             <div className="grid gap-2">
               <Label htmlFor="auth-shop">Nom de l'activité</Label>
-              <Input id="auth-shop" className="h-12" placeholder="Ex : Alimentation La Grâce" value={shop} onChange={e => setShop(e.target.value)} />
+              <Input id="auth-shop" className="h-12" placeholder="Ex : Alimentation La Grâce" value={shop} onChange={e => setShop(e.target.value)} enterKeyHint="next" onKeyDown={goNext('auth-email')} />
             </div>
           )}
           <div className="grid gap-2">
             <Label htmlFor="auth-email">E-mail</Label>
-            <Input id="auth-email" className="h-12" type="email" inputMode="email" autoComplete="email" placeholder="vous@exemple.com" value={email} onChange={e => setEmail(e.target.value)} />
+            <Input id="auth-email" className="h-12" type="email" inputMode="email" autoComplete="email" placeholder="vous@exemple.com" value={email} onChange={e => setEmail(e.target.value)} enterKeyHint="next" onKeyDown={goNext('auth-pwd')} />
           </div>
           <div className="grid gap-2">
             <div className="flex items-baseline justify-between">
@@ -139,6 +152,7 @@ export function AuthScreen({ mode, onSwitch, actions }: { mode: AuthMode; onSwit
                 className="h-12 pr-12"
                 type={showPwd ? 'text' : 'password'}
                 autoComplete={signup ? 'new-password' : 'current-password'}
+                enterKeyHint="go"
                 value={pwd}
                 onChange={e => setPwd(e.target.value)}
               />

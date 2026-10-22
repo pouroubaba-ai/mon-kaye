@@ -83,7 +83,7 @@ function StatCard({
           <span className="whitespace-nowrap text-xl font-semibold tabular-nums leading-none sm:text-2xl" style={{ color: base }}>
             {amount(value)} <span className="text-xs font-normal text-muted-foreground sm:text-sm">FCFA</span>
           </span>
-          {line ?? (value > 0 && <PaidLine remaining={value} paid={paid} tone={tone} className="mt-1.5" />)}
+          {/* Seulement ce qu'on me doit / ce que je dois : le détail (total, versé) est dans les graphiques et les fiches */}
         </div>
       </CardContent>
     </Card>
@@ -319,8 +319,16 @@ const PartnerPeriod: React.FC<{ range: DateRange }> = ({ range }) => {
   const ids = new Set(persons.filter(p => p.type === 'partner').map(p => p.id))
   const inP = movements.filter(m => ids.has(m.personId) && !m.isCancelled && inRange(m.date, range))
   const sum = (t: string) => inP.filter(m => m.type === t).reduce((a, m) => a + m.amount, 0)
-  // Nombre de partenaires qui ont bougé de ce côté pendant la période
-  const who = (...types: string[]) => new Set(inP.filter(m => types.includes(m.type)).map(m => m.personId)).size
+  // Pastille : le nombre de partenaires qui ont encore un reste sur la période de ce côté
+  // (pris − versé − retours > 0), comme le grand chiffre. Un compte soldé (par une compensation par ex.) ne compte pas.
+  const who = (credit: string, pay: string, ret: string) => {
+    const left = new Map<string, number>()
+    for (const m of inP) {
+      const v = m.type === credit ? m.amount : m.type === pay || m.type === ret ? -m.amount : 0
+      if (v) left.set(m.personId, (left.get(m.personId) ?? 0) + v)
+    }
+    return [...left.values()].filter(v => v > 0).length
+  }
   // Le grand chiffre : ce qui reste de la période (total − versé − retours) ; dessous : Total · Versé · Retours
   const card = (credit: string, pay: string, ret: string, tone: 'credit' | 'debt') => {
     const base = tone === 'credit' ? 'var(--color-credit)' : 'var(--color-debt)'
@@ -398,7 +406,8 @@ function periodStats(period: string, rows: ReturnType<typeof usePayPeriods>['row
   for (const { e, pr } of rows) {
     const row = pr.months.find(m => m.period === period)
     if (!row) continue
-    if (row.state !== 'annule') {
+    // Salaire : compté seulement quand il est tombé. Une période en cours (pas encore à la date de paie) : rien n'est dû.
+    if (row.state !== 'annule' && row.state !== 'en_cours') {
       if (row.brut > 0) nSal++
       brut += row.brut
       verse += row.verse
@@ -413,7 +422,7 @@ function periodStats(period: string, rows: ReturnType<typeof usePayPeriods>['row
       // Retenue : seulement quand le salaire de la période est tombé
       if (m.type === 'retenue_salaire' && m.period === period && row.state !== 'en_cours') (rendu += m.amount), advIds.add(e.id)
     }
-    if (row.state !== 'annule') retenues += row.retenues
+    if (row.state !== 'annule' && row.state !== 'en_cours') retenues += row.retenues
   }
   return { brut, verse, reste, given, rendu, retenues, nSal, nAdv: advIds.size }
 }
@@ -485,9 +494,10 @@ const EmployeeCharts: React.FC<{ period: string | null }> = ({ period }) => {
       <AreaCard
         title="Salaires · par période de paie"
         maxLabels={3}
-        rows={data.map(d => ({ label: d.label, total: d.brut, verse: d.verse }))}
+        // Total = ce qui est à payer (salaire moins les retenues pour avances) : Total − Versé = ce que je dois encore
+        rows={data.map(d => ({ label: d.label, total: d.brut - d.retenues, verse: d.verse }))}
         series={[
-          { key: 'total', label: 'Total', color: '#ea580c', total: total('brut') },
+          { key: 'total', label: 'Total', color: '#ea580c', total: total('brut') - total('retenues') },
           { key: 'verse', label: 'Versé', color: '#38bdf8', total: total('verse') },
         ]}
       />

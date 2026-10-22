@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Download, Share2 } from 'lucide-react'
+import { ArrowLeft, CalendarDays, CalendarRange, ChevronRight, Download, Share2 } from 'lucide-react'
 
 import { useStore } from '@/data/store'
 import { toTime } from '@/data/payroll'
@@ -7,9 +7,9 @@ import type { Movement, Person } from '@/data/mockData'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/responsive-dialog'
 import { Button } from '@/components/ui/button'
 import { PAYMENT_LABELS } from '@/components/movement-history'
-import { formatFCFA } from '@/lib/utils'
-import { DateFilter } from '@/components/date-filter'
-import { ALL_TIME, inRange, isFiltered, rangeBounds, rangeLabel, rangeSpan, type DateRange } from '@/lib/date-range'
+import { cn, formatFCFA } from '@/lib/utils'
+import { DateField } from '@/components/date-filter'
+import { ALL_TIME, inRange, isFiltered, rangeBounds, rangeLabel, rangeSpan, toIso, type DateRange, type RangeKey } from '@/lib/date-range'
 
 // Fiche de compte avec une personne (client, fournisseur…), comme une feuille de papier :
 // 1. en-tête : la boutique, « Fiche de compte », la date ; le client dans un encadré ;
@@ -23,6 +23,8 @@ type Row = { m: Movement; minus: boolean; label: string; solde: number; off: boo
 // Avec un filtre : le solde reporté d'avant la période, puis les lignes de la période
 type Shown = { s: Side; lines: Row[]; total: number; verse: number; retours: number; report: number | null; reste: number }
 
+// Les opérations qui paraissent sur la fiche
+const SHOWN: Movement['type'][] = ['il_a_pris_credit', 'il_m_a_verse', 'il_a_retourne', 'j_ai_pris_credit', 'je_lui_ai_verse', 'j_ai_retourne']
 const shortDate = (d: string) => `${d.slice(0, 6)}${d.slice(8, 10)}` // 05/10/2026 → 05/10/26
 const amount = (v: number) => formatFCFA(v).replace(/\s?FCFA$/, '')
 // Pour le PDF : espaces ordinaires (les polices du PDF ne connaissent pas l'espace fine) et vrai signe moins
@@ -32,25 +34,38 @@ export function StatementDialog({
   person,
   open,
   onOpenChange,
-  initialRange = ALL_TIME,
 }: {
   person: Person
   open: boolean
   onOpenChange: (o: boolean) => void
-  initialRange?: DateRange
 }) {
   const { movements, shop } = useStore()
   const [busy, setBusy] = React.useState(false)
-  // La fiche suit le filtre de la fiche de la personne ; on peut le changer ici
-  const [range, setRange] = React.useState<DateRange>(initialRange)
+  // On choisit d'abord : toute la période, ou une période (aujourd'hui, cette semaine, ce mois, cette année, ou des dates choisies)
+  const [step, setStep] = React.useState<'choix' | 'periode' | 'dates' | 'fiche'>('choix')
+  const [range, setRange] = React.useState<DateRange>(ALL_TIME)
+  const [from, setFrom] = React.useState<Date | undefined>()
+  const [to, setTo] = React.useState<Date | undefined>()
   React.useEffect(() => {
-    if (open) setRange(initialRange)
+    if (!open) return
+    setStep('choix')
+    setRange(ALL_TIME)
+    setFrom(undefined)
+    setTo(new Date(new Date().toDateString()))
   }, [open])
+  const go = (r: DateRange) => {
+    setRange(r)
+    setStep('fiche')
+  }
   const filtered = isFiltered(range)
   // Les versements annulés restent sur la fiche (barrés, sans changer le solde) ; les autres annulés n'y sont pas.
   const isPay = (m: Movement) => m.type === 'il_m_a_verse' || m.type === 'je_lui_ai_verse'
   const mine = movements.filter(m => m.personId === person.id && (!m.isCancelled || isPay(m)))
   const today = new Date().toLocaleDateString('fr-FR')
+  // Combien d'opérations dans une période (pour dire tout de suite quand il n'y en a aucune)
+  const countIn = (r: DateRange) => mine.filter(m => !m.isCancelled && SHOWN.includes(m.type) && inRange(m.date, r)).length
+  const custom: DateRange = { key: 'perso', from: from ? toIso(from) : undefined, to: to ? toIso(to) : undefined }
+  const customCount = from || to ? countIn(custom) : null
 
   const sides: Side[] = [
     { title: 'Client', hint: 'ce qu’il a pris chez moi', credit: 'il_a_pris_credit', pay: 'il_m_a_verse', ret: 'il_a_retourne', reste: person.owesMe || 0 },
@@ -258,11 +273,80 @@ export function StatementDialog({
       <DialogContent className="max-h-[90dvh] overflow-y-auto">
         <div className="flex flex-col gap-4">
           <DialogHeader className="gap-1 p-0">
-            <DialogTitle className="text-left">Fiche de compte</DialogTitle>
+            <div className="flex items-center gap-1">
+              {step !== 'choix' && (
+                <Button variant="ghost" size="icon" className="-ml-2" aria-label="Retour" onClick={() => setStep(step === 'dates' ? 'periode' : step === 'fiche' && isFiltered(range) ? (range.key === 'perso' ? 'dates' : 'periode') : 'choix')}>
+                  <ArrowLeft />
+                </Button>
+              )}
+              <DialogTitle className="text-left">{step === 'periode' ? 'Quelle période ?' : step === 'dates' ? 'Choisir les dates' : 'Fiche de compte'}</DialogTitle>
+            </div>
             <DialogDescription className="text-left">{person.name}</DialogDescription>
           </DialogHeader>
-          <DateFilter value={range} onChange={setRange} />
 
+          {/* 1. Toute la période, ou une période */}
+          {step === 'choix' && (
+            <div className="flex flex-col gap-2">
+              <Choice Icon={CalendarDays} label="Toute la période" hint="Tous les comptes depuis le début" onClick={() => go(ALL_TIME)} />
+              <Choice Icon={CalendarRange} label="Une période" hint="Aujourd’hui, cette semaine, ce mois…" onClick={() => setStep('periode')} />
+            </div>
+          )}
+
+          {/* 2. Quelle période : à côté de chaque choix, le nombre d'opérations ; « Aucune opération » ne s'ouvre pas */}
+          {step === 'periode' && (
+            <div className="flex flex-col gap-2">
+              {(['jour', 'semaine', 'mois', 'annee'] as RangeKey[]).map(k => {
+                const n = countIn({ key: k })
+                return (
+                  <Choice
+                    key={k}
+                    label={rangeLabel({ key: k })}
+                    hint={n ? `${n} opération${n > 1 ? 's' : ''}` : 'Aucune opération'}
+                    disabled={!n}
+                    onClick={() => go({ key: k })}
+                  />
+                )
+              })}
+              <Choice label="Personnaliser" hint="Choisir le début et la fin" onClick={() => setStep('dates')} />
+            </div>
+          )}
+
+          {/* 3. Personnaliser : début et fin, puis Continuer */}
+          {step === 'dates' && (
+            <div className="flex flex-col gap-3">
+              <div className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2 text-sm text-muted-foreground">
+                <span>Du</span>
+                <DateField
+                  title="Date de début"
+                  value={from}
+                  onChange={d => {
+                    setFrom(d)
+                    if (to && d > to) setTo(d)
+                  }}
+                />
+                <span>Au</span>
+                <DateField
+                  title="Date de fin"
+                  value={to}
+                  onChange={d => {
+                    setTo(d)
+                    if (from && d < from) setFrom(d)
+                  }}
+                />
+              </div>
+              {customCount !== null && (
+                <p className={cn('text-sm', customCount ? 'text-muted-foreground' : 'text-destructive')}>
+                  {customCount ? `${customCount} opération${customCount > 1 ? 's' : ''} sur cette période` : 'Aucune opération sur cette période'}
+                </p>
+              )}
+              <Button size="lg" className="h-12" disabled={!from || !customCount} onClick={() => go(custom)}>
+                Continuer
+              </Button>
+            </div>
+          )}
+
+          {step === 'fiche' && (
+          <>
           {/* La feuille */}
           <div className="overflow-hidden rounded-xl bg-white text-sm text-neutral-900 shadow-sm">
             <div className="flex items-start justify-between gap-3 bg-[#0B0C0F] px-4 py-3.5">
@@ -342,8 +426,45 @@ export function StatementDialog({
               <Download /> Télécharger
             </Button>
           </div>
+          </>
+          )}
         </div>
       </DialogContent>
     </Dialog>
+  )
+}
+
+// Un grand choix dans la fenêtre (Toute la période, Ce mois…), avec une petite indication dessous
+function Choice({
+  label,
+  hint,
+  Icon,
+  disabled,
+  onClick,
+}: {
+  label: string
+  hint?: string
+  Icon?: React.ComponentType<{ className?: string }>
+  disabled?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className="flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors hover:bg-muted active:bg-muted disabled:pointer-events-none disabled:opacity-50"
+    >
+      {Icon && (
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+          <Icon className="size-4.5" />
+        </span>
+      )}
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="font-medium">{label}</span>
+        {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
+      </span>
+      {!disabled && <ChevronRight className="size-4 shrink-0 text-muted-foreground" />}
+    </button>
   )
 }

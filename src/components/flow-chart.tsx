@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Area, AreaChart, CartesianGrid, XAxis } from 'recharts'
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 
 import type { Movement } from '@/data/mockData'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,6 +16,9 @@ import { opTime, rangeBounds, type DateRange } from '@/lib/date-range'
 const MONTHS = ['Janv.', 'Févr.', 'Mars', 'Avr.', 'Mai', 'Juin', 'Juil.', 'Août', 'Sept.', 'Oct.', 'Nov.', 'Déc.']
 const DAY = 86_400_000
 const amount = (v: number) => formatFCFA(v).replace(/\s?FCFA$/, '')
+// Montant court pour les graduations : 0, 500 k, 1,2 M
+const short = (v: number) =>
+  v >= 1_000_000 ? `${(v / 1_000_000).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} M` : v >= 1000 ? `${Math.round(v / 1000)} k` : String(v)
 const dd = (d: Date) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
 
 type Side = 'chez_moi' | 'chez_eux'
@@ -119,7 +122,7 @@ export type Serie = { key: string; label: string; color: string; total: number }
 // Carte avec un graphique en aires lissées et, dessous, le total de chaque courbe
 export function AreaCard({
   title,
-  rows,
+  rows: given,
   series,
   maxLabels = 7,
 }: {
@@ -130,6 +133,9 @@ export function AreaCard({
 }) {
   const config = Object.fromEntries(series.map(s => [s.key, { label: s.label, color: s.color }])) satisfies ChartConfig
   const uid = React.useId().replace(/:/g, '')
+  // Une seule case (par exemple une seule année) : la même valeur de bord à bord, en trait plat,
+  // avec son étiquette au milieu (un point seul se voit mal)
+  const rows = given.length === 1 ? [{ ...given[0], label: '' }, given[0], { ...given[0], label: '' }] : given
   // Pas trop d'étiquettes sous le graphique
   const step = Math.max(1, Math.ceil(rows.length / maxLabels))
   // Étiquettes longues (peu d'étiquettes) : la première et la dernière s'alignent sur les bords
@@ -143,7 +149,7 @@ export function AreaCard({
       <CardContent className="flex flex-col gap-4">
         {/* Simple lecture : pas de toucher sur le graphique (sur iPhone, un graphique qui réagit au toucher gêne les onglets du bas) */}
         <ChartContainer config={config} className="pointer-events-none aspect-auto h-[200px] w-full">
-          <AreaChart data={rows} margin={{ left: 18, right: 18, top: 8 }}>
+          <AreaChart data={rows} margin={{ left: 0, right: 18, top: 8 }}>
             <defs>
               {series.map(s => (
                 <linearGradient key={s.key} id={`${uid}-${s.key}`} x1="0" y1="0" x2="0" y2="1">
@@ -160,7 +166,7 @@ export function AreaCard({
               tickMargin={8}
               interval={0}
               tick={({ x, y, payload, index }) =>
-                index === rows.length - 1 || (index % step === 0 && rows.length - 1 - index >= step * 0.7) ? (
+                payload.value !== '' && (index === rows.length - 1 || (index % step === 0 && rows.length - 1 - index >= step * 0.7) || given.length === 1) ? (
                   <text x={x} y={Number(y) + 10} textAnchor={edges && index === 0 && rows.length > 1 ? 'start' : edges && index === rows.length - 1 && rows.length > 1 ? 'end' : 'middle'} className="fill-muted-foreground text-[10px]">
                     {payload.value}
                   </text>
@@ -168,6 +174,15 @@ export function AreaCard({
                   <g />
                 )
               }
+            />
+            {/* Graduations sur le côté : montants courts (500 k, 1,2 M) */}
+            <YAxis
+              width={44}
+              tickLine={false}
+              axisLine={false}
+              tickCount={5}
+              tickFormatter={(v: number) => short(v)}
+              tick={{ fontSize: 10, className: 'fill-muted-foreground' }}
             />
             {series.map(s => (
               <Area
@@ -177,8 +192,7 @@ export function AreaCard({
                 stroke={s.color}
                 strokeWidth={2}
                 fill={`url(#${uid}-${s.key})`}
-                // Une seule case (par exemple une seule année) : un point, sinon rien ne se verrait
-                dot={rows.length === 1 ? { r: 5, fill: s.color, strokeWidth: 0 } : false}
+                dot={false}
                 isAnimationActive
                 animationDuration={800}
               />

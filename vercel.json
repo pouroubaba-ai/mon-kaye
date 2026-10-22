@@ -3,5 +3,18 @@
   "installCommand": "npm install",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [
+    {
+      "source": "/__/auth/(.*)",
+      "destination": "https://kaye-8e8ca.firebaseapp.com/__/auth/$1"
+    },
+    {
+      "source": "/__/firebase/(.*)",
+      "destination": "https://kaye-8e8ca.firebaseapp.com/__/firebase/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
 }

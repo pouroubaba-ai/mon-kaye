@@ -31,9 +31,15 @@ import type { Movement, Person } from '@/data/mockData'
 
 // Projet Firebase « kaye-8e8ca ». Ces identifiants ne sont pas secrets : ce qui protège les données,
 // ce sont les règles de sécurité (fichier firestore.rules) : chaque commerçant ne lit que son espace.
+// App installée sur le téléphone (sur mon-kaye.vercel.app) : la connexion Google passe par la redirection.
+// Les téléphones (Safari surtout) bloquent les échanges entre deux adresses différentes : la page d'arrivée
+// de Firebase est donc servie à l'adresse de Kayé (voir vercel.json, /__/auth/…), pour que tout reste sous une seule adresse.
+// (Cette page d'arrivée, https://mon-kaye.vercel.app/__/auth/handler, est déclarée dans Google Cloud.)
+const installedOnKaye =
+  typeof window !== 'undefined' && window.location.hostname === 'mon-kaye.vercel.app' && !!window.matchMedia?.('(display-mode: standalone)').matches
 const firebaseConfig = {
   apiKey: 'AIzaSyCn7rQZHPubD8gAE9BxUzZXSDAx_bd9Xb8',
-  authDomain: 'kaye-8e8ca.firebaseapp.com',
+  authDomain: installedOnKaye ? 'mon-kaye.vercel.app' : 'kaye-8e8ca.firebaseapp.com',
   projectId: 'kaye-8e8ca',
   storageBucket: 'kaye-8e8ca.firebasestorage.app',
   messagingSenderId: '857556638387',

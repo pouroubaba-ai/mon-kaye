@@ -158,3 +158,44 @@ export function DateFilter({ value, onChange, align }: { value: DateRange; onCha
     </FilterPill>
   )
 }
+
+// Un champ date seul (« Du », « Au ») : toucher le champ ouvre une fenêtre au centre avec le calendrier
+export function DateField({ title, value, onChange }: { title: string; value: Date | undefined; onChange: (d: Date) => void }) {
+  const [open, setOpen] = React.useState(false)
+  const today = new Date(new Date().toDateString())
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className={cn('flex h-11 w-full items-center justify-between rounded-lg border bg-transparent px-3 text-left text-sm dark:bg-input/30', open && 'border-ring ring-3 ring-ring/50')}
+      >
+        <span className={value ? 'text-foreground' : 'text-muted-foreground'}>{value ? value.toLocaleDateString('fr-FR') : 'jj/mm/aaaa'}</span>
+        <CalendarDays className="size-4 text-muted-foreground" />
+      </button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="w-[calc(100%-2rem)] max-w-[22rem] gap-3 p-4">
+          <DialogHeader className="text-left">
+            <DialogTitle>{title}</DialogTitle>
+            <DialogDescription className="sr-only">Choisir un jour</DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-center">
+            <Calendar
+              mode="single"
+              selected={value}
+              onSelect={(d: Date | undefined) => {
+                if (!d) return
+                onChange(d)
+                setOpen(false)
+              }}
+              defaultMonth={value ?? today}
+              disabled={{ after: today }}
+              endMonth={today}
+              className="p-0 [--cell-size:2.5rem]"
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
