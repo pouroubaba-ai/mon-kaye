@@ -14,6 +14,7 @@ import { MovementDetailModal } from '@/components/modals/MovementDetailModal'
 import { slideIn } from '@/lib/utils'
 import { AuthScreen, Wordmark, type AuthActions, type AuthMode } from '@/components/screens/AuthScreen'
 import { SetupScreen } from '@/components/screens/SetupScreen'
+import { LandingPage } from '@/components/screens/LandingPage'
 import { Button } from '@/components/ui/button'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth, authError, createShop, loadShop, logOut, makePersister, resetPassword, signInApple, signInEmail, signInGoogle, signUpEmail } from '@/lib/firebase'
@@ -96,11 +97,14 @@ const AppContent: React.FC = () => {
 // Démonstration sans compte : ajouter ?demo à l'adresse (données d'exemple, rien n'est enregistré).
 const authModeOf = (path: string): AuthMode | null => (path === '/connexion' ? 'connexion' : path === '/inscription' ? 'inscription' : null)
 const DEMO = new URLSearchParams(window.location.search).has('demo')
+// La page d'accueil publique : sur « / », dans le navigateur (jamais dans l'app installée)
+const showsLanding = (path: string) => path === '/' && !window.matchMedia?.('(display-mode: standalone)').matches
 const EMPTY_DEMO: StoreData = { shop: { name: 'Ma boutique' }, persons: [], movements: [], monthStates: {} }
 
 type Phase =
   | { k: 'loading' }
   | { k: 'out'; mode: AuthMode }
+  | { k: 'landing' } // page d'accueil publique (visiteur pas connecté sur « / »)
   | { k: 'setup'; uid: string; name: string }
   | { k: 'ready'; uid: string; v?: number; data: StoreData; persist: (d: StoreData) => void }
   | { k: 'error' }
@@ -127,6 +131,7 @@ export function App() {
     return onAuthStateChanged(auth, async user => {
       const path = window.location.pathname
       if (!user) {
+        if (showsLanding(path)) return setPhase({ k: 'landing' })
         const mode = authModeOf(path) ?? 'connexion'
         if (path !== `/${mode}`) window.history.replaceState(null, '', `/${mode}`)
         setPhase({ k: 'out', mode })
@@ -176,7 +181,14 @@ export function App() {
 
   // Retour du navigateur entre /connexion et /inscription
   React.useEffect(() => {
-    const onPop = () => setPhase(p => (p.k === 'out' ? { k: 'out', mode: authModeOf(window.location.pathname) ?? 'connexion' } : p))
+    const onPop = () =>
+      setPhase(p =>
+        p.k === 'out' || p.k === 'landing'
+          ? showsLanding(window.location.pathname)
+            ? { k: 'landing' }
+            : { k: 'out', mode: authModeOf(window.location.pathname) ?? 'connexion' }
+          : p
+      )
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
   }, [])
@@ -202,6 +214,8 @@ export function App() {
     )
   } else if (phase.k === 'loading') {
     body = <Loading />
+  } else if (phase.k === 'landing') {
+    body = <LandingPage />
   } else if (phase.k === 'out') {
     body = (
       <AuthScreen
