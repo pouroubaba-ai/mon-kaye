@@ -14,7 +14,7 @@ import { dueRows, empLine, inDays, monthName, shortDate } from '@/modules/employ
 // Sans employé choisi (bouton de la liste) : on choisit d'abord à qui.
 
 export function PaySalaryDialog({ empId, open, onOpenChange }: { empId: string | null; open: boolean; onOpenChange: (o: boolean) => void }) {
-  const { persons, movements, monthStates, addMovement } = useStore()
+  const { persons, movements, monthStates, addMovement, openNewMovement } = useStore()
   const [picked, setPicked] = React.useState<string | null>(null)
   const [search, setSearch] = React.useState('')
   const [custom, setCustom] = React.useState<string | null>(null) // montant changé à la main
@@ -32,24 +32,13 @@ export function PaySalaryDialog({ empId, open, onOpenChange }: { empId: string |
   const emp = id ? persons.find(p => p.id === id) : undefined
   const L = emp ? empLine(emp, movements, monthStates) : null
   const due = L?.due ?? 0
-  const suggested = L ? (due > 0 ? due : L.upcoming) : 0
-  const amount = custom !== null ? parseInt(custom, 10) || 0 : suggested
-  const toAdvance = Math.max(0, amount - due)
+  // Le champ « Je lui verse » part vide : on tape le montant, ou on touche « Tout »
+  const amount = parseInt(custom ?? '', 10) || 0
+  const tooMuch = amount > due
 
   const save = () => {
-    if (!emp || amount <= 0) return
-    const pay = amount - toAdvance
-    if (pay > 0) addMovement({ personId: emp.id, personName: emp.name, type: 'je_lui_ai_verse', label: 'Salaire versé', amount: pay, paymentMethod: method })
-    if (toAdvance > 0)
-      addMovement({
-        personId: emp.id,
-        personName: emp.name,
-        type: 'avance_salaire',
-        label: 'Avance sur salaire',
-        amount: toAdvance,
-        paymentMethod: method,
-        note: 'Versé avant le jour de paie : enregistré comme une avance',
-      })
+    if (!emp || amount <= 0 || tooMuch) return
+    addMovement({ personId: emp.id, personName: emp.name, type: 'je_lui_ai_verse', label: 'Salaire versé', amount, paymentMethod: method })
     onOpenChange(false)
   }
 
@@ -63,7 +52,7 @@ export function PaySalaryDialog({ empId, open, onOpenChange }: { empId: string |
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange} dirty={custom !== null} dirtyKind="ajout">
-        <DialogContent className="max-h-[92dvh] overflow-y-auto">
+        <DialogContent fixedHeight={!emp} className={emp ? 'max-h-[92dvh] overflow-y-auto' : undefined}>
           {!emp ? (
             <>
               <DialogHeader className="text-left">
@@ -76,15 +65,15 @@ export function PaySalaryDialog({ empId, open, onOpenChange }: { empId: string |
                 <Search className="size-5" />
                 <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Chercher un employé" className="min-w-0 flex-1 bg-transparent text-base text-foreground outline-none" />
               </label>
-              <div className="flex flex-col pb-2">
+              <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pt-2 pb-2">
                 {list.map((l, i) => (
                   <button key={l.emp.id} type="button" onClick={() => setPicked(l.emp.id)} className={cn('flex items-center gap-3 px-1.5 py-3 text-left', i < list.length - 1 && 'border-b border-border/60')}>
                     <span className="flex size-10 items-center justify-center rounded-full bg-muted text-[13px] font-semibold text-muted-foreground">{initials(l.emp.name)}</span>
                     <span className="flex min-w-0 flex-1 flex-col">
                       <span className="truncate text-base font-semibold">{l.emp.name}</span>
-                      <span className="text-xs text-muted-foreground">{l.due > 0 ? 'À payer maintenant' : `Paie ${inDays(l.days)}`}</span>
+                      <span className="text-xs text-muted-foreground">{l.due > 0 ? 'Je lui dois maintenant' : `Rien à payer · prochaine paie ${inDays(l.days)}`}</span>
                     </span>
-                    <span className={cn('text-[15px] font-bold tabular-nums', l.due > 0 ? 'text-kred' : 'text-muted-foreground')}>{amt(l.due > 0 ? l.due : l.upcoming)}</span>
+                    {l.due > 0 ? <span className="text-[15px] font-bold text-kred tabular-nums">{amt(l.due)}</span> : <span className="text-sm text-muted-foreground">Rien dû</span>}
                   </button>
                 ))}
                 {list.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Aucun employé.</p>}
@@ -107,40 +96,57 @@ export function PaySalaryDialog({ empId, open, onOpenChange }: { empId: string |
                   </div>
                 </div>
               </DialogHeader>
-              <div className="flex flex-col gap-3.5 pb-2">
-                <div className="flex flex-col items-center gap-1.5 pt-3 pb-1">
-                  <span className="text-sm text-muted-foreground">À lui verser</span>
-                  {custom === null ? (
-                    <span className="text-[44px] leading-tight font-bold tracking-tight text-kred tabular-nums">
-                      {amt(amount)} <span className="text-base font-medium text-muted-foreground">FCFA</span>
+              {due === 0 ? (
+                // Rien n'est dû : pas de salaire à verser. Seulement la prochaine paie, et l'avance si besoin.
+                <div className="flex flex-col gap-4 pb-2">
+                  <div className="flex flex-col items-center gap-1.5 py-5 text-center">
+                    <span className="text-2xl font-bold">Rien à payer pour l'instant</span>
+                    <span className="text-[15px] text-muted-foreground">
+                      Prochaine paie : <b className="text-foreground tabular-nums">{amt(L?.upcoming ?? 0)}</b> le {L ? shortDate(L.dueDate) : ''} <span className="text-kgold">({inDays(L?.days ?? 0)})</span>
                     </span>
-                  ) : (
-                    <span className="flex items-baseline gap-2">
+                  </div>
+                  <button
+                    type="button"
+                    disabled={emp.status === 'inactif'}
+                    onClick={() => {
+                      onOpenChange(false)
+                      openNewMovement(emp.id, 'avance_salaire')
+                    }}
+                    className="h-[58px] rounded-2xl border-2 border-kgreen-solid text-lg font-bold text-kgreen disabled:opacity-40"
+                  >
+                    Lui donner une avance
+                  </button>
+                </div>
+              ) : (
+              <div className="flex flex-col gap-3.5 pb-2">
+                <div className="flex flex-col items-center gap-1 pt-3">
+                  <span className="text-sm text-muted-foreground">Je lui dois maintenant</span>
+                  <span className="text-[44px] leading-tight font-bold tracking-tight text-kred tabular-nums">
+                    {amt(due)} <span className="text-base font-medium text-muted-foreground">FCFA</span>
+                  </span>
+                  <button type="button" onClick={() => setDetail(true)} className="mt-1 flex h-9 items-center gap-1.5 rounded-full border border-kgold/40 bg-kgold/10 px-3.5 text-[13px] font-semibold text-kgold">
+                    <Info className="size-4" /> Voir le détail
+                  </button>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <span className="text-[13px] text-muted-foreground">Je lui verse</span>
+                  <div className="flex items-center gap-2">
+                    <label className={cn('flex h-14 min-w-0 flex-1 items-center gap-2 rounded-xl border-2 bg-background px-3.5', tooMuch ? 'border-destructive' : 'border-kgold/60')}>
                       <input
-                        autoFocus
                         inputMode="numeric"
                         value={custom ? Number(custom).toLocaleString('fr-FR').replace(/\s/g, ' ') : ''}
                         onChange={e => setCustom(e.target.value.replace(/\D/g, '').slice(0, 9))}
                         placeholder="0"
-                        aria-label="Montant versé"
-                        className="w-52 rounded-xl border-2 border-kgold bg-background text-center text-[40px] font-bold tabular-nums outline-none"
+                        aria-label="Je lui verse"
+                        className="min-w-0 flex-1 bg-transparent text-2xl font-bold tabular-nums outline-none placeholder:text-muted-foreground/40"
                       />
-                      <span className="text-base text-muted-foreground">FCFA</span>
-                    </span>
-                  )}
-                  <button type="button" onClick={() => setDetail(true)} className="mt-1 flex h-9 items-center gap-1.5 rounded-full border border-kgold/40 bg-kgold/10 px-3.5 text-[13px] font-semibold text-kgold">
-                    <Info className="size-4" /> Voir le détail
-                  </button>
-                  {custom === null && (
-                    <button type="button" onClick={() => setCustom(String(suggested || ''))} className="h-9 px-3 text-[13px] text-muted-foreground underline underline-offset-[3px]">
-                      Il reçoit seulement une partie ? Changer le montant
+                      <span className="flex-none text-sm text-muted-foreground">FCFA</span>
+                    </label>
+                    <button type="button" onClick={() => setCustom(String(due))} className="h-14 shrink-0 rounded-xl border px-3.5 text-sm font-semibold hover:bg-muted">
+                      Tout ({amt(due)})
                     </button>
-                  )}
-                  {toAdvance > 0 && (
-                    <span className="max-w-xs text-center text-xs text-kgold">
-                      {due > 0 ? `${amt(toAdvance)} de plus que ce qui est dû :` : "Ce n'est pas encore le jour de paie :"} compté comme une avance.
-                    </span>
-                  )}
+                  </div>
+                  {tooMuch && <span className="text-xs text-destructive">Pas plus que ce que je lui dois ({amt(due)}).</span>}
                 </div>
                 <div role="tablist" aria-label="Moyen de paiement" className="grid grid-cols-2 gap-1 rounded-xl bg-muted p-1">
                   {(
@@ -154,10 +160,11 @@ export function PaySalaryDialog({ empId, open, onOpenChange }: { empId: string |
                     </button>
                   ))}
                 </div>
-                <button type="button" disabled={amount <= 0} onClick={save} className="h-[58px] rounded-2xl bg-kred-solid text-lg font-bold text-white disabled:opacity-40">
+                <button type="button" disabled={amount <= 0 || tooMuch} onClick={save} className="h-[58px] rounded-2xl bg-kred-solid text-lg font-bold text-white disabled:opacity-40">
                   Enregistrer
                 </button>
               </div>
+              )}
             </>
           )}
         </DialogContent>
