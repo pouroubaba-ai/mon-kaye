@@ -37,6 +37,12 @@ export const EmployeesHome: React.FC = () => {
   const cutLines = lines.filter(l => l.emp.status !== 'inactif' && l.pr.plannedRetenue > 0)
   const cutTotal = cutLines.reduce((a, l) => a + l.pr.plannedRetenue, 0)
   const nCut = cutLines.length
+  // Jusqu'au dernier jour de paie parmi eux : « d'ici 23 jours »
+  const until = (ls: EmpLine[]) => {
+    if (!ls.length) return ''
+    const n = Math.max(...ls.map(l => l.days))
+    return n <= 0 ? "aujourd'hui" : n === 1 ? "d'ici demain" : `d'ici ${n} jours`
+  }
   // Salaires : les paies terminées de tous les employés (la paie en cours n'est pas encore due)
   const salTotal = lines.reduce((a, l) => a + l.pr.months.filter(m => m.state !== 'en_cours' && m.state !== 'annule').reduce((x, m) => x + m.aPayer, 0), 0)
   // Avances : toutes les avances prises (annulées exclues)
@@ -168,7 +174,7 @@ export const EmployeesHome: React.FC = () => {
               <span className="flex flex-col">
                 <span className="text-sm font-semibold">Retenues en cours</span>
                 <span className="text-xs text-muted-foreground">
-                  À retenir sur la paie de {nCut} employé{nCut > 1 ? 's' : ''}
+                  À retenir sur la paie de {nCut} employé{nCut > 1 ? 's' : ''} {until(cutLines)}
                 </span>
               </span>
               <span className="text-xl font-bold text-kgold tabular-nums">{amt(cutTotal)}</span>
@@ -179,7 +185,7 @@ export const EmployeesHome: React.FC = () => {
               <span className="flex flex-col">
                 <span className="text-sm font-semibold">Paie en cours</span>
                 <span className="text-xs text-muted-foreground">
-                  À donner à {nCur} employé{nCur > 1 ? 's' : ''} à leur jour de paie
+                  À donner à {nCur} employé{nCur > 1 ? 's' : ''} {until(curLines)}
                 </span>
               </span>
               <span className="text-xl font-bold text-kgold tabular-nums">{amt(curTotal)}</span>
