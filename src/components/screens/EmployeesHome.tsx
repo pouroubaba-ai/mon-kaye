@@ -33,6 +33,10 @@ export const EmployeesHome: React.FC = () => {
   const curLines = lines.filter(l => l.emp.status !== 'inactif' && l.upcoming > 0)
   const curTotal = curLines.reduce((a, l) => a + l.upcoming, 0)
   const nCur = curLines.length
+  // Salaires : les paies terminées de tous les employés (la paie en cours n'est pas encore due)
+  const salTotal = lines.reduce((a, l) => a + l.pr.months.filter(m => m.state !== 'en_cours' && m.state !== 'annule').reduce((x, m) => x + m.aPayer, 0), 0)
+  // Avances : toutes les avances prises (annulées exclues)
+  const advAll = lines.reduce((a, l) => a + l.pr.advances.filter(x => x.etat !== 'Annulée').reduce((y, x) => y + x.mov.amount, 0), 0)
   const searching = search.trim() !== ''
   const match = (l: EmpLine) => matchesPerson(l.emp, search)
 
@@ -123,13 +127,13 @@ export const EmployeesHome: React.FC = () => {
               key={t}
               type="button"
               aria-pressed={on}
-              onClick={() => (on ? t === 'salaires' && setShowCur(c => !c) : (setTab(t), setShowCur(false)))}
+              onClick={() => (on ? setShowCur(c => !c) : (setTab(t), setShowCur(false)))}
               className={cn('flex flex-col items-center gap-0.5 border-b-[3px] px-2 py-3', on ? (red ? 'border-kred bg-kred/10' : 'border-kgreen bg-kgreen/10') : 'border-transparent opacity-75')}
             >
               <span className={cn('text-sm font-semibold', on ? (red ? 'text-kred' : 'text-kgreen') : 'text-muted-foreground')}>{label}</span>
               <span className={cn('flex items-center gap-1.5 text-2xl font-bold tracking-tight tabular-nums', red ? 'text-kred' : 'text-kgreen')}>
                 {amt(value)}
-                {on && red && (showCur ? <EyeOff className="size-4 opacity-70" /> : <Eye className="size-4 opacity-70" />)}
+                {on && (showCur ? <EyeOff className="size-4 opacity-70" /> : <Eye className="size-4 opacity-70" />)}
               </span>
               <span className="text-xs text-muted-foreground">{sub}</span>
             </button>
@@ -137,16 +141,34 @@ export const EmployeesHome: React.FC = () => {
         })}
       </nav>
 
-      {/* La paie en cours : ce que je devrai donner à tous, quand leur jour de paie arrivera */}
-      {salaires && showCur && (
-        <div className="flex items-center justify-between gap-3 border-b bg-kgold/5 px-5 py-3 animate-in fade-in slide-in-from-top-1 duration-200">
-          <span className="flex flex-col">
-            <span className="text-sm font-semibold">Paie en cours</span>
-            <span className="text-xs text-muted-foreground">
-              À donner à {nCur} employé{nCur > 1 ? 's' : ''} à leur jour de paie
-            </span>
-          </span>
-          <span className="text-xl font-bold text-kgold tabular-nums">{amt(curTotal)}</span>
+      {/* Onglet touché une deuxième fois : Total, Versé, Reste ; et, pour les salaires, la paie en cours */}
+      {showCur && (
+        <div className="border-b animate-in fade-in slide-in-from-top-1 duration-200">
+          <div className={cn('grid grid-cols-3 px-4 py-3', salaires ? 'bg-kred/5' : 'bg-kgreen/5')}>
+            <div className="flex flex-col items-center gap-0.5">
+              <span className="text-xs text-muted-foreground">Total</span>
+              <span className="text-base font-bold tabular-nums">{amt(salaires ? salTotal : advAll)}</span>
+            </div>
+            <div className="flex flex-col items-center gap-0.5 border-x">
+              <span className="text-xs text-muted-foreground">Versé</span>
+              <span className="text-base font-bold text-kblue tabular-nums">{amt(salaires ? salTotal - salaryDue : advAll - advTotal)}</span>
+            </div>
+            <div className="flex flex-col items-center gap-0.5">
+              <span className="text-xs text-muted-foreground">Reste</span>
+              <span className={cn('text-base font-bold tabular-nums', salaires ? 'text-kred' : 'text-kgreen')}>{amt(salaires ? salaryDue : advTotal)}</span>
+            </div>
+          </div>
+          {salaires && (
+            <div className="flex items-center justify-between gap-3 border-t bg-kgold/5 px-5 py-3">
+              <span className="flex flex-col">
+                <span className="text-sm font-semibold">Paie en cours</span>
+                <span className="text-xs text-muted-foreground">
+                  À donner à {nCur} employé{nCur > 1 ? 's' : ''} à leur jour de paie
+                </span>
+              </span>
+              <span className="text-xl font-bold text-kgold tabular-nums">{amt(curTotal)}</span>
+            </div>
+          )}
         </div>
       )}
 
