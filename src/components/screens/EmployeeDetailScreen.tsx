@@ -94,7 +94,7 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
           {on && (detail ? <EyeOff className="size-4 opacity-70" /> : <Eye className="size-4 opacity-70" />)}
         </span>
         <span className={cn('text-xs', red && !gone ? 'text-kgold' : 'text-muted-foreground')}>
-          {red ? (gone ? 'Parti' : `paie ${inDays(L.days)}`) : pr.advanceReste > 0 ? (per ? `${amt(Math.min(per, pr.advanceReste))} retenus par mois` : `${Il.toLowerCase()} rend ${Il === 'Elle' ? 'elle' : 'lui'}-même`) : "Pas d'avance"}
+          {red ? (gone ? 'Parti' : `paie le ${shortDate(L.dueDate)} · ${L.days <= 0 ? "aujourd'hui" : L.days === 1 ? 'demain' : `dans ${L.days} j`}`) : pr.advanceReste > 0 ? (per ? `${amt(Math.min(per, pr.advanceReste))} retenus par mois` : `${Il.toLowerCase()} rend ${Il === 'Elle' ? 'elle' : 'lui'}-même`) : "Pas d'avance"}
         </span>
       </button>
     )

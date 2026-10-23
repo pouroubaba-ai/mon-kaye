@@ -8,7 +8,7 @@ import { PaySalaryDialog } from '@/components/modals/PaySalaryDialog'
 import { daysSince } from '@/data/payHistory'
 import { cn, matchesPerson } from '@/lib/utils'
 import { amt, initials } from '@/modules/personnes/view'
-import { dueRows, empLine, inDays, monthName, type EmpLine } from '@/modules/employes/view'
+import { dueRows, empLine, inDays, monthName, shortDate, type EmpLine } from '@/modules/employes/view'
 
 // ——— Employés « Kayé simple » ———
 // Deux onglets avec leur montant : Salaires à payer (rouge) / Avances à rendre (vert), une recherche,
@@ -78,7 +78,7 @@ export const EmployeesHome: React.FC = () => {
 
   // Le texte et le montant d'un employé dans « Salaires à payer »
   const salaryRow = (l: EmpLine, last: boolean, gone = false) => {
-    const day = l.dueDate.getDate()
+    const day = shortDate(l.dueDate) // « 13 nov. » : le jour et le mois
     if (l.due > 0) {
       const late = dueRows(l.pr)
       const first = late[0]

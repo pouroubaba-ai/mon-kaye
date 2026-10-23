@@ -71,7 +71,7 @@ export function PaySalaryDialog({ empId, open, onOpenChange }: { empId: string |
                     <span className="flex size-10 items-center justify-center rounded-full bg-muted text-[13px] font-semibold text-muted-foreground">{initials(l.emp.name)}</span>
                     <span className="flex min-w-0 flex-1 flex-col">
                       <span className="truncate text-base font-semibold">{l.emp.name}</span>
-                      <span className="text-xs text-muted-foreground">{l.due > 0 ? 'Je lui dois maintenant' : `Rien à payer · prochaine paie ${inDays(l.days)}`}</span>
+                      <span className="text-xs text-muted-foreground">{l.due > 0 ? 'Je lui dois maintenant' : `Rien à payer · prochaine paie le ${shortDate(l.dueDate)}, ${inDays(l.days)}`}</span>
                     </span>
                     {l.due > 0 ? <span className="text-[15px] font-bold text-kred tabular-nums">{amt(l.due)}</span> : <span className="text-sm text-muted-foreground">Rien dû</span>}
                   </button>
@@ -91,7 +91,7 @@ export function PaySalaryDialog({ empId, open, onOpenChange }: { empId: string |
                   <div className="flex flex-col">
                     <DialogTitle className="text-left text-lg">Verser le salaire</DialogTitle>
                     <DialogDescription className="text-left">
-                      {emp.name} · {L && L.days <= 0 ? `le ${shortDate(L.dueDate)}, jour de paie` : due > 0 ? 'paie en retard' : `paie ${inDays(L?.days ?? 0)}`}
+                      {emp.name} · {L && L.days <= 0 ? `le ${shortDate(L.dueDate)}, jour de paie` : due > 0 ? 'paie en retard' : `paie le ${L ? shortDate(L.dueDate) : ''}, ${inDays(L?.days ?? 0)}`}
                     </DialogDescription>
                   </div>
                 </div>
