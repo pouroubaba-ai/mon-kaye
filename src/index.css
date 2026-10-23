@@ -187,3 +187,14 @@ body {
   max-width: 100%;
   overflow-x: clip;
 }
+
+/* La largeur ne bouge plus : la place de la barre de défilement (ordinateur) est toujours gardée,
+   qu'une page soit longue ou courte, et même quand une fenêtre s'ouvre (le défilement est alors bloqué
+   sans ajouter de marge à droite). */
+html {
+  scrollbar-gutter: stable;
+}
+html body[data-scroll-locked] {
+  margin-right: 0 !important;
+  padding-right: 0 !important;
+}
