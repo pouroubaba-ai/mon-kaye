@@ -1,5 +1,5 @@
 import React from 'react'
-import { Banknote, Check, ChevronDown, ChevronRight, Plus, Search, X } from 'lucide-react'
+import { Banknote, Check, ChevronDown, ChevronRight, Eye, EyeOff, Plus, Search, X } from 'lucide-react'
 
 import { useStore } from '@/data/store'
 import { HomeTop } from '@/components/screens/HomeScreen'
@@ -17,6 +17,7 @@ import { dueRows, empLine, inDays, monthName, type EmpLine } from '@/modules/emp
 export const EmployeesHome: React.FC = () => {
   const { persons, movements, monthStates, setSelectedPersonId, openNewMovement } = useStore()
   const [tab, setTab] = React.useState<'salaires' | 'avances'>('salaires')
+  const [showCur, setShowCur] = React.useState(false) // « Salaires à payer » touché une deuxième fois : la paie en cours
   const [search, setSearch] = React.useState('')
   const [adding, setAdding] = React.useState(false)
   const [paying, setPaying] = React.useState(false)
@@ -28,6 +29,10 @@ export const EmployeesHome: React.FC = () => {
   const advTotal = lines.reduce((a, l) => a + l.pr.advanceReste, 0)
   const nAdv = lines.filter(l => l.pr.advanceReste > 0).length
   const salaires = tab === 'salaires'
+  // Paie en cours de tous les employés actifs (retenues déjà enlevées)
+  const curLines = lines.filter(l => l.emp.status !== 'inactif' && l.upcoming > 0)
+  const curTotal = curLines.reduce((a, l) => a + l.upcoming, 0)
+  const nCur = curLines.length
   const searching = search.trim() !== ''
   const match = (l: EmpLine) => matchesPerson(l.emp, search)
 
@@ -118,16 +123,32 @@ export const EmployeesHome: React.FC = () => {
               key={t}
               type="button"
               aria-pressed={on}
-              onClick={() => setTab(t)}
+              onClick={() => (on ? t === 'salaires' && setShowCur(c => !c) : (setTab(t), setShowCur(false)))}
               className={cn('flex flex-col items-center gap-0.5 border-b-[3px] px-2 py-3', on ? (red ? 'border-kred bg-kred/10' : 'border-kgreen bg-kgreen/10') : 'border-transparent opacity-75')}
             >
               <span className={cn('text-sm font-semibold', on ? (red ? 'text-kred' : 'text-kgreen') : 'text-muted-foreground')}>{label}</span>
-              <span className={cn('text-2xl font-bold tracking-tight tabular-nums', red ? 'text-kred' : 'text-kgreen')}>{amt(value)}</span>
+              <span className={cn('flex items-center gap-1.5 text-2xl font-bold tracking-tight tabular-nums', red ? 'text-kred' : 'text-kgreen')}>
+                {amt(value)}
+                {on && red && (showCur ? <EyeOff className="size-4 opacity-70" /> : <Eye className="size-4 opacity-70" />)}
+              </span>
               <span className="text-xs text-muted-foreground">{sub}</span>
             </button>
           )
         })}
       </nav>
+
+      {/* La paie en cours : ce que je devrai donner à tous, quand leur jour de paie arrivera */}
+      {salaires && showCur && (
+        <div className="flex items-center justify-between gap-3 border-b bg-kgold/5 px-5 py-3 animate-in fade-in slide-in-from-top-1 duration-200">
+          <span className="flex flex-col">
+            <span className="text-sm font-semibold">Paie en cours</span>
+            <span className="text-xs text-muted-foreground">
+              À donner à {nCur} employé{nCur > 1 ? 's' : ''} à leur jour de paie
+            </span>
+          </span>
+          <span className="text-xl font-bold text-kgold tabular-nums">{amt(curTotal)}</span>
+        </div>
+      )}
 
       <label className="mx-4 mt-3 flex h-[46px] items-center gap-2.5 rounded-xl bg-muted px-3.5 text-muted-foreground">
         <Search className="size-[18px] shrink-0" />
