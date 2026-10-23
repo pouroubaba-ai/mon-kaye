@@ -4,7 +4,7 @@ import { useStore } from '@/data/store'
 import { LAST_DAY } from '@/data/payroll'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/responsive-dialog'
 import { cn, formatPhone, nameTaken } from '@/lib/utils'
-import { CalendarDays } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, CalendarDays } from 'lucide-react'
 
 // ——— Nouvel employé : un seul écran ———
 // Nom, homme ou femme, salaire par mois, jour de paie. Le bouton en pointillés ouvre ce qui existe déjà
@@ -118,6 +118,12 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
               ))}
             </div>
           </Field>
+          <Field label="Numéro">
+            <input type="tel" inputMode="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+242 06 …" className="h-12 rounded-xl border bg-background px-3.5 text-base outline-none" />
+          </Field>
+          <Field label="Poste">
+            <input value={role} onChange={e => setRole(e.target.value)} placeholder="Ex : Livreur" className="h-12 rounded-xl border bg-background px-3.5 text-base outline-none" />
+          </Field>
           <Field label="Salaire par mois">
             <Money value={salary} onChange={setSalary} label="Salaire par mois" />
           </Field>
@@ -140,18 +146,21 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
           ) : (
             <div className="flex flex-col gap-4 rounded-2xl border bg-muted/30 p-3.5 animate-in fade-in duration-200">
               <span className="text-xs tracking-[0.08em] text-muted-foreground uppercase">Ce qu'il y a déjà dans le cahier</span>
-              <Field label="Je lui dois déjà (reste de salaire)">
-                <Money value={oldDebt} onChange={setOldDebt} label="Reste de salaire" tone="text-kred" />
-              </Field>
-              <Field label={`${sex === 'f' ? 'Elle' : 'Il'} me doit déjà (avance)`}>
-                <Money value={advance} onChange={setAdvance} label="Avance" tone="text-kgreen" />
-              </Field>
-              <Field label="Numéro">
-                <input type="tel" inputMode="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+242 06 …" className="h-12 rounded-xl border bg-background px-3.5 text-base outline-none" />
-              </Field>
-              <Field label="Poste">
-                <input value={role} onChange={e => setRole(e.target.value)} placeholder="Ex : Livreur" className="h-12 rounded-xl border bg-background px-3.5 text-base outline-none" />
-              </Field>
+              {/* Chaque montant a sa couleur et son sens : rouge = je lui dois, vert = il me doit */}
+              <div className="flex flex-col gap-2 rounded-xl border border-kred/40 bg-kred/5 p-3">
+                <span className="flex items-center gap-2 text-sm font-semibold text-kred">
+                  <ArrowUpRight className="size-4" /> Je lui dois déjà
+                </span>
+                <span className="-mt-1 text-xs text-muted-foreground">Un reste de salaire pas encore payé</span>
+                <Money value={oldDebt} onChange={setOldDebt} label="Je lui dois déjà" tone="text-kred" />
+              </div>
+              <div className="flex flex-col gap-2 rounded-xl border border-kgreen/40 bg-kgreen/5 p-3">
+                <span className="flex items-center gap-2 text-sm font-semibold text-kgreen">
+                  <ArrowDownLeft className="size-4" /> {sex === 'f' ? 'Elle' : 'Il'} me doit déjà
+                </span>
+                <span className="-mt-1 text-xs text-muted-foreground">Une avance qu'{sex === 'f' ? 'elle' : 'il'} n'a pas encore rendue</span>
+                <Money value={advance} onChange={setAdvance} label="Il me doit déjà" tone="text-kgreen" />
+              </div>
             </div>
           )}
 
