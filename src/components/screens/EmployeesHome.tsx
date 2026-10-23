@@ -79,7 +79,8 @@ export const EmployeesHome: React.FC = () => {
         <span className={l.days <= 3 ? 'font-semibold text-kgold' : undefined}>
           Paie le {day} · {inDays(l.days)}
         </span>,
-        <span className="shrink-0 text-base font-semibold text-muted-foreground tabular-nums">{amt(l.upcoming)}</span>,
+        // Rien de dû aujourd'hui : 0 (le montant de la prochaine paie n'est pas une dette)
+        <span className="shrink-0 text-base font-semibold text-muted-foreground tabular-nums">0</span>,
         last
       )
     return row(l, `${l.emp.sex === 'f' ? 'Payée' : 'Payé'} pour ${monthName(l.pr.currentPeriod)}`, <Check className="size-[22px] shrink-0 text-kgreen" strokeWidth={2.6} aria-label="Payé" />, last, { dim: true })
