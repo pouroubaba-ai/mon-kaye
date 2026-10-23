@@ -5,7 +5,6 @@ import {
   ArrowUpRight,
   Camera,
   ChevronRight,
-  Coins,
   Delete,
   Eye,
   HandCoins,
@@ -46,7 +45,6 @@ const OPS: Record<'partner' | 'employee', { type: MType; label: string; Icon: Re
     { type: 'je_lui_ai_verse', label: 'Je verse', Icon: ArrowUpRight, tone: 'debt' },
   ],
   employee: [
-    { type: 'je_lui_ai_verse', label: 'Verser le salaire', Icon: Coins, tone: 'debt' },
     { type: 'avance_salaire', label: 'Donner une avance', Icon: HandCoins, tone: 'credit' },
     { type: 'remboursement_direct', label: 'Il rembourse son avance', Icon: Undo2, tone: 'credit' },
   ],
@@ -397,7 +395,7 @@ export const NewMovementModal: React.FC = () => {
         <DialogHeader className="shrink-0">
           <div className="flex items-center gap-1">
             {/* Ouverte depuis une fiche : la personne est fixée, pas de retour vers la liste des personnes */}
-            {step !== 'qui' && !(step === 'quoi' && newMovementTargetPersonId) && !(step === 'combien' && PAY_ADJUST.has(newMovementInitialType ?? '')) && (
+            {step !== 'qui' && !(step === 'quoi' && newMovementTargetPersonId) && !(step === 'combien' && (PAY_ADJUST.has(newMovementInitialType ?? '') || (!!newMovementTargetPersonId && !!newMovementInitialType))) && (
               <Button variant="ghost" size="icon" className="-ml-2" onClick={back} aria-label="Retour">
                 <ArrowLeft />
               </Button>
@@ -590,7 +588,7 @@ export const NewMovementModal: React.FC = () => {
                       <Eye className="size-4" />
                     </button>
                   )}
-                  {planned && planned.plannedRetenue > 0 && (
+                  {planned && planned.plannedRetenue > 0 && balance.value > 0 && (
                     <span className="block text-xs text-muted-foreground tabular-nums">dont {formatFCFA(planned.plannedRetenue)} retenus pour l'avance</span>
                   )}
                 </p>

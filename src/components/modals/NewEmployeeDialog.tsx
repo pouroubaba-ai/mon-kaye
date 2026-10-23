@@ -103,7 +103,7 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
           }}
         >
           <Field label="Nom">
-            <input autoFocus value={name} onChange={e => setName(e.target.value)} aria-label="Nom" aria-invalid={!!taken} className="h-12 rounded-xl border bg-background px-3.5 text-base outline-none" />
+            <input value={name} onChange={e => setName(e.target.value)} aria-label="Nom" aria-invalid={!!taken} className="h-12 rounded-xl border bg-background px-3.5 text-base outline-none" />
             {taken && <span className="text-xs text-destructive">{taken}</span>}
             <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Homme ou femme">
               {(

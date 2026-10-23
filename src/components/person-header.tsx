@@ -6,7 +6,6 @@ import { useStore } from '@/data/store'
 import type { Person } from '@/data/mockData'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/responsive-dialog'
 
@@ -124,20 +123,20 @@ export function PersonFormDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange} dirty={dirty} dirtyKind={person ? 'modification' : 'ajout'}>
       <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+        <DialogHeader className="text-left">
+          <DialogTitle className="text-left text-xl">{title}</DialogTitle>
           <DialogDescription className="sr-only">{title}</DialogDescription>
         </DialogHeader>
         <form
-          className="flex flex-col gap-4"
+          className="flex flex-col gap-4 pb-2"
           onSubmit={e => {
             e.preventDefault()
             save()
           }}
         >
           <div className="grid gap-2">
-            <Label htmlFor="edit-name">Nom</Label>
-            <Input id="edit-name" value={name} onChange={e => setName(e.target.value)} autoFocus={!person} aria-invalid={!!taken} />
+            <Label htmlFor="edit-name" className="text-[13px] font-normal text-muted-foreground">Nom</Label>
+            <input id="edit-name" value={name} onChange={e => setName(e.target.value)} aria-invalid={!!taken} className="h-12 rounded-xl border bg-background px-3.5 text-base outline-none focus-visible:border-ring" />
             {taken && <p className="text-xs text-destructive">{taken}</p>}
           </div>
           {/* Homme ou Femme : pour écrire « Il me doit » ou « Elle me doit » (rien n'est choisi d'avance) */}
@@ -165,13 +164,14 @@ export function PersonFormDialog({
             ))}
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="edit-phone">Numéro</Label>
-            <Input id="edit-phone" type="tel" inputMode="tel" placeholder="+242 06 …" value={phone} onChange={e => setPhone(e.target.value)} />
+            <Label htmlFor="edit-phone" className="text-[13px] font-normal text-muted-foreground">Numéro</Label>
+            <input id="edit-phone" type="tel" inputMode="tel" placeholder="+242 06 …" value={phone} onChange={e => setPhone(e.target.value)} className="h-12 rounded-xl border bg-background px-3.5 text-base outline-none focus-visible:border-ring" />
           </div>
           {isEmployee && (
           <div className="grid gap-2">
-            <Label htmlFor="edit-role">Poste</Label>
-            <Input
+            <Label htmlFor="edit-role" className="text-[13px] font-normal text-muted-foreground">Poste</Label>
+            <input
+              className="h-12 rounded-xl border bg-background px-3.5 text-base outline-none focus-visible:border-ring"
               id="edit-role"
               placeholder={isEmployee ? 'Ex : Caissière' : 'Ex : Client, Fournisseur'}
               value={role}
@@ -182,14 +182,14 @@ export function PersonFormDialog({
           {isEmployee && (
             // Salaire toujours mensuel, dû à la fin du mois : pas de jour de paie à choisir.
             <div className="grid gap-2">
-              <Label htmlFor="edit-salary">Salaire par mois (FCFA)</Label>
-              <Input id="edit-salary" inputMode="numeric" value={salary} onChange={e => setSalary(e.target.value.replace(/\D/g, ''))} />
+              <Label htmlFor="edit-salary" className="text-[13px] font-normal text-muted-foreground">Salaire par mois (FCFA)</Label>
+              <input id="edit-salary" inputMode="numeric" value={salary} onChange={e => setSalary(e.target.value.replace(/\D/g, ''))} className="h-12 rounded-xl border bg-background px-3.5 text-base outline-none focus-visible:border-ring font-bold tabular-nums" />
               {person && <p className="text-xs text-muted-foreground">Un nouveau salaire compte à partir de la prochaine paie.</p>}
             </div>
           )}
-          <Button type="submit" size="lg" className="h-12" disabled={!valid}>
+          <button type="submit" disabled={!valid} className="h-[58px] rounded-2xl bg-kgreen-solid text-lg font-bold text-white disabled:opacity-40">
             Enregistrer
-          </Button>
+          </button>
         </form>
       </DialogContent>
     </Dialog>
