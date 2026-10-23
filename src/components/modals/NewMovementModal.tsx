@@ -71,6 +71,13 @@ const MOTIF_HINT: Record<string, string> = {
 }
 
 const TITLES: Record<Step, string> = { qui: 'Qui ?', quoi: 'Quelle opération ?', combien: 'Combien ?', detail: 'Détail' }
+// Depuis les boutons de l'accueil : l'opération est déjà choisie, on demande seulement « à qui ? »
+const DIRECT: Partial<Record<Movement['type'], { side: 'lui' | 'moi'; pay: boolean; title: string; ask: string }>> = {
+  il_a_pris_credit: { side: 'lui', pay: false, title: 'Crédit', ask: 'à qui ?' },
+  il_m_a_verse: { side: 'lui', pay: true, title: 'Versement', ask: 'de qui ?' },
+  j_ai_pris_credit: { side: 'moi', pay: false, title: 'Dette', ask: 'chez qui ?' },
+  je_lui_ai_verse: { side: 'moi', pay: true, title: 'Versement', ask: 'à qui ?' },
+}
 
 // Ligne du tableau en cours de saisie (chiffres gardés en texte, sans espaces).
 type DraftLine = { label: string; price: string; qty: string; total: string }
@@ -295,7 +302,8 @@ export const NewMovementModal: React.FC = () => {
       setPaidNowOn(false)
       setPaidNowStr('0')
       setTarget('amount')
-      setStep('quoi')
+      // Ouvert depuis l'accueil (« Crédit », « Versement »…) : on revient à « à qui ? »
+      setStep(newMovementInitialType && !newMovementTargetPersonId ? 'qui' : 'quoi')
     }
     else if (step === 'quoi' && !newMovementTargetPersonId) setStep('qui')
   }
@@ -351,8 +359,14 @@ export const NewMovementModal: React.FC = () => {
   const employeesList = modules.employes ? persons.filter(p => p.type === 'employee' && p.status === 'actif') : []
   const bothGroups = partnersList.length > 0 && employeesList.length > 0
   const activeGroup = bothGroups ? group : partnersList.length > 0 ? 'partner' : 'employee'
-  const visible = (activeGroup === 'partner' ? partnersList : employeesList)
-    .filter(p => matchesPerson(p, search))
+  // Ouvert depuis l'accueil avec une opération déjà choisie : seulement les partenaires concernés
+  const directSide = !newMovementTargetPersonId && newMovementInitialType ? (DIRECT[newMovementInitialType] ?? null) : null
+  const sideAmount = (p: (typeof persons)[number]) => (directSide?.side === 'lui' ? p.owesMe || 0 : p.iOweHim || 0)
+  const visible = directSide
+    ? partnersList
+        .filter(p => matchesPerson(p, search) && (search.trim() !== '' || !p.archived) && (!directSide.pay || sideAmount(p) > 0))
+        .sort((a, b) => sideAmount(b) - sideAmount(a) || a.name.localeCompare(b.name, 'fr'))
+    : (activeGroup === 'partner' ? partnersList : employeesList).filter(p => matchesPerson(p, search))
 
   // Sous le nom : « Client 830 078 000 » (montant en vert), « Fournisseur 25 000 » (montant en orange) (un côté à zéro n'est pas affiché)
   const sub = (p: (typeof persons)[number]) => {
@@ -386,7 +400,15 @@ export const NewMovementModal: React.FC = () => {
                 <ArrowLeft />
               </Button>
             )}
-            <DialogTitle className="text-lg font-semibold">{TITLES[step]}</DialogTitle>
+            <DialogTitle className="text-lg font-semibold">
+              {step === 'qui' && directSide ? (
+                <>
+                  {directSide.title} <span className="font-medium text-muted-foreground">— {directSide.ask}</span>
+                </>
+              ) : (
+                TITLES[step]
+              )}
+            </DialogTitle>
           </div>
           <DialogDescription className="sr-only">Enregistrer une opération</DialogDescription>
         </DialogHeader>
@@ -394,7 +416,7 @@ export const NewMovementModal: React.FC = () => {
         {/* 1. Qui ? */}
         {step === 'qui' && (
           <div className="flex min-h-0 flex-1 flex-col gap-3">
-            {bothGroups && (
+            {bothGroups && !directSide && (
               <Tabs value={activeGroup} onValueChange={v => { setGroup(v as 'partner' | 'employee'); setSearch('') }}>
                 <TabsList className="w-full">
                   <TabsTrigger value="partner">Partenaires</TabsTrigger>
@@ -404,7 +426,7 @@ export const NewMovementModal: React.FC = () => {
             )}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder={activeGroup === 'employee' ? 'Chercher un employé' : 'Chercher un partenaire'} value={search} onChange={e => setSearch(e.target.value)} className="pr-10 pl-9" />
+              <Input placeholder={directSide ? (directSide.side === 'lui' ? 'Chercher un client' : 'Chercher un fournisseur') : activeGroup === 'employee' ? 'Chercher un employé' : 'Chercher un partenaire'} value={search} onChange={e => setSearch(e.target.value)} className="pr-10 pl-9" />
               {search && (
                 <button
                   type="button"
@@ -424,6 +446,11 @@ export const NewMovementModal: React.FC = () => {
                   type="button"
                   onClick={() => {
                     setPersonId(p.id)
+                    if (directSide && newMovementInitialType) {
+                      setType(newMovementInitialType)
+                      setStep('combien')
+                      return
+                    }
                     setType(p.type === 'employee' ? 'je_lui_ai_verse' : 'il_m_a_verse')
                     setStep('quoi')
                   }}
@@ -431,12 +458,26 @@ export const NewMovementModal: React.FC = () => {
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{p.name}</p>
-                    <p className="truncate text-xs text-muted-foreground">{sub(p)}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {directSide ? (
+                        sideAmount(p) > 0 ? (
+                          <span className={directSide.side === 'lui' ? 'text-kgreen' : 'text-kred'}>{formatFCFA(sideAmount(p))}</span>
+                        ) : (
+                          'À jour'
+                        )
+                      ) : (
+                        sub(p)
+                      )}
+                    </p>
                   </div>
                   <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
                 </button>
               ))}
-              {visible.length === 0 && <p className="p-3 text-sm text-muted-foreground">Aucun partenaire trouvé.</p>}
+              {visible.length === 0 && (
+                <p className="p-3 text-sm text-muted-foreground">
+                  {directSide?.pay && !search.trim() ? (directSide.side === 'lui' ? 'Personne ne vous doit rien.' : 'Vous ne devez rien à personne.') : 'Personne ne s’appelle comme ça.'}
+                </p>
+              )}
             </div>
             </div>
           </div>

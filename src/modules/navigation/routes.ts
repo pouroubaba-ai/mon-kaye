@@ -8,7 +8,7 @@
 import type { Person } from '@/data/mockData'
 import type { Modules } from '@/modules/reglages/preferences'
 
-export type Tab = 'accueil' | 'personnes' | 'employes' | 'salaires' | 'reglages'
+export type Tab = 'accueil' | 'personnes' | 'employes' | 'salaires' | 'reglages' | 'stats'
 // only : ouvert depuis la vue Partenaires ou Employés du tableau de bord : on reste de ce côté (pas d'interrupteur)
 export type AccountsView = { dir: 'leurs' | 'mes'; group: 'partner' | 'employee'; only?: boolean }
 export type Screen = {
@@ -34,6 +34,8 @@ export function parsePath(path: string, modules: Modules, persons: Person[]): Sc
       return modules.employes ? { ...home, tab: 'employes', person: person('employee') } : home
     case 'salaires':
       return modules.employes ? { ...home, tab: 'salaires' } : home
+    case 'statistiques':
+      return { ...home, tab: 'stats' }
     case 'reglages':
       return { ...home, tab: 'reglages', settings: b === 'modules' ? 'modules' : 'main' }
     default:
@@ -47,6 +49,7 @@ export function buildPath(s: Screen, persons: Person[]): string {
     if (p) return `/${p.type === 'employee' ? 'employes' : 'personnes'}/${encodeURIComponent(p.id)}`
   }
   if (s.tab === 'accueil') return s.accounts ? `/comptes/${s.accounts.dir}${s.accounts.group === 'employee' ? '/employes' : ''}` : '/'
+  if (s.tab === 'stats') return '/statistiques'
   if (s.tab === 'reglages') return s.settings === 'modules' ? '/reglages/modules' : '/reglages'
   return `/${s.tab}`
 }

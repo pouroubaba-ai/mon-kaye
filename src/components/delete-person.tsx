@@ -9,9 +9,13 @@ import { formatFCFA } from '@/lib/utils'
 
 // Bas de fiche : supprimer la personne ou l'employé, avec tout son historique.
 // On demande toujours avant, et on rappelle l'argent encore en jeu pour éviter une erreur.
-export function DeletePerson({ personId }: { personId: string }) {
+export function DeletePerson({ personId, open, onOpenChange }: { personId: string; open?: boolean; onOpenChange?: (o: boolean) => void }) {
   const { persons, movements, monthStates, deletePerson } = useStore()
-  const [ask, setAsk] = React.useState(false)
+  const [askOwn, setAskOwn] = React.useState(false)
+  // Ouvert par un menu (open fourni) : pas de bouton ici
+  const controlled = open !== undefined
+  const ask = controlled ? open : askOwn
+  const setAsk = (o: boolean) => (controlled ? onOpenChange?.(o) : setAskOwn(o))
   const person = persons.find(p => p.id === personId)
   if (!person) return null
 
@@ -29,9 +33,9 @@ export function DeletePerson({ personId }: { personId: string }) {
 
   return (
     <>
-      <Button variant="ghost" className="mt-4 h-11 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => setAsk(true)}>
+      {!controlled && <Button variant="ghost" className="mt-4 h-11 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => setAsk(true)}>
         <Trash2 /> Supprimer {person.type === 'employee' ? "l'employé" : 'le partenaire'}
-      </Button>
+      </Button>}
       <Dialog open={ask} onOpenChange={setAsk}>
         <DialogContent>
           <div className="flex flex-col gap-4">

@@ -6,6 +6,8 @@ export interface Person {
   role?: string
   notes?: string
   avatarUrl?: string
+  sex?: 'h' | 'f' // Homme ou Femme : « Il me doit » / « Elle me doit »
+  archived?: boolean // Rangé : plus affiché dans les listes, ses comptes restent
   // For partners:
   owesMe?: number // Son compte : ce qu'il a pris chez moi
   iOweHim?: number // Mon compte : ce que j'ai pris chez lui

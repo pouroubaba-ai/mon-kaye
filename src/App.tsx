@@ -22,6 +22,24 @@ import { resetModulesLocal, type StoreData } from '@/data/store'
 import { SplashScreen } from '@/components/splash-screen'
 import { PullToRefresh } from '@/components/pull-to-refresh'
 import { EmployeesMonthScreen } from '@/components/screens/EmployeesMonthScreen'
+import { HomeScreen, HomeTop } from '@/components/screens/HomeScreen'
+import { ChevronRight } from 'lucide-react'
+
+// Employés (en attendant leur nouvelle version) : le même haut que l'accueil, puis la page Salaires
+function EmployeesHome() {
+  const { navigate } = useStore()
+  return (
+    <div className="flex min-h-dvh flex-col">
+      <HomeTop />
+      <div className="flex flex-col gap-4 p-4 pb-[calc(2rem+env(safe-area-inset-bottom))]">
+        <button type="button" onClick={() => navigate('employes')} className="flex h-12 items-center justify-between rounded-xl border px-4 text-[15px] font-semibold">
+          Tous les employés <ChevronRight className="size-4 text-muted-foreground" />
+        </button>
+        <EmployeesMonthScreen />
+      </div>
+    </div>
+  )
+}
 
 const AppContent: React.FC = () => {
   const { activeTab, selectedPersonId, persons, accountsView, modules } = useStore()
@@ -62,17 +80,20 @@ const AppContent: React.FC = () => {
     <AppLayout>
       <div className="overflow-x-clip">
       <div ref={pageRef} hidden={!!person}>
-        {activeTab === 'accueil' && (
-          // Tableau de bord ⇄ Leurs/Mes comptes : l'écran glisse (aller : depuis la droite, retour : depuis la gauche).
-          // Changer d'onglet dans l'écran ne glisse pas (même clé).
-          <div key={accountsView ? `acc-${accountsView.dir}` : 'dash'} className={slide}>
-            {accountsView ? <AccountsScreen /> : <DashboardScreen />}
+        {accountsView ? (
+          // Ouvert depuis les statistiques : « On me doit » / « Je dois » en détail
+          <div key={`acc-${accountsView.dir}`} className={slide}>
+            <AccountsScreen />
           </div>
+        ) : (
+          <>
+            {(activeTab === 'accueil' || activeTab === 'personnes') && (modules.personnes ? <HomeScreen /> : <EmployeesHome />)}
+            {activeTab === 'stats' && <DashboardScreen />}
+            {activeTab === 'employes' && modules.employes && <PersonsListScreen />}
+            {activeTab === 'salaires' && modules.employes && <EmployeesHome />}
+          </>
         )}
-        {activeTab === 'personnes' && modules.personnes && <PersonsListScreen />}
-        {activeTab === 'employes' && modules.employes && <PersonsListScreen />}
-        {activeTab === 'salaires' && modules.employes && <EmployeesMonthScreen />}
-        {activeTab === 'reglages' && <SettingsScreen />}
+        {!accountsView && activeTab === 'reglages' && <SettingsScreen />}
       </div>
       {person && (
         <div ref={ficheRef}>

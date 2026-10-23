@@ -65,9 +65,21 @@
   --color-credit-light: #dcfce7;
   --color-credit-dark: #14532d;
   --color-credit-text: #15803d;
+
+  /* Kayé simple : vert = on me doit, rouge = je dois, bleu = versé, or = à surveiller */
+  --color-kgreen: var(--k-green);
+  --color-kred: var(--k-red);
+  --color-kblue: var(--k-blue);
+  --color-kgold: var(--k-gold);
+  --color-kgreen-solid: #16a34a;
+  --color-kred-solid: #dc2626;
 }
 
 :root {
+  --k-green: #15803d;
+  --k-red: #dc2626;
+  --k-blue: #0284c7;
+  --k-gold: #a16207;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -104,6 +116,10 @@
 }
 
 .dark {
+  --k-green: #22c55e;
+  --k-red: #f87171;
+  --k-blue: #38bdf8;
+  --k-gold: #f2c14e;
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);

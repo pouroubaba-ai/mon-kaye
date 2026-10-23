@@ -17,7 +17,9 @@ export function FilterPill({
   open,
   onOpenChange,
   align = 'start',
+  iconOnly = false,
 }: {
+  iconOnly?: boolean // sans filtre : seulement l'icône du calendrier (petit bouton rond)
   label: string
   active: boolean
   onClear: () => void
@@ -30,16 +32,23 @@ export function FilterPill({
     <div
       className={cn(
         'inline-flex h-9 w-fit max-w-full items-center rounded-full border text-sm transition-colors',
+        iconOnly && !active && 'size-11 justify-center border-0 bg-transparent',
         active ? 'border-primary/40 bg-primary/10 text-foreground' : 'bg-card text-muted-foreground'
       )}
     >
       <Popover open={open} onOpenChange={onOpenChange}>
         <PopoverTrigger asChild>
+          {iconOnly && !active ? (
+            <button type="button" aria-label="Filtrer par période" className="flex size-11 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted">
+              <CalendarDays className="size-5" />
+            </button>
+          ) : (
           <button type="button" className="flex h-full min-w-0 items-center gap-1.5 pr-2 pl-3">
             <CalendarDays className="size-4 shrink-0" />
             <span className={cn('truncate', active && 'font-medium')}>{label}</span>
             {!active && <ChevronDown className="size-4 shrink-0 opacity-60" />}
           </button>
+          )}
         </PopoverTrigger>
         <PopoverContent align={align} className="max-h-(--radix-popover-content-available-height) w-[min(19rem,calc(100vw-2rem))] overflow-y-auto p-1.5">
           {children}
@@ -69,11 +78,11 @@ export function FilterOption({ label, hint, selected, onClick }: { label: string
   )
 }
 
-const PRESETS: RangeKey[] = ['tout', 'jour', '7j', 'mois', 'annee']
+const PRESETS: RangeKey[] = ['tout', 'jour', 'semaine', 'mois', 'annee']
 
 // Filtre par date (fiche d'une personne, fiche de compte, tableau de bord : partenaires)
 // Choix rapides, ou « Choisir les dates » : un champ Du et un champ Au ; toucher un champ ouvre une fenêtre avec le calendrier.
-export function DateFilter({ value, onChange, align }: { value: DateRange; onChange: (r: DateRange) => void; align?: 'start' | 'end' }) {
+export function DateFilter({ value, onChange, align, iconOnly }: { value: DateRange; onChange: (r: DateRange) => void; align?: 'start' | 'end'; iconOnly?: boolean }) {
   const [open, setOpen] = React.useState(false)
   const today = new Date(new Date().toDateString())
   const [from, setFrom] = React.useState<Date | undefined>()
@@ -108,7 +117,7 @@ export function DateFilter({ value, onChange, align }: { value: DateRange; onCha
     </>
   )
   return (
-    <FilterPill label={rangeLabel(value)} active={isFiltered(value)} onClear={() => onChange(ALL_TIME)} open={open} onOpenChange={o => (o || editing === null) && setOpen(o)} align={align}>
+    <FilterPill iconOnly={iconOnly} label={rangeLabel(value)} active={isFiltered(value)} onClear={() => onChange(ALL_TIME)} open={open} onOpenChange={o => (o || editing === null) && setOpen(o)} align={align}>
       <div className="flex flex-col">
         {PRESETS.map(k => (
           <FilterOption key={k} label={rangeLabel({ key: k })} selected={value.key === k} onClick={() => pick({ key: k })} />

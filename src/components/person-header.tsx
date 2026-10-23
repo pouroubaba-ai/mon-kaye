@@ -64,7 +64,9 @@ export function PersonFormDialog({
   open,
   onOpenChange,
   onCreated,
+  side,
 }: {
+  side?: 'lui' | 'moi' // ajouté depuis « On me doit » (client) ou « Je dois » (fournisseur) : seulement le titre
   person?: Person
   type?: 'partner' | 'employee'
   open: boolean
@@ -78,6 +80,7 @@ export function PersonFormDialog({
   const [phone, setPhone] = React.useState('')
   const [role, setRole] = React.useState('')
   const [salary, setSalary] = React.useState('')
+  const [sex, setSex] = React.useState<'h' | 'f' | undefined>()
 
   // À chaque ouverture : les valeurs actuelles (modifier) ou des champs vides (ajouter).
   React.useEffect(() => {
@@ -86,12 +89,14 @@ export function PersonFormDialog({
     setPhone(person?.phone ?? '')
     setRole(person?.role ?? '')
     setSalary(person?.salary ? String(person.salary) : '')
+    setSex(person?.sex)
   }, [open, person])
 
   const dirty =
     name !== (person?.name ?? '') ||
     phone !== (person?.phone ?? '') ||
     role !== (person?.role ?? '') ||
+    sex !== person?.sex ||
     (isEmployee && salary !== (person?.salary ? String(person.salary) : ''))
   const taken = nameTaken(persons, name, person?.id)
   const valid = name.trim().length > 0 && !taken && (!isEmployee || parseInt(salary, 10) > 0)
@@ -102,6 +107,7 @@ export function PersonFormDialog({
       name: name.trim(),
       phone: formatPhone(phone),
       role: role.trim() || undefined,
+      ...(sex ? { sex } : {}),
       ...(isEmployee ? { salary: parseInt(salary, 10) } : {}),
     }
     if (person) {
@@ -113,7 +119,7 @@ export function PersonFormDialog({
     onOpenChange(false)
   }
 
-  const title = person ? 'Modifier' : isEmployee ? 'Nouvel employé' : 'Nouveau partenaire'
+  const title = person ? 'Modifier ses infos' : isEmployee ? 'Nouvel employé' : side === 'moi' ? 'Nouveau fournisseur' : side === 'lui' ? 'Nouveau client' : 'Nouveau partenaire'
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange} dirty={dirty} dirtyKind={person ? 'modification' : 'ajout'}>
@@ -134,12 +140,37 @@ export function PersonFormDialog({
             <Input id="edit-name" value={name} onChange={e => setName(e.target.value)} autoFocus={!person} aria-invalid={!!taken} />
             {taken && <p className="text-xs text-destructive">{taken}</p>}
           </div>
+          {/* Homme ou Femme : pour écrire « Il me doit » ou « Elle me doit » (rien n'est choisi d'avance) */}
+          <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Homme ou femme">
+            {(
+              [
+                ['h', 'Homme'],
+                ['f', 'Femme'],
+              ] as const
+            ).map(([v, label]) => (
+              <button
+                key={v}
+                type="button"
+                role="radio"
+                aria-checked={sex === v}
+                onClick={() => setSex(sex === v ? undefined : v)}
+                className={
+                  sex === v
+                    ? 'h-11 rounded-full border-[1.5px] border-kgold bg-kgold/10 text-sm font-bold text-kgold'
+                    : 'h-11 rounded-full border text-sm font-semibold text-muted-foreground'
+                }
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <div className="grid gap-2">
             <Label htmlFor="edit-phone">Numéro</Label>
             <Input id="edit-phone" type="tel" inputMode="tel" placeholder="+242 06 …" value={phone} onChange={e => setPhone(e.target.value)} />
           </div>
+          {isEmployee && (
           <div className="grid gap-2">
-            <Label htmlFor="edit-role">{isEmployee ? 'Poste' : 'Rôle'}</Label>
+            <Label htmlFor="edit-role">Poste</Label>
             <Input
               id="edit-role"
               placeholder={isEmployee ? 'Ex : Caissière' : 'Ex : Client, Fournisseur'}
@@ -147,6 +178,7 @@ export function PersonFormDialog({
               onChange={e => setRole(e.target.value)}
             />
           </div>
+          )}
           {isEmployee && (
             // Salaire toujours mensuel, dû à la fin du mois : pas de jour de paie à choisir.
             <div className="grid gap-2">
