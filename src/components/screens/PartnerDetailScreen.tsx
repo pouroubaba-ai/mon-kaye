@@ -1,5 +1,6 @@
 import React from 'react'
-import { ArrowLeftRight, Banknote, ChevronLeft, ChevronUp, FileText, MoreVertical, Plus, Undo2 } from 'lucide-react'
+import { ArrowLeftRight, Banknote, ChevronLeft, ChevronUp, Eye, EyeOff, FileText, MoreVertical, Plus, Undo2 } from 'lucide-react'
+import { DetailBand } from '@/components/detail-band'
 
 import { useStore, returnedOn } from '@/data/store'
 import type { Movement } from '@/data/mockData'
@@ -123,7 +124,7 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
                   <button
                     key={s}
                     type="button"
-                    onClick={() => setChosen(s)}
+                    onClick={() => (on ? setDetail(d => !d) : (setChosen(s), setDetail(false)))}
                     aria-pressed={on}
                     className={cn(
                       'flex flex-col gap-1 rounded-2xl p-3.5 text-left transition-all',
@@ -135,12 +136,17 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
                     )}
                   >
                     <span className="text-[13px] text-muted-foreground">{g ? `${Il} me doit` : 'Je lui dois'}</span>
-                    <span className={cn('text-2xl font-bold tabular-nums', g ? 'text-kgreen' : 'text-kred')}>{amt(balanceOf(partner, s))}</span>
+                    <span className={cn('flex items-center gap-1.5 text-2xl font-bold tabular-nums', g ? 'text-kgreen' : 'text-kred')}>
+                      {amt(balanceOf(partner, s))}
+                      {on && (detail ? <EyeOff className="size-4 opacity-70" /> : <Eye className="size-4 opacity-70" />)}
+                    </span>
                     <span className="text-xs text-muted-foreground">{d ? `versé ${ago(d)}` : 'jamais versé'}</span>
                   </button>
                 )
               })}
             </div>
+            {/* Toucher la carte choisie une deuxième fois : Total, Versé, Reste */}
+            {detail && <DetailBand total={pris} paid={versé} rest={reste} tone={lui ? 'green' : 'red'} />}
             {/* Compenser : une ligne discrète, seulement quand chacun doit à l'autre */}
             {owes > 0 && iOwe > 0 && (
               <button type="button" onClick={() => openCompensation(partner.id)} className="flex min-h-9 flex-wrap items-center gap-1.5 self-start px-1 text-left text-[13px] text-muted-foreground">
@@ -182,7 +188,7 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
                 </span>
                 <span className="mt-1 grid grid-cols-2 gap-2">
                   <span className="flex flex-col gap-0.5">
-                    <span className="text-xs text-muted-foreground">Pris</span>
+                    <span className="text-xs text-muted-foreground">Total</span>
                     <span className="text-base font-bold tabular-nums">{amt(pris)}</span>
                   </span>
                   <span className="flex flex-col gap-0.5">

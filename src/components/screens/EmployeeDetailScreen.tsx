@@ -1,5 +1,5 @@
 import React from 'react'
-import { Banknote, ChevronLeft, FileText, History, MessageCircle, MoreVertical, Pencil, Phone, Plus, Trash2, UserMinus } from 'lucide-react'
+import { Banknote, ChevronLeft, Eye, EyeOff, FileText, History, MessageCircle, MoreVertical, Pencil, Phone, Plus, Trash2, UserMinus } from 'lucide-react'
 
 import { useStore } from '@/data/store'
 import type { Movement } from '@/data/mockData'
@@ -7,6 +7,7 @@ import { dueDateOf, toTime } from '@/data/payroll'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/responsive-dialog'
 import { PersonFormDialog } from '@/components/person-header'
 import { DeletePerson } from '@/components/delete-person'
+import { DetailBand } from '@/components/detail-band'
 import { PeriodSheet } from '@/components/modals/PeriodSheet'
 import { PaySalaryDialog } from '@/components/modals/PaySalaryDialog'
 import { PayslipDialog } from '@/components/modals/PayslipDialog'
@@ -28,6 +29,7 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
   const [slip, setSlip] = React.useState(false)
   const [menu, setMenu] = React.useState(false)
   const [plan, setPlan] = React.useState(false)
+  const [detail, setDetail] = React.useState(false) // carte touchée une deuxième fois : Total, Versé, Reste
   const emp = persons.find(p => p.id === employeeId)
   if (!emp) return null
   const L = empLine(emp, movements, monthStates)
@@ -36,6 +38,12 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
   const Il = emp.sex === 'f' ? 'Elle' : 'Il'
   const per = emp.advanceDeductionPerPeriod || 0
   const salaire = view === 'salaire'
+  const closed = pr.months.filter(m => m.state !== 'en_cours' && m.state !== 'annule')
+  const dueTotal = closed.reduce((a, m) => a + m.aPayer, 0)
+  const duePaid = closed.reduce((a, m) => a + m.aPayer - m.reste, 0)
+  const liveAdv = pr.advances.filter(a => a.etat !== 'Annulée')
+  const advTotal = liveAdv.reduce((a, x) => a + x.mov.amount, 0)
+  const advPaid = advTotal - pr.advanceReste
 
   // Avance : la retenue à venir, puis les remboursements et les avances (le plus récent en haut)
   type AdvItem = { key: string; title: string; sub: string; amount: number; tone: 'green' | 'blue' | 'muted'; badge?: string; mov?: Movement }
@@ -74,14 +82,17 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
       <button
         type="button"
         aria-pressed={on}
-        onClick={() => setView(v)}
+        onClick={() => (on ? setDetail(d => !d) : (setView(v), setDetail(false)))}
         className={cn(
           'flex flex-col gap-1 rounded-2xl p-3.5 text-left transition-all',
           on ? (red ? 'border-2 border-kred bg-gradient-to-br from-kred/20 to-card to-75%' : 'border-2 border-kgreen bg-gradient-to-br from-kgreen/20 to-card to-75%') : cn('border bg-card opacity-80', red ? 'border-kred/30' : 'border-kgreen/30')
         )}
       >
         <span className="text-[13px] text-muted-foreground">{red ? 'Je lui dois' : 'Avance à rendre'}</span>
-        <span className={cn('text-2xl font-bold tabular-nums', red ? 'text-kred' : 'text-kgreen')}>{amt(red ? L.due : pr.advanceReste)}</span>
+        <span className={cn('flex items-center gap-1.5 text-2xl font-bold tabular-nums', red ? 'text-kred' : 'text-kgreen')}>
+          {amt(red ? L.due : pr.advanceReste)}
+          {on && (detail ? <EyeOff className="size-4 opacity-70" /> : <Eye className="size-4 opacity-70" />)}
+        </span>
         <span className={cn('text-xs', red && !gone ? 'text-kgold' : 'text-muted-foreground')}>
           {red ? (gone ? 'Parti' : `paie ${inDays(L.days)}`) : pr.advanceReste > 0 ? (per ? `${amt(Math.min(per, pr.advanceReste))} retenus par mois` : `${Il.toLowerCase()} rend ${Il === 'Elle' ? 'elle' : 'lui'}-même`) : "Pas d'avance"}
         </span>
@@ -114,6 +125,13 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
           {card('salaire')}
           {card('avance')}
         </div>
+        {detail &&
+          (salaire ? (
+            // Salaires : les paies terminées (la paie en cours n'est pas encore due)
+            <DetailBand total={dueTotal} paid={duePaid} rest={L.due} tone="red" />
+          ) : (
+            <DetailBand total={advTotal} paid={advPaid} rest={pr.advanceReste} tone="green" />
+          ))}
 
         <div className="flex items-center justify-between">
           <span className="text-[15px] font-semibold text-muted-foreground">{salaire ? 'Ses salaires' : 'Son avance'}</span>
