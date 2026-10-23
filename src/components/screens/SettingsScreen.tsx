@@ -99,7 +99,7 @@ export const SettingsScreen: React.FC = () => {
                     setCustom(false)
                     setLateDays(n)
                   }}
-                  className={cn('h-12 rounded-xl text-[15px]', on ? 'border-2 border-kgold bg-kgold/10 font-bold' : 'border font-semibold text-muted-foreground')}
+                  className={cn('h-12 rounded-xl text-[15px]', on ? 'border-2 border-kgold bg-kgold font-bold text-white dark:text-black' : 'border font-semibold text-muted-foreground')}
                 >
                   {n} j
                 </button>
@@ -109,32 +109,35 @@ export const SettingsScreen: React.FC = () => {
               type="button"
               role="radio"
               aria-checked={custom}
-              onClick={() => setCustom(true)}
-              className={cn('h-12 rounded-xl text-[15px]', custom ? 'border-2 border-kgold bg-kgold/10 font-bold' : 'border font-semibold text-muted-foreground')}
+              onClick={() => {
+                setCustom(true)
+                ;(document.querySelector('[aria-label="Nombre de jours"]') as HTMLInputElement | null)?.focus()
+              }}
+              className={cn('h-12 rounded-xl text-[15px]', custom ? 'border-2 border-kgold bg-kgold font-bold text-white dark:text-black' : 'border font-semibold text-muted-foreground')}
             >
               Autre
             </button>
           </div>
-          {custom && (
-            <label className="flex items-center gap-2.5 text-[15px] text-muted-foreground">
-              Mon nombre de jours :
-              <input
-                inputMode="numeric"
-                autoFocus={!daysStr}
-                value={daysStr}
-                placeholder="21"
-                aria-label="Nombre de jours"
-                onChange={e => {
-                  const v = e.target.value.replace(/\D/g, '').slice(0, 3)
-                  setDaysStr(v)
-                  const n = parseInt(v, 10)
-                  if (n > 0) setLateDays(n)
-                }}
-                className="h-11 w-[72px] rounded-xl border-2 border-kgold bg-background text-center text-lg font-bold text-foreground outline-none"
-              />
-              jours
-            </label>
-          )}
+          {/* Toujours affiché (rien n'apparaît ni ne bouge) : taper un nombre choisit « Autre » */}
+          <label className={cn('flex items-center gap-2.5 text-[15px]', custom ? 'text-foreground' : 'text-muted-foreground')}>
+            Ou mon nombre de jours :
+            <input
+              inputMode="numeric"
+              value={daysStr}
+              placeholder="21"
+              aria-label="Nombre de jours"
+              onFocus={() => setCustom(true)}
+              onChange={e => {
+                const v = e.target.value.replace(/\D/g, '').slice(0, 3)
+                setCustom(true)
+                setDaysStr(v)
+                const n = parseInt(v, 10)
+                if (n > 0) setLateDays(n)
+              }}
+              className={cn('h-11 w-[72px] rounded-xl border-2 bg-background text-center text-lg font-bold text-foreground outline-none', custom ? 'border-kgold' : 'border-border')}
+            />
+            jours
+          </label>
           <span className="text-[13px] leading-normal text-muted-foreground">
             Ses jours s'affichent en <span className="font-semibold text-kgold">doré</span> sur l'accueil, et il apparaît dans « Ceux qui tardent à payer ».
           </span>

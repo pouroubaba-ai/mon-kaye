@@ -52,7 +52,7 @@ export function PaySalaryDialog({ empId, open, onOpenChange }: { empId: string |
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange} dirty={custom !== null} dirtyKind="ajout">
-        <DialogContent fixedHeight={!emp} className={emp ? 'max-h-[92dvh] overflow-y-auto' : undefined}>
+        <DialogContent fixedHeight>
           {!emp ? (
             <>
               <DialogHeader className="text-left">
@@ -67,7 +67,7 @@ export function PaySalaryDialog({ empId, open, onOpenChange }: { empId: string |
               </label>
               <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pt-2 pb-2">
                 {list.map((l, i) => (
-                  <button key={l.emp.id} type="button" onClick={() => setPicked(l.emp.id)} className={cn('flex items-center gap-3 px-1.5 py-3 text-left', i < list.length - 1 && 'border-b border-border/60')}>
+                  <button key={l.emp.id} type="button" onClick={() => setPicked(l.emp.id)} className={cn('flex items-center gap-3 px-1.5 py-3 text-left', i < list.length - 1 && 'border-b border-border')}>
                     <span className="flex size-10 items-center justify-center rounded-full bg-muted text-[13px] font-semibold text-muted-foreground">{initials(l.emp.name)}</span>
                     <span className="flex min-w-0 flex-1 flex-col">
                       <span className="truncate text-base font-semibold">{l.emp.name}</span>
@@ -98,7 +98,7 @@ export function PaySalaryDialog({ empId, open, onOpenChange }: { empId: string |
               </DialogHeader>
               {due === 0 ? (
                 // Rien n'est dû : pas de salaire à verser. Seulement la prochaine paie, et l'avance si besoin.
-                <div className="flex flex-col gap-4 pb-2">
+                <div className="flex flex-col gap-4 pb-2 min-h-0 flex-1 overflow-y-auto">
                   <div className="flex flex-col items-center gap-1.5 py-5 text-center">
                     <span className="text-2xl font-bold">Rien à payer pour l'instant</span>
                     <span className="text-[15px] text-muted-foreground">
@@ -118,7 +118,7 @@ export function PaySalaryDialog({ empId, open, onOpenChange }: { empId: string |
                   </button>
                 </div>
               ) : (
-              <div className="flex flex-col gap-3.5 pb-2">
+              <div className="flex flex-col gap-3.5 pb-2 min-h-0 flex-1 overflow-y-auto">
                 <div className="flex flex-col items-center gap-1 pt-3">
                   <span className="text-sm text-muted-foreground">Je lui dois maintenant</span>
                   <span className="text-[44px] leading-tight font-bold tracking-tight text-kred tabular-nums">
@@ -146,7 +146,7 @@ export function PaySalaryDialog({ empId, open, onOpenChange }: { empId: string |
                       Tout ({amt(due)})
                     </button>
                   </div>
-                  {tooMuch && <span className="text-xs text-destructive">Pas plus que ce que je lui dois ({amt(due)}).</span>}
+                  <span className="min-h-4 text-xs text-destructive">{tooMuch ? `Pas plus que ce que je lui dois (${amt(due)}).` : ''}</span>
                 </div>
                 <div role="tablist" aria-label="Moyen de paiement" className="grid grid-cols-2 gap-1 rounded-xl bg-muted p-1">
                   {(
@@ -155,7 +155,7 @@ export function PaySalaryDialog({ empId, open, onOpenChange }: { empId: string |
                       ['mobile_money', 'Mobile Money'],
                     ] as const
                   ).map(([v, label]) => (
-                    <button key={v} type="button" role="tab" aria-selected={method === v} onClick={() => setMethod(v)} className={cn('h-10 rounded-[9px] text-sm', method === v ? 'bg-background font-bold shadow-sm dark:bg-[#2A2C33]' : 'font-semibold text-muted-foreground')}>
+                    <button key={v} type="button" role="tab" aria-selected={method === v} onClick={() => setMethod(v)} className={cn('h-10 rounded-[9px] text-sm', method === v ? 'bg-foreground font-bold text-background shadow-sm' : 'font-semibold text-muted-foreground')}>
                       {label}
                     </button>
                   ))}
@@ -232,12 +232,12 @@ function PayDetail({ empId, open, onOpenChange }: { empId: string; open: boolean
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-h-[92dvh] overflow-y-auto">
+        <DialogContent fixedHeight>
           <DialogHeader className="text-left">
             <DialogTitle className="text-left text-lg">Détail du versement</DialogTitle>
             <DialogDescription className="text-left">{emp.name}</DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col pb-2">
+          <div className="flex flex-col pb-2 min-h-0 flex-1 overflow-y-auto">
             <div className="flex flex-col rounded-[14px] border bg-background px-3.5 py-1">
               {head('Je lui dois au total', `${lines.length} période${lines.length > 1 ? 's' : ''}`, <span className="text-[17px] font-bold text-kred tabular-nums">{amt(owed)}</span>, openDue, () => setOpenDue(o => !o))}
               {openDue && (

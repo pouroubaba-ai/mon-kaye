@@ -47,7 +47,7 @@ export function HomeTop() {
               role="tab"
               aria-selected={group === g}
               onClick={() => group !== g && navigate(g === 'partner' ? 'accueil' : 'employes')}
-              className={cn('h-[38px] rounded-[9px] text-sm transition-colors', group === g ? 'bg-background font-bold text-foreground shadow-sm dark:bg-[#2A2C33]' : 'font-semibold text-muted-foreground')}
+              className={cn('h-[38px] rounded-[9px] text-sm transition-colors', group === g ? 'bg-foreground font-bold text-background shadow-sm' : 'font-semibold text-muted-foreground')}
             >
               {label}
             </button>
@@ -105,7 +105,7 @@ export const HomeScreen: React.FC = () => {
       onClick={() => setSelectedPersonId(p.id)}
       className={cn(
         'flex w-full items-center gap-3 px-2 py-3 text-left transition-colors hover:bg-muted/40 animate-in fade-in slide-in-from-bottom-1 fill-mode-both duration-300 motion-reduce:animate-none',
-        !last && 'border-b border-border/60'
+        !last && 'border-b border-border'
       )}
       style={{ animationDelay: `${Math.min(i, 10) * 30}ms` }}
     >
@@ -202,7 +202,8 @@ export const HomeScreen: React.FC = () => {
 
       <div className="flex flex-1 flex-col px-3 pt-1 pb-[calc(7rem+env(safe-area-inset-bottom))]">
         {/* Nouveau client / fournisseur : toujours en haut de la liste */}
-        {!searching && !filtered && (
+        {/* Toujours là (même pendant une recherche) : la liste ne saute pas quand on tape */}
+        {!filtered && (
           <button
             type="button"
             onClick={() => setAdding(true)}

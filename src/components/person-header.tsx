@@ -156,7 +156,7 @@ export function PersonFormDialog({
                 onClick={() => setSex(sex === v ? undefined : v)}
                 className={
                   sex === v
-                    ? 'h-11 rounded-full border-[1.5px] border-kgold bg-kgold/10 text-sm font-bold text-kgold'
+                    ? 'h-11 rounded-full border-[1.5px] border-kgold bg-kgold text-sm font-bold text-white dark:text-black'
                     : 'h-11 rounded-full border text-sm font-semibold text-muted-foreground'
                 }
               >

@@ -137,7 +137,7 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
               const enCours = r.state === 'en_cours'
               const value = enCours || r.reste > 0 ? r.reste : r.brut
               return (
-                <button key={r.period} type="button" onClick={() => setPeriod(r.period)} className={cn('flex items-center gap-3 px-1 py-3 text-left', i < pr.months.length - 1 && 'border-b border-border/60', r.state === 'annule' && 'opacity-50')}>
+                <button key={r.period} type="button" onClick={() => setPeriod(r.period)} className={cn('flex items-center gap-3 px-1 py-3 text-left', i < pr.months.length - 1 && 'border-b border-border', r.state === 'annule' && 'opacity-50')}>
                   <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <span className="flex items-center gap-2">
                       <span className="text-[15px] font-semibold">{Cap(monthName(r.period))}</span>
@@ -161,7 +161,7 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
                 type="button"
                 disabled={!a.mov}
                 onClick={() => a.mov && openMovementDetail(a.mov)}
-                className={cn('flex items-center gap-3 px-1 py-3 text-left', i < advItems.length - 1 && 'border-b border-border/60', a.tone === 'muted' && a.mov && 'opacity-50')}
+                className={cn('flex items-center gap-3 px-1 py-3 text-left', i < advItems.length - 1 && 'border-b border-border', a.tone === 'muted' && a.mov && 'opacity-50')}
               >
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="flex items-center gap-2">
@@ -217,7 +217,7 @@ function AdvancePlanDialog({ empId, open, onOpenChange }: { empId: string; open:
   if (!emp) return null
   const Il = emp.sex === 'f' ? 'Elle' : 'Il'
   const n = parseInt(str, 10) || 0
-  const pill = (on: boolean) => cn('h-11 rounded-full px-3 text-sm', on ? 'border-[1.5px] border-kgold bg-kgold/10 font-bold text-kgold' : 'border font-semibold text-muted-foreground')
+  const pill = (on: boolean) => cn('h-11 rounded-full px-3 text-sm', on ? 'border-[1.5px] border-kgold bg-kgold font-bold text-white dark:text-black' : 'border font-semibold text-muted-foreground')
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -293,7 +293,7 @@ function EmployeeMenu({ empId, open, onOpenChange }: { empId: string; open: bool
         </span>
       </>
     )
-    const cls = cn('flex w-full items-center gap-3.5 py-3 text-left', !opts.last && 'border-b border-border/60')
+    const cls = cn('flex w-full items-center gap-3.5 py-3 text-left', !opts.last && 'border-b border-border')
     return opts.href ? (
       <a key={label} href={opts.href} target={opts.href.startsWith('http') ? '_blank' : undefined} rel="noreferrer" onClick={close} className={cls}>
         {inner}
@@ -345,15 +345,15 @@ function EmployeeMenu({ empId, open, onOpenChange }: { empId: string; open: bool
       <PersonFormDialog person={emp} open={editing} onOpenChange={setEditing} />
       <DeletePerson personId={emp.id} open={deleting} onOpenChange={setDeleting} />
       <Dialog open={history} onOpenChange={setHistory}>
-        <DialogContent className="max-h-[92dvh] overflow-y-auto">
+        <DialogContent fixedHeight>
           <DialogHeader className="text-left">
             <DialogTitle className="text-left text-lg">Historique des versements</DialogTitle>
             <DialogDescription className="text-left">{emp.name}</DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col pb-2">
+          <div className="flex flex-col pb-2 min-h-0 flex-1 overflow-y-auto">
             {L.pr.payments.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Rien versé pour l'instant.</p>}
             {L.pr.payments.map((m, i) => (
-              <div key={m.id} className={cn('flex items-center gap-3 py-2.5', i < L.pr.payments.length - 1 && 'border-b border-border/60', m.isCancelled && 'opacity-50')}>
+              <div key={m.id} className={cn('flex items-center gap-3 py-2.5', i < L.pr.payments.length - 1 && 'border-b border-border', m.isCancelled && 'opacity-50')}>
                 <span className="flex size-[34px] items-center justify-center rounded-[10px] bg-kblue/10 text-kblue">
                   <Banknote className="size-[18px]" />
                 </span>

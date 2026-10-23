@@ -49,7 +49,7 @@ export function PersonMenu({ person, open, onOpenChange }: { person: Person; ope
         </span>
       </>
     )
-    const cls = cn('flex w-full items-center gap-3.5 py-3 text-left', !opts.last && 'border-b border-border/60')
+    const cls = cn('flex w-full items-center gap-3.5 py-3 text-left', !opts.last && 'border-b border-border')
     return opts.href ? (
       <a href={opts.href} target={opts.href.startsWith('http') ? '_blank' : undefined} rel="noreferrer" onClick={close} className={cls}>
         {inner}

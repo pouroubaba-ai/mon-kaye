@@ -68,7 +68,7 @@ export function PeriodSheet({ empId, period, open, onOpenChange }: { empId: stri
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-h-[92dvh] overflow-y-auto">
+        <DialogContent fixedHeight>
           <DialogHeader className="gap-0.5 text-left">
             <DialogTitle className="flex items-center gap-2 text-left text-xl">
               Paie {/^[aeiouéâ]/i.test(monthName(p)) ? "d'" : 'de '}
@@ -82,7 +82,7 @@ export function PeriodSheet({ empId, period, open, onOpenChange }: { empId: stri
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex flex-col gap-3.5 pb-2">
+          <div className="flex flex-col gap-3.5 pb-2 min-h-0 flex-1 overflow-y-auto">
             <div className="flex flex-col rounded-[14px] border bg-background px-3.5 py-1">
               {line('Salaire de base', '', <span className="tabular-nums">{amt(base)}</span>)}
               {adds.map(m => line('Prime', [motifOf(m), m.date ? `ajoutée le ${shortDay(m.date)}` : ''].filter(Boolean).join(' · '), <span className="text-kred tabular-nums">+ {amt(m.amount)}</span>, editable ? () => cancelMovement(m.id, 'Enlevée de la paie') : undefined))}
@@ -106,11 +106,11 @@ export function PeriodSheet({ empId, period, open, onOpenChange }: { empId: stri
               </div>
             </div>
 
-            <div className="flex flex-col gap-1">
-              <span className="text-[13px] text-muted-foreground">Versements</span>
-              {pays.length === 0 && <span className="py-2.5 text-sm text-muted-foreground/80">Rien versé pour l'instant</span>}
+            <div className="flex flex-col rounded-[14px] border bg-background px-3.5 py-1">
+              <span className="border-b py-2.5 text-[13px] font-semibold text-muted-foreground">Versements</span>
+              {pays.length === 0 && <span className="py-3 text-sm text-muted-foreground">Rien versé pour l'instant</span>}
               {pays.map((x, i) => (
-                <div key={x.mov.id} className={cn('flex items-center gap-3 py-2.5', i < pays.length - 1 && 'border-b border-border/60')}>
+                <div key={x.mov.id} className={cn('flex items-center gap-3 py-2.5', i < pays.length - 1 && 'border-b border-border')}>
                   <span className="flex size-[34px] items-center justify-center rounded-[10px] bg-kblue/10 text-kblue">
                     <Banknote className="size-[18px]" />
                   </span>
@@ -182,13 +182,13 @@ export function AddLineDialog({ empId, period, max, open, onOpenChange }: { empI
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange} dirty={amount > 0} dirtyKind="ajout">
-      <DialogContent>
+      <DialogContent fixedHeight>
         <DialogHeader className="gap-0.5 text-left">
           <DialogTitle className="text-left text-lg">Ajouter à la paie {/^[aeiouéâ]/i.test(monthName(period)) ? "d'" : 'de '}{monthName(period)}</DialogTitle>
           <DialogDescription className="text-left">{emp.name}</DialogDescription>
         </DialogHeader>
         <form
-          className="flex flex-col gap-4 pb-2"
+          className="flex flex-col gap-4 pb-2 min-h-0 flex-1 overflow-y-auto"
           onSubmit={e => {
             e.preventDefault()
             save()
@@ -205,7 +205,7 @@ export function AddLineDialog({ empId, period, max, open, onOpenChange }: { empI
                   setType(t)
                   setReason('')
                 }}
-                className={cn('h-11 rounded-[9px] text-[15px]', type === t ? 'bg-background font-bold shadow-sm dark:bg-[#2A2C33]' : 'font-semibold text-muted-foreground')}
+                className={cn('h-11 rounded-[9px] text-[15px]', type === t ? (t === 'ajout_salaire' ? 'bg-kred-solid font-bold text-white shadow-sm' : 'bg-kgreen-solid font-bold text-white shadow-sm') : 'font-semibold text-muted-foreground')}
               >
                 {t === 'ajout_salaire' ? '+ Prime' : '− Retenue'}
               </button>
@@ -221,21 +221,24 @@ export function AddLineDialog({ empId, period, max, open, onOpenChange }: { empI
                 onChange={e => setAmountStr(e.target.value.replace(/\D/g, '').slice(0, 9))}
                 placeholder="0"
                 aria-label="Montant"
-                className={cn('w-48 bg-transparent text-center text-[40px] font-bold tracking-tight tabular-nums outline-none placeholder:text-muted-foreground/40', prime ? 'text-kred' : 'text-kgreen', tooMuch && 'text-destructive')}
+                style={{ width: `${Math.max(1, (amountStr ? Number(amountStr).toLocaleString('fr-FR').length : 1)) + 0.6}ch` }}
+                className={cn('bg-transparent text-center text-[40px] font-bold tracking-tight tabular-nums outline-none placeholder:text-muted-foreground/40', prime ? 'text-kred' : 'text-kgreen', tooMuch && 'text-destructive')}
               />
               <span className="text-base text-muted-foreground">FCFA</span>
             </span>
-            {tooMuch && <span className="text-xs text-destructive">Pas plus que ce qu'il reste à payer ({amt(max)})</span>}
+            {/* La place du message est toujours gardée : rien ne bouge quand il apparaît */}
+            <span className="min-h-4 text-xs text-destructive">{tooMuch ? `Pas plus que ce qu'il reste à payer (${amt(max)})` : ''}</span>
           </label>
           <div className="flex flex-col gap-2">
             <span className="text-[13px] text-muted-foreground">Pourquoi ?</span>
-            <div className="flex flex-wrap gap-2">
+            {/* Toujours 4 choix sur 2 lignes : la fenêtre garde la même hauteur entre Prime et Retenue */}
+            <div className="grid grid-cols-2 gap-2">
               {REASONS[type].map(r => (
                 <button
                   key={r}
                   type="button"
                   onClick={() => setReason(reason === r ? '' : r)}
-                  className={cn('h-10 rounded-full px-4 text-sm', reason === r ? 'border-[1.5px] border-kgold bg-kgold/10 font-bold text-kgold' : 'border font-semibold text-muted-foreground')}
+                  className={cn('h-10 rounded-full px-4 text-sm', reason === r ? 'border-[1.5px] border-kgold bg-kgold font-bold text-white dark:text-black' : 'border font-semibold text-muted-foreground')}
                 >
                   {r}
                 </button>

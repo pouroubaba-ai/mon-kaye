@@ -263,7 +263,7 @@ function Line({ m, side, returned, last, onOpen }: { m: Movement; side: Side; re
   const what = m.items?.length ? m.items.map(l => l.label).join(', ') : m.note || (m.paymentMethod && !isComp ? PAYMENT_LABELS[m.paymentMethod] : '')
   const Icon = isCredit ? Plus : isReturn ? Undo2 : isComp ? ArrowLeftRight : Banknote
   return (
-    <button type="button" onClick={onOpen} className={cn('flex items-center gap-3 px-1 py-3 text-left', !last && 'border-b border-border/60', m.isCancelled && 'opacity-50')}>
+    <button type="button" onClick={onOpen} className={cn('flex items-center gap-3 px-1 py-3 text-left', !last && 'border-b border-border', m.isCancelled && 'opacity-50')}>
       <span
         className={cn(
           'flex size-9 shrink-0 items-center justify-center rounded-[10px]',

@@ -36,7 +36,7 @@ const Field = ({ label, children }: { label: string; children: React.ReactNode }
     {children}
   </div>
 )
-const pill = (on: boolean) => cn('h-11 rounded-full px-4 text-sm', on ? 'border-[1.5px] border-kgold bg-kgold/10 font-bold text-kgold' : 'border font-semibold text-muted-foreground')
+const pill = (on: boolean) => cn('h-11 rounded-full px-4 text-sm', on ? 'border-[1.5px] border-kgold bg-kgold font-bold text-white dark:text-black' : 'border font-semibold text-muted-foreground')
 
 export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpenChange: (o: boolean) => void; onCreated?: (id: string) => void }) {
   const { addPerson, persons } = useStore()
@@ -97,13 +97,13 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange} dirty={name.trim() !== '' || salary !== ''} dirtyKind="ajout">
-      <DialogContent className="max-h-[92dvh] overflow-y-auto">
+      <DialogContent fixedHeight>
         <DialogHeader className="text-left">
           <DialogTitle className="text-left text-xl">Nouvel employé</DialogTitle>
           <DialogDescription className="sr-only">Ajouter un employé</DialogDescription>
         </DialogHeader>
         <form
-          className="flex flex-col gap-4 pb-2"
+          className="flex flex-col gap-4 pb-2 min-h-0 flex-1 overflow-y-auto"
           onSubmit={e => {
             e.preventDefault()
             save()
@@ -149,25 +149,27 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
                   {label}
                 </button>
               ))}
-              <button type="button" onClick={() => setOther(true)} className={pill(other)}>
+              <button type="button" onClick={() => { setOther(true); (document.querySelector('[aria-label="Autre jour de paie"]') as HTMLInputElement | null)?.focus() }} className={pill(other)}>
                 Autre
               </button>
             </div>
-            {other && (
-              <label className="flex items-center gap-2 text-[15px] text-muted-foreground">
-                Le
-                <input
-                  autoFocus
-                  inputMode="numeric"
-                  value={otherStr}
-                  onChange={e => setOtherStr(e.target.value.replace(/\D/g, '').slice(0, 2))}
-                  placeholder="27"
-                  aria-label="Jour de paie"
-                  className="h-11 w-16 rounded-xl border-2 border-kgold bg-background text-center text-lg font-bold text-foreground outline-none"
-                />
-                de chaque mois (1 à 28)
-              </label>
-            )}
+            {/* Toujours affiché (rien n'apparaît ni ne bouge) : taper un jour choisit « Autre » */}
+            <label className={cn('flex items-center gap-2 text-[15px]', other ? 'text-foreground' : 'text-muted-foreground')}>
+              Ou le
+              <input
+                inputMode="numeric"
+                value={otherStr}
+                onFocus={() => setOther(true)}
+                onChange={e => {
+                  setOther(true)
+                  setOtherStr(e.target.value.replace(/\D/g, '').slice(0, 2))
+                }}
+                placeholder="27"
+                aria-label="Autre jour de paie"
+                className={cn('h-11 w-16 rounded-xl border-2 bg-background text-center text-lg font-bold text-foreground outline-none', other ? 'border-kgold' : 'border-border')}
+              />
+              de chaque mois (1 à 28)
+            </label>
           </Field>
 
           {!more ? (
@@ -183,7 +185,8 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
               <Field label={`${sex === 'f' ? 'Elle' : 'Il'} me doit déjà (avance)`}>
                 <Money value={advance} onChange={setAdvance} label="Avance" tone="text-kgreen" />
               </Field>
-              {adv > 0 && (
+              {/* Toujours affiché : rien n'apparaît quand on tape l'avance */}
+              {(
                 <Field label={`Comment ${il} rend son avance ?`}>
                   <div className="grid grid-cols-2 gap-2">
                     <button type="button" onClick={() => setRetain(false)} className={pill(!retain)}>
@@ -193,20 +196,22 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
                       Retenir sur sa paie
                     </button>
                   </div>
-                  {retain && (
-                    <label className="flex items-center gap-2 text-[15px] text-muted-foreground">
-                      Retenir
-                      <input
-                        inputMode="numeric"
-                        value={thousands(perMonth)}
-                        onChange={e => setPerMonth(digits(e.target.value))}
-                        placeholder="5 000"
-                        aria-label="Retenue par mois"
-                        className="h-11 w-28 rounded-xl border-2 border-kgold bg-background text-center text-base font-bold text-foreground outline-none"
-                      />
-                      par mois
-                    </label>
-                  )}
+                  <label className={cn('flex items-center gap-2 text-[15px]', retain ? 'text-foreground' : 'text-muted-foreground')}>
+                    Retenir
+                    <input
+                      inputMode="numeric"
+                      value={thousands(perMonth)}
+                      onFocus={() => setRetain(true)}
+                      onChange={e => {
+                        setRetain(true)
+                        setPerMonth(digits(e.target.value))
+                      }}
+                      placeholder="5 000"
+                      aria-label="Retenue par mois"
+                      className={cn('h-11 w-28 rounded-xl border-2 bg-background text-center text-base font-bold text-foreground outline-none', retain ? 'border-kgold' : 'border-border')}
+                    />
+                    par mois
+                  </label>
                 </Field>
               )}
               <Field label="Numéro">

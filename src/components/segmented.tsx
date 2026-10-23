@@ -30,7 +30,7 @@ export function Segmented<T extends string>({
       {thumb && (
         <span
           aria-hidden
-          className="absolute top-1 bottom-1 left-0 rounded-full bg-background shadow-sm ring-1 ring-foreground/10 transition-[transform,width] duration-300 ease-out motion-reduce:transition-none"
+          className="absolute top-1 bottom-1 left-0 rounded-full bg-foreground shadow-sm transition-[transform,width] duration-300 ease-out motion-reduce:transition-none"
           style={{ width: thumb.w, transform: `translateX(${thumb.x}px)` }}
         />
       )}
@@ -46,11 +46,11 @@ export function Segmented<T extends string>({
           onClick={() => onChange(o.value)}
           className={cn(
             'relative z-10 flex h-8 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-medium whitespace-nowrap transition-colors',
-            o.value === value ? 'text-foreground' : 'text-muted-foreground'
+            o.value === value ? 'font-semibold text-background' : 'text-muted-foreground'
           )}
         >
           {o.label}
-          {o.count !== undefined && <span className="text-xs text-muted-foreground tabular-nums">{o.count}</span>}
+          {o.count !== undefined && <span className="text-xs opacity-70 tabular-nums">{o.count}</span>}
         </button>
       ))}
     </div>

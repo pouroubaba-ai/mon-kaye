@@ -43,7 +43,7 @@ export const EmployeesHome: React.FC = () => {
       key={l.emp.id}
       type="button"
       onClick={() => setSelectedPersonId(l.emp.id)}
-      className={cn('flex w-full items-center gap-3 px-2 py-3 text-left transition-colors hover:bg-muted/40', !last && 'border-b border-border/60', opts.dim && 'opacity-55')}
+      className={cn('flex w-full items-center gap-3 px-2 py-3 text-left transition-colors hover:bg-muted/40', !last && 'border-b border-border', opts.dim && 'opacity-55')}
     >
       <span className="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground">{initials(l.emp.name)}</span>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -141,7 +141,7 @@ export const EmployeesHome: React.FC = () => {
       <div className="flex flex-1 flex-col px-3 pt-1 pb-[calc(7rem+env(safe-area-inset-bottom))]">
         {salaires ? (
           <>
-            {!searching && (
+            {(
               <button type="button" onClick={() => setAdding(true)} className="my-1 flex h-[52px] items-center justify-center gap-2 rounded-[14px] border border-dashed border-foreground/25 text-[15px] font-semibold text-muted-foreground hover:bg-muted/40">
                 <Plus className="size-5" strokeWidth={2.4} /> Nouvel employé
               </button>

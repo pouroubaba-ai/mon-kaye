@@ -59,7 +59,7 @@ export const StatsScreen: React.FC = () => {
                   key={x.p.id}
                   type="button"
                   onClick={() => setSelectedPersonId(x.p.id)}
-                  className={cn('flex items-center gap-2.5 py-2.5 text-left', i < late.length - 1 && 'border-b border-border/60')}
+                  className={cn('flex items-center gap-2.5 py-2.5 text-left', i < late.length - 1 && 'border-b border-border')}
                 >
                   <span className="min-w-0 flex-1 truncate text-[15px] font-semibold">{x.p.name}</span>
                   <span className={cn('shrink-0 text-[13px] font-semibold', x.days === null ? 'text-muted-foreground' : 'text-kgold')}>{x.days === null ? 'jamais' : `${x.days} j`}</span>
@@ -153,7 +153,9 @@ function Flow({ title, side, moves, range, start, end }: { title: string; side: 
           ))}
         </svg>
       ) : (
-        <p className="py-2 text-sm text-muted-foreground">Rien sur cette période.</p>
+        <div style={{ aspectRatio: `${W} / ${H + 18}` }} className="flex items-center justify-center text-sm text-muted-foreground">
+          Rien sur cette période.
+        </div>
       )}
       <div className="flex gap-4 text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
