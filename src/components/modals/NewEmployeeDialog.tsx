@@ -4,6 +4,7 @@ import { useStore } from '@/data/store'
 import { LAST_DAY } from '@/data/payroll'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/responsive-dialog'
 import { cn, formatPhone, nameTaken } from '@/lib/utils'
+import { CalendarDays } from 'lucide-react'
 
 // ——— Nouvel employé : un seul écran ———
 // Nom, homme ou femme, salaire par mois, jour de paie. Le bouton en pointillés ouvre ce qui existe déjà
@@ -44,13 +45,10 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
   const [sex, setSex] = React.useState<'h' | 'f' | undefined>()
   const [salary, setSalary] = React.useState('')
   const [dueDay, setDueDay] = React.useState<number | null>(null)
-  const [other, setOther] = React.useState(false) // « Autre » jour
-  const [otherStr, setOtherStr] = React.useState('')
   const [more, setMore] = React.useState(false)
+  const [picking, setPicking] = React.useState(false)
   const [oldDebt, setOldDebt] = React.useState('')
   const [advance, setAdvance] = React.useState('')
-  const [retain, setRetain] = React.useState(false)
-  const [perMonth, setPerMonth] = React.useState('')
   const [phone, setPhone] = React.useState('')
   const [role, setRole] = React.useState('')
 
@@ -60,22 +58,17 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
     setSex(undefined)
     setSalary('')
     setDueDay(null)
-    setOther(false)
-    setOtherStr('')
     setMore(false)
     setOldDebt('')
     setAdvance('')
-    setRetain(false)
-    setPerMonth('')
     setPhone('')
     setRole('')
   }, [open])
 
   const taken = nameTaken(persons, name)
-  const day = other ? Math.min(28, num(otherStr)) || null : dueDay
+  const day = dueDay
   const adv = num(advance)
-  const ok = name.trim() !== '' && !taken && num(salary) > 0 && day !== null && (!retain || adv === 0 || num(perMonth) > 0)
-  const il = sex === 'f' ? 'elle' : 'il'
+  const ok = name.trim() !== '' && !taken && num(salary) > 0 && day !== null
 
   const save = () => {
     if (!ok) return
@@ -89,13 +82,13 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
       dueDay: day ?? LAST_DAY,
       oldDebt: num(oldDebt) || undefined,
       advance: adv || undefined,
-      perMonth: adv && retain ? num(perMonth) || undefined : undefined,
     })
     onOpenChange(false)
     onCreated?.(id)
   }
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange} dirty={name.trim() !== '' || salary !== ''} dirtyKind="ajout">
       <DialogContent fixedHeight>
         <DialogHeader className="text-left">
@@ -129,47 +122,15 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
             <Money value={salary} onChange={setSalary} label="Salaire par mois" />
           </Field>
           <Field label="Je le paie le">
-            <div className="flex flex-wrap gap-2">
-              {(
-                [
-                  [LAST_DAY, 'Fin du mois'],
-                  [25, 'Le 25'],
-                  [5, 'Le 5'],
-                ] as const
-              ).map(([d, label]) => (
-                <button
-                  key={d}
-                  type="button"
-                  onClick={() => {
-                    setOther(false)
-                    setDueDay(d)
-                  }}
-                  className={pill(!other && dueDay === d)}
-                >
-                  {label}
-                </button>
-              ))}
-              <button type="button" onClick={() => { setOther(true); (document.querySelector('[aria-label="Autre jour de paie"]') as HTMLInputElement | null)?.focus() }} className={pill(other)}>
-                Autre
-              </button>
-            </div>
-            {/* Toujours affiché (rien n'apparaît ni ne bouge) : taper un jour choisit « Autre » */}
-            <label className={cn('flex items-center gap-2 text-[15px]', other ? 'text-foreground' : 'text-muted-foreground')}>
-              Ou le
-              <input
-                inputMode="numeric"
-                value={otherStr}
-                onFocus={() => setOther(true)}
-                onChange={e => {
-                  setOther(true)
-                  setOtherStr(e.target.value.replace(/\D/g, '').slice(0, 2))
-                }}
-                placeholder="27"
-                aria-label="Autre jour de paie"
-                className={cn('h-11 w-16 rounded-xl border-2 bg-background text-center text-lg font-bold text-foreground outline-none', other ? 'border-kgold' : 'border-border')}
-              />
-              de chaque mois (1 à 28)
-            </label>
+            {/* Un bouton qui ouvre le choix du jour (pas de jour à taper au hasard) */}
+            <button
+              type="button"
+              onClick={() => setPicking(true)}
+              className={cn('flex h-12 items-center justify-between rounded-xl border bg-background px-3.5 text-left text-base', dueDay === null ? 'text-muted-foreground' : 'font-semibold')}
+            >
+              {dueDay === null ? 'Choisir le jour de paie' : dayText(dueDay)}
+              <CalendarDays className="size-5 text-muted-foreground" />
+            </button>
           </Field>
 
           {!more ? (
@@ -185,35 +146,6 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
               <Field label={`${sex === 'f' ? 'Elle' : 'Il'} me doit déjà (avance)`}>
                 <Money value={advance} onChange={setAdvance} label="Avance" tone="text-kgreen" />
               </Field>
-              {/* Toujours affiché : rien n'apparaît quand on tape l'avance */}
-              {(
-                <Field label={`Comment ${il} rend son avance ?`}>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button type="button" onClick={() => setRetain(false)} className={pill(!retain)}>
-                      {sex === 'f' ? 'Elle' : 'Il'} rend {sex === 'f' ? 'elle' : 'lui'}-même
-                    </button>
-                    <button type="button" onClick={() => setRetain(true)} className={pill(retain)}>
-                      Retenir sur sa paie
-                    </button>
-                  </div>
-                  <label className={cn('flex items-center gap-2 text-[15px]', retain ? 'text-foreground' : 'text-muted-foreground')}>
-                    Retenir
-                    <input
-                      inputMode="numeric"
-                      value={thousands(perMonth)}
-                      onFocus={() => setRetain(true)}
-                      onChange={e => {
-                        setRetain(true)
-                        setPerMonth(digits(e.target.value))
-                      }}
-                      placeholder="5 000"
-                      aria-label="Retenue par mois"
-                      className={cn('h-11 w-28 rounded-xl border-2 bg-background text-center text-base font-bold text-foreground outline-none', retain ? 'border-kgold' : 'border-border')}
-                    />
-                    par mois
-                  </label>
-                </Field>
-              )}
               <Field label="Numéro">
                 <input type="tel" inputMode="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+242 06 …" className="h-12 rounded-xl border bg-background px-3.5 text-base outline-none" />
               </Field>
@@ -227,6 +159,41 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
             Enregistrer
           </button>
         </form>
+      </DialogContent>
+    </Dialog>
+    <DayPicker open={picking} onOpenChange={setPicking} value={dueDay} onPick={d => setDueDay(d)} />
+    </>
+  )
+}
+
+const dayText = (d: number) => (d >= LAST_DAY ? 'Fin du mois' : `Le ${d} de chaque mois`)
+
+// ——— Choisir le jour de paie : 1 à 28, ou la fin du mois ———
+function DayPicker({ open, onOpenChange, value, onPick }: { open: boolean; onOpenChange: (o: boolean) => void; value: number | null; onPick: (d: number) => void }) {
+  const pick = (d: number) => {
+    onPick(d)
+    onOpenChange(false)
+  }
+  const cell = (on: boolean) => cn('h-11 rounded-xl text-base tabular-nums', on ? 'bg-kgold font-bold text-white dark:text-black' : 'border bg-background font-semibold')
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader className="text-left">
+          <DialogTitle className="text-left text-lg">Je le paie le</DialogTitle>
+          <DialogDescription className="text-left">Choisissez le jour de paie de chaque mois</DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-2 pb-2">
+          <div className="grid grid-cols-7 gap-1.5">
+            {Array.from({ length: 28 }, (_, i) => i + 1).map(d => (
+              <button key={d} type="button" onClick={() => pick(d)} className={cell(value === d)} aria-pressed={value === d}>
+                {d}
+              </button>
+            ))}
+          </div>
+          <button type="button" onClick={() => pick(LAST_DAY)} className={cell(value === LAST_DAY)} aria-pressed={value === LAST_DAY}>
+            Fin du mois
+          </button>
+        </div>
       </DialogContent>
     </Dialog>
   )
