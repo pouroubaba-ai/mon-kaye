@@ -33,6 +33,10 @@ export const EmployeesHome: React.FC = () => {
   const curLines = lines.filter(l => l.emp.status !== 'inactif' && l.upcoming > 0)
   const curTotal = curLines.reduce((a, l) => a + l.upcoming, 0)
   const nCur = curLines.length
+  // Avances : retenues prévues sur les paies en cours
+  const cutLines = lines.filter(l => l.emp.status !== 'inactif' && l.pr.plannedRetenue > 0)
+  const cutTotal = cutLines.reduce((a, l) => a + l.pr.plannedRetenue, 0)
+  const nCut = cutLines.length
   // Salaires : les paies terminées de tous les employés (la paie en cours n'est pas encore due)
   const salTotal = lines.reduce((a, l) => a + l.pr.months.filter(m => m.state !== 'en_cours' && m.state !== 'annule').reduce((x, m) => x + m.aPayer, 0), 0)
   // Avances : toutes les avances prises (annulées exclues)
@@ -158,6 +162,18 @@ export const EmployeesHome: React.FC = () => {
               <span className={cn('text-base font-bold tabular-nums', salaires ? 'text-kred' : 'text-kgreen')}>{amt(salaires ? salaryDue : advTotal)}</span>
             </div>
           </div>
+          {!salaires && (
+            // Avances : ce qui sera retenu sur les paies en cours, à leur jour de paie
+            <div className="flex items-center justify-between gap-3 border-t bg-kgold/5 px-5 py-3">
+              <span className="flex flex-col">
+                <span className="text-sm font-semibold">Retenues en cours</span>
+                <span className="text-xs text-muted-foreground">
+                  À retenir sur la paie de {nCut} employé{nCut > 1 ? 's' : ''}
+                </span>
+              </span>
+              <span className="text-xl font-bold text-kgold tabular-nums">{amt(cutTotal)}</span>
+            </div>
+          )}
           {salaires && (
             <div className="flex items-center justify-between gap-3 border-t bg-kgold/5 px-5 py-3">
               <span className="flex flex-col">
