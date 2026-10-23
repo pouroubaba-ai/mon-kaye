@@ -1,5 +1,5 @@
 import React from 'react'
-import { BarChart3, Banknote, ChevronDown, ChevronRight, Eye, EyeOff, Plus, Search, Settings, X } from 'lucide-react'
+import { BarChart3, Banknote, ChevronDown, ChevronRight, Eye, EyeOff, Moon, Plus, Search, Settings, Sun, X } from 'lucide-react'
 
 import { useStore } from '@/data/store'
 import type { Person } from '@/data/mockData'
@@ -16,7 +16,7 @@ import { daysSince } from '@/data/payHistory'
 
 // Le logo et les deux icônes (Statistiques, Réglages), puis « Clients et fournisseurs | Employés »
 export function HomeTop() {
-  const { navigate, modules, activeTab } = useStore()
+  const { navigate, modules, activeTab, theme, toggleTheme } = useStore()
   const group = activeTab === 'employes' || activeTab === 'salaires' ? 'employee' : 'partner'
   return (
     <>
@@ -27,6 +27,10 @@ export function HomeTop() {
         <div className="flex gap-1">
           <button type="button" aria-label="Statistiques" onClick={() => navigate('stats')} className="flex size-11 items-center justify-center rounded-full text-muted-foreground hover:bg-muted">
             <BarChart3 className="size-[22px]" />
+          </button>
+          {/* Sombre ⇄ clair */}
+          <button type="button" aria-label={theme === 'dark' ? 'Passer en clair' : 'Passer en sombre'} onClick={toggleTheme} className="flex size-11 items-center justify-center rounded-full text-muted-foreground hover:bg-muted">
+            {theme === 'dark' ? <Sun className="size-[22px]" /> : <Moon className="size-[22px]" />}
           </button>
           <button type="button" aria-label="Réglages" onClick={() => navigate('reglages')} className="flex size-11 items-center justify-center rounded-full text-muted-foreground hover:bg-muted">
             <Settings className="size-[22px]" />

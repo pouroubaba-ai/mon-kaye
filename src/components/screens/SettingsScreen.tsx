@@ -145,15 +145,14 @@ export const SettingsScreen: React.FC = () => {
 
         {/* Interrupteurs */}
         <Section className="gap-0 py-1.5">
-          {!modules.personnes && (
-            <label className="flex items-center justify-between gap-3 border-b py-3">
-              <span className="flex flex-col">
-                <span className="text-base font-semibold">Clients et fournisseurs</span>
-                <span className="text-[13px] text-muted-foreground">Crédits et dettes</span>
-              </span>
-              <Switch checked={modules.personnes} onCheckedChange={on => setModule('personnes', on)} aria-label="Module Clients et fournisseurs" className="data-[state=checked]:bg-kgreen-solid" />
-            </label>
-          )}
+          {/* Les deux modules s'allument et s'éteignent ; il en reste toujours au moins un d'allumé */}
+          <label className="flex items-center justify-between gap-3 border-b py-3">
+            <span className="flex flex-col">
+              <span className="text-base font-semibold">Clients et fournisseurs</span>
+              <span className="text-[13px] text-muted-foreground">Crédits, dettes et versements</span>
+            </span>
+            <Switch checked={modules.personnes} disabled={modules.personnes && !modules.employes} onCheckedChange={on => setModule('personnes', on)} aria-label="Module Clients et fournisseurs" className="data-[state=checked]:bg-kgreen-solid" />
+          </label>
           <label className="flex items-center justify-between gap-3 border-b py-3">
             <span className="flex flex-col">
               <span className="text-base font-semibold">Employés</span>
@@ -161,6 +160,9 @@ export const SettingsScreen: React.FC = () => {
             </span>
             <Switch checked={modules.employes} disabled={modules.employes && !modules.personnes} onCheckedChange={on => setModule('employes', on)} aria-label="Module Employés" className="data-[state=checked]:bg-kgreen-solid" />
           </label>
+          {!(modules.personnes && modules.employes) && (
+            <p className="border-b py-2.5 text-xs text-muted-foreground">Il faut au moins un module allumé : allumez l'autre pour pouvoir éteindre celui-ci.</p>
+          )}
           <label className="flex items-center justify-between gap-3 py-3">
             <span className="text-base font-semibold">Thème sombre</span>
             <Switch checked={theme === 'dark'} onCheckedChange={toggleTheme} aria-label="Thème sombre" className="data-[state=checked]:bg-kgreen-solid" />
