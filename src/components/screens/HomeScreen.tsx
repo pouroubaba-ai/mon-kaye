@@ -46,7 +46,7 @@ export function HomeTop() {
               type="button"
               role="tab"
               aria-selected={group === g}
-              onClick={() => group !== g && navigate(g === 'partner' ? 'accueil' : 'salaires')}
+              onClick={() => group !== g && navigate(g === 'partner' ? 'accueil' : 'employes')}
               className={cn('h-[38px] rounded-[9px] text-sm transition-colors', group === g ? 'bg-background font-bold text-foreground shadow-sm dark:bg-[#2A2C33]' : 'font-semibold text-muted-foreground')}
             >
               {label}

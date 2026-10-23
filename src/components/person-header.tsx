@@ -184,6 +184,7 @@ export function PersonFormDialog({
             <div className="grid gap-2">
               <Label htmlFor="edit-salary">Salaire par mois (FCFA)</Label>
               <Input id="edit-salary" inputMode="numeric" value={salary} onChange={e => setSalary(e.target.value.replace(/\D/g, ''))} />
+              {person && <p className="text-xs text-muted-foreground">Un nouveau salaire compte à partir de la prochaine paie.</p>}
             </div>
           )}
           <Button type="submit" size="lg" className="h-12" disabled={!valid}>

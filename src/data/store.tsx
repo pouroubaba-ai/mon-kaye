@@ -389,7 +389,7 @@ export const StoreProvider: React.FC<{
     const plan = planNewEmployee(id, data, todayStr())
     const next = [...plan.added, ...movements]
     setMovements(next)
-    setPersons(prev => [...prev, syncEmployee(plan.person, next, monthStates)])
+    setPersons(prev => [...prev, syncEmployee(data.sex ? { ...plan.person, sex: data.sex } : plan.person, next, monthStates)])
     return id
   }
 

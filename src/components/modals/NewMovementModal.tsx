@@ -72,7 +72,9 @@ const MOTIF_HINT: Record<string, string> = {
 
 const TITLES: Record<Step, string> = { qui: 'Qui ?', quoi: 'Quelle opération ?', combien: 'Combien ?', detail: 'Détail' }
 // Depuis les boutons de l'accueil : l'opération est déjà choisie, on demande seulement « à qui ? »
-const DIRECT: Partial<Record<Movement['type'], { side: 'lui' | 'moi'; pay: boolean; title: string; ask: string }>> = {
+const DIRECT: Partial<Record<Movement['type'], { side: 'lui' | 'moi'; pay: boolean; title: string; ask: string; emp?: boolean }>> = {
+  avance_salaire: { side: 'lui', pay: false, title: 'Avance', ask: 'à qui ?', emp: true },
+  remboursement_direct: { side: 'lui', pay: true, title: 'Il rend', ask: 'qui ?', emp: true },
   il_a_pris_credit: { side: 'lui', pay: false, title: 'Crédit', ask: 'à qui ?' },
   il_m_a_verse: { side: 'lui', pay: true, title: 'Versement', ask: 'de qui ?' },
   j_ai_pris_credit: { side: 'moi', pay: false, title: 'Dette', ask: 'chez qui ?' },
@@ -361,9 +363,9 @@ export const NewMovementModal: React.FC = () => {
   const activeGroup = bothGroups ? group : partnersList.length > 0 ? 'partner' : 'employee'
   // Ouvert depuis l'accueil avec une opération déjà choisie : seulement les partenaires concernés
   const directSide = !newMovementTargetPersonId && newMovementInitialType ? (DIRECT[newMovementInitialType] ?? null) : null
-  const sideAmount = (p: (typeof persons)[number]) => (directSide?.side === 'lui' ? p.owesMe || 0 : p.iOweHim || 0)
+  const sideAmount = (p: (typeof persons)[number]) => (directSide?.emp ? p.advanceBalance || 0 : directSide?.side === 'lui' ? p.owesMe || 0 : p.iOweHim || 0)
   const visible = directSide
-    ? partnersList
+    ? (directSide.emp ? employeesList : partnersList)
         .filter(p => matchesPerson(p, search) && (search.trim() !== '' || !p.archived) && (!directSide.pay || sideAmount(p) > 0))
         .sort((a, b) => sideAmount(b) - sideAmount(a) || a.name.localeCompare(b.name, 'fr'))
     : (activeGroup === 'partner' ? partnersList : employeesList).filter(p => matchesPerson(p, search))
@@ -426,7 +428,7 @@ export const NewMovementModal: React.FC = () => {
             )}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder={directSide ? (directSide.side === 'lui' ? 'Chercher un client' : 'Chercher un fournisseur') : activeGroup === 'employee' ? 'Chercher un employé' : 'Chercher un partenaire'} value={search} onChange={e => setSearch(e.target.value)} className="pr-10 pl-9" />
+              <Input placeholder={directSide ? (directSide.emp ? 'Chercher un employé' : directSide.side === 'lui' ? 'Chercher un client' : 'Chercher un fournisseur') : activeGroup === 'employee' ? 'Chercher un employé' : 'Chercher un partenaire'} value={search} onChange={e => setSearch(e.target.value)} className="pr-10 pl-9" />
               {search && (
                 <button
                   type="button"
@@ -475,7 +477,7 @@ export const NewMovementModal: React.FC = () => {
               ))}
               {visible.length === 0 && (
                 <p className="p-3 text-sm text-muted-foreground">
-                  {directSide?.pay && !search.trim() ? (directSide.side === 'lui' ? 'Personne ne vous doit rien.' : 'Vous ne devez rien à personne.') : 'Personne ne s’appelle comme ça.'}
+                  {directSide?.pay && !search.trim() ? (directSide.emp ? 'Aucune avance à rendre.' : directSide.side === 'lui' ? 'Personne ne vous doit rien.' : 'Vous ne devez rien à personne.') : 'Personne ne s’appelle comme ça.'}
                 </p>
               )}
             </div>

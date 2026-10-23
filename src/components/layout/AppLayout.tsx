@@ -47,7 +47,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
 
   const openPerson = selectedPersonId ? persons.find(p => p.id === selectedPersonId) : undefined
   // Écrans qui dessinent eux-mêmes leur haut : l'accueil (et Employés, sous le même haut) et la fiche d'un partenaire
-  const own = openPerson ? openPerson.type === 'partner' : !accountsView && ['accueil', 'personnes', 'salaires', 'stats', 'reglages'].includes(activeTab)
+  const own = openPerson ? true : !accountsView && ['accueil', 'personnes', 'salaires', 'employes', 'stats', 'reglages'].includes(activeTab)
 
   // La petite barre : ← et le nom de la page
   const bar = openPerson

@@ -2,7 +2,6 @@ import React from 'react'
 import { StoreProvider, useStore } from '@/data/store'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { StatsScreen } from '@/components/screens/StatsScreen'
-import { PersonsListScreen } from '@/components/screens/PersonsListScreen'
 import { PartnerDetailScreen } from '@/components/screens/PartnerDetailScreen'
 import { EmployeeDetailScreen } from '@/components/screens/EmployeeDetailScreen'
 import { SettingsScreen } from '@/components/screens/SettingsScreen'
@@ -21,25 +20,8 @@ import { auth, authError, createShop, loadShop, logOut, makePersister, resetPass
 import { resetModulesLocal, type StoreData } from '@/data/store'
 import { SplashScreen } from '@/components/splash-screen'
 import { PullToRefresh } from '@/components/pull-to-refresh'
-import { EmployeesMonthScreen } from '@/components/screens/EmployeesMonthScreen'
-import { HomeScreen, HomeTop } from '@/components/screens/HomeScreen'
-import { ChevronRight } from 'lucide-react'
-
-// Employés (en attendant leur nouvelle version) : le même haut que l'accueil, puis la page Salaires
-function EmployeesHome() {
-  const { navigate } = useStore()
-  return (
-    <div className="flex min-h-dvh flex-col">
-      <HomeTop />
-      <div className="flex flex-col gap-4 p-4 pb-[calc(2rem+env(safe-area-inset-bottom))]">
-        <button type="button" onClick={() => navigate('employes')} className="flex h-12 items-center justify-between rounded-xl border px-4 text-[15px] font-semibold">
-          Tous les employés <ChevronRight className="size-4 text-muted-foreground" />
-        </button>
-        <EmployeesMonthScreen />
-      </div>
-    </div>
-  )
-}
+import { HomeScreen } from '@/components/screens/HomeScreen'
+import { EmployeesHome } from '@/components/screens/EmployeesHome'
 
 const AppContent: React.FC = () => {
   const { activeTab, selectedPersonId, persons, accountsView, modules } = useStore()
@@ -89,8 +71,7 @@ const AppContent: React.FC = () => {
           <>
             {(activeTab === 'accueil' || activeTab === 'personnes') && (modules.personnes ? <HomeScreen /> : <EmployeesHome />)}
             {activeTab === 'stats' && <StatsScreen />}
-            {activeTab === 'employes' && modules.employes && <PersonsListScreen />}
-            {activeTab === 'salaires' && modules.employes && <EmployeesHome />}
+                        {(activeTab === 'salaires' || activeTab === 'employes') && modules.employes && <EmployeesHome />}
           </>
         )}
         {!accountsView && activeTab === 'reglages' && <SettingsScreen />}
