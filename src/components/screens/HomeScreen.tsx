@@ -7,7 +7,8 @@ import { PersonFormDialog } from '@/components/person-header'
 import { DateFilter } from '@/components/date-filter'
 import { ALL_TIME, inRange, isFiltered, rangeLabel, type DateRange } from '@/lib/date-range'
 import { cn, matchesPerson } from '@/lib/utils'
-import { amt, balanceOf, CREDIT_OF, initials, lastPayText, paidOn, type Side } from '@/modules/personnes/view'
+import { amt, balanceOf, CREDIT_OF, initials, lastPayDate, lastPayText, paidOn, type Side } from '@/modules/personnes/view'
+import { daysSince } from '@/data/payHistory'
 
 // ——— Accueil « Kayé simple » ———
 // Un seul écran : deux onglets avec leur montant (On me doit / Je dois), une recherche,
@@ -58,7 +59,7 @@ export function HomeTop() {
 }
 
 export const HomeScreen: React.FC = () => {
-  const { persons, movements, setSelectedPersonId, openNewMovement, totals } = useStore()
+  const { persons, movements, setSelectedPersonId, openNewMovement, totals, lateDays } = useStore()
   const [side, setSide] = React.useState<Side>('lui')
   const [detail, setDetail] = React.useState(false) // l'œil : pris / versé / reste
   const [search, setSearch] = React.useState('')
@@ -234,7 +235,13 @@ export const HomeScreen: React.FC = () => {
             {owing.length === 0 && (
               <p className="px-2 py-8 text-center text-sm text-muted-foreground">{lui ? 'Personne ne vous doit rien.' : 'Vous ne devez rien à personne.'}</p>
             )}
-            {owing.map((p, i) => row(p, lastPayText(movements, p, side), money(balanceOf(p, side)), i, i === owing.length - 1))}
+            {owing.map((p, i) => {
+              // Client en retard (Réglages) : ses jours en doré
+              const d = lastPayDate(movements, p, side)
+              const n = d ? daysSince(d) : null
+              const late = lui && n !== null && n >= lateDays
+              return row(p, <span className={late ? 'font-semibold text-kgold' : undefined}>{lastPayText(movements, p, side)}</span>, money(balanceOf(p, side)), i, i === owing.length - 1)
+            })}
 
             {/* Ceux qui sont à jour, puis ceux qu'on a rangés : repliés */}
             {zero.length > 0 && (

@@ -47,7 +47,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
 
   const openPerson = selectedPersonId ? persons.find(p => p.id === selectedPersonId) : undefined
   // Écrans qui dessinent eux-mêmes leur haut : l'accueil (et Employés, sous le même haut) et la fiche d'un partenaire
-  const own = openPerson ? openPerson.type === 'partner' : !accountsView && (activeTab === 'accueil' || activeTab === 'personnes' || activeTab === 'salaires')
+  const own = openPerson ? openPerson.type === 'partner' : !accountsView && ['accueil', 'personnes', 'salaires', 'stats', 'reglages'].includes(activeTab)
 
   // La petite barre : ← et le nom de la page
   const bar = openPerson
@@ -72,5 +72,19 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
         <div className={cn(!own && 'p-4 pb-[calc(2rem+env(safe-area-inset-bottom))]')}>{children}</div>
       </div>
     </TooltipProvider>
+  )
+}
+
+// Haut des pages Statistiques et Réglages : ←, le titre, et une place à droite (ex. le filtre par période)
+export function SubHeader({ title, right }: { title: string; right?: React.ReactNode }) {
+  const { navigate } = useStore()
+  return (
+    <header className="flex items-center gap-2 px-3 pt-[calc(0.875rem+env(safe-area-inset-top))] pb-2">
+      <button type="button" aria-label="Retour" onClick={() => navigate('accueil')} className="flex size-11 items-center justify-center rounded-full hover:bg-muted">
+        <ChevronLeft className="size-6" />
+      </button>
+      <span className="min-w-0 flex-1 truncate text-xl font-bold">{title}</span>
+      {right}
+    </header>
   )
 }

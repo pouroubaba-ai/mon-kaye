@@ -1,7 +1,7 @@
 import React from 'react'
 import { StoreProvider, useStore } from '@/data/store'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { DashboardScreen } from '@/components/screens/DashboardScreen'
+import { StatsScreen } from '@/components/screens/StatsScreen'
 import { PersonsListScreen } from '@/components/screens/PersonsListScreen'
 import { PartnerDetailScreen } from '@/components/screens/PartnerDetailScreen'
 import { EmployeeDetailScreen } from '@/components/screens/EmployeeDetailScreen'
@@ -88,7 +88,7 @@ const AppContent: React.FC = () => {
         ) : (
           <>
             {(activeTab === 'accueil' || activeTab === 'personnes') && (modules.personnes ? <HomeScreen /> : <EmployeesHome />)}
-            {activeTab === 'stats' && <DashboardScreen />}
+            {activeTab === 'stats' && <StatsScreen />}
             {activeTab === 'employes' && modules.employes && <PersonsListScreen />}
             {activeTab === 'salaires' && modules.employes && <EmployeesHome />}
           </>

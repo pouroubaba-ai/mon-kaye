@@ -28,7 +28,7 @@ import {
 import { applyMovement, partnerTotals, planCancel, planCompensation, planReturn, type ExcessChoice } from '@/modules/personnes'
 import { downloadCsv, markCancelled, newId, nowStamp, todayStr } from '@/modules/mouvements'
 import { parsePath, useHistorySync, type AccountsView, type Screen, type Tab } from '@/modules/navigation'
-import { cleanModules, loadModulesLocal, loadTheme, saveModulesLocal, saveTheme, type Modules, type Theme } from '@/modules/reglages'
+import { cleanModules, loadLateDays, loadModulesLocal, loadTheme, saveLateDays, saveModulesLocal, saveTheme, type Modules, type Theme } from '@/modules/reglages'
 
 // Anciens imports : ces noms restent disponibles depuis le store
 export { returnedOn, excessOf, type ExcessChoice } from '@/modules/personnes'
@@ -41,6 +41,9 @@ interface StoreContextType {
 
   theme: Theme
   toggleTheme: () => void
+  // Clients en retard : rien versé depuis ce nombre de jours
+  lateDays: number
+  setLateDays: (n: number) => void
 
   // Modules : Partenaires et Employés. Un module coupé est seulement caché (ses données restent).
   modules: Modules
@@ -144,6 +147,12 @@ export const StoreProvider: React.FC<{
 }> = ({ children, data, persist, onLogout }) => {
   const [shop, setShop] = useState(() => (data ? { ...INITIAL_SHOP, owner: '', phone: '', address: '', name: data.shop.name } : INITIAL_SHOP))
   const [theme, setTheme] = useState<Theme>(loadTheme)
+  const [lateDays, setLateDaysRaw] = useState<number>(loadLateDays)
+  const setLateDays = (n: number) => {
+    if (!(n > 0)) return
+    setLateDaysRaw(n)
+    saveLateDays(n)
+  }
 
   // ——— Modules : ceux enregistrés dans le compte ; un ancien compte qui n'en a pas encore reprend ceux du téléphone
   const initialModules = React.useRef<Modules>(data?.shop.modules ? cleanModules(data.shop.modules) : loadModulesLocal()).current
@@ -404,6 +413,8 @@ export const StoreProvider: React.FC<{
         setShopName: name => setShop(prev => ({ ...prev, name })),
         theme,
         toggleTheme,
+        lateDays,
+        setLateDays,
         modules,
         setModule,
         activeTab,

@@ -54,3 +54,22 @@ export const saveTheme = (t: Theme) => {
     /* rien : le choix vaut pour cette fois */
   }
 }
+
+// Clients en retard : un client est en retard s'il ne m'a rien versé depuis ce nombre de jours.
+// Gardé sur l'appareil (30 jours par défaut).
+export const DEFAULT_LATE_DAYS = 30
+export const loadLateDays = (): number => {
+  try {
+    const n = parseInt(localStorage.getItem('kaye.lateDays') || '', 10)
+    return n > 0 ? n : DEFAULT_LATE_DAYS
+  } catch {
+    return DEFAULT_LATE_DAYS
+  }
+}
+export const saveLateDays = (n: number) => {
+  try {
+    localStorage.setItem('kaye.lateDays', String(n))
+  } catch {
+    /* rien : le choix vaut pour cette fois */
+  }
+}
