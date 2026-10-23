@@ -65,7 +65,7 @@ export function PaySalaryDialog({ empId, open, onOpenChange }: { empId: string |
                 <Search className="size-5" />
                 <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Chercher un employé" className="min-w-0 flex-1 bg-transparent text-base text-foreground outline-none" />
               </label>
-              <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pt-2 pb-2">
+              <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pt-2 pb-2 [&>*]:shrink-0">
                 {list.map((l, i) => (
                   <button key={l.emp.id} type="button" onClick={() => setPicked(l.emp.id)} className={cn('flex items-center gap-3 px-1.5 py-3 text-left', i < list.length - 1 && 'border-b border-border')}>
                     <span className="flex size-10 items-center justify-center rounded-full bg-muted text-[13px] font-semibold text-muted-foreground">{initials(l.emp.name)}</span>
@@ -98,7 +98,7 @@ export function PaySalaryDialog({ empId, open, onOpenChange }: { empId: string |
               </DialogHeader>
               {due === 0 ? (
                 // Rien n'est dû : pas de salaire à verser. Seulement la prochaine paie, et l'avance si besoin.
-                <div className="flex flex-col gap-4 pb-2 min-h-0 flex-1 overflow-y-auto">
+                <div className="flex flex-col gap-4 pb-2 min-h-0 flex-1 overflow-y-auto [&>*]:shrink-0">
                   <div className="flex flex-col items-center gap-1.5 py-5 text-center">
                     <span className="text-2xl font-bold">Rien à payer pour l'instant</span>
                     <span className="text-[15px] text-muted-foreground">
@@ -118,7 +118,7 @@ export function PaySalaryDialog({ empId, open, onOpenChange }: { empId: string |
                   </button>
                 </div>
               ) : (
-              <div className="flex flex-col gap-3.5 pb-2 min-h-0 flex-1 overflow-y-auto">
+              <div className="flex flex-col gap-3.5 pb-2 min-h-0 flex-1 overflow-y-auto [&>*]:shrink-0">
                 <div className="flex flex-col items-center gap-1 pt-3">
                   <span className="text-sm text-muted-foreground">Je lui dois maintenant</span>
                   <span className="text-[44px] leading-tight font-bold tracking-tight text-kred tabular-nums">
@@ -237,7 +237,7 @@ function PayDetail({ empId, open, onOpenChange }: { empId: string; open: boolean
             <DialogTitle className="text-left text-lg">Détail du versement</DialogTitle>
             <DialogDescription className="text-left">{emp.name}</DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col pb-2 min-h-0 flex-1 overflow-y-auto">
+          <div className="flex flex-col pb-2 min-h-0 flex-1 overflow-y-auto [&>*]:shrink-0">
             <div className="flex flex-col rounded-[14px] border bg-background px-3.5 py-1">
               {head('Je lui dois au total', `${lines.length} période${lines.length > 1 ? 's' : ''}`, <span className="text-[17px] font-bold text-kred tabular-nums">{amt(owed)}</span>, openDue, () => setOpenDue(o => !o))}
               {openDue && (

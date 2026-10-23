@@ -82,7 +82,7 @@ export function PeriodSheet({ empId, period, open, onOpenChange }: { empId: stri
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex flex-col gap-3.5 pb-2 min-h-0 flex-1 overflow-y-auto">
+          <div className="flex flex-col gap-3.5 pb-2 min-h-0 flex-1 overflow-y-auto [&>*]:shrink-0">
             <div className="flex flex-col rounded-[14px] border bg-background px-3.5 py-1">
               {line('Salaire de base', '', <span className="tabular-nums">{amt(base)}</span>)}
               {adds.map(m => line('Prime', [motifOf(m), m.date ? `ajoutée le ${shortDay(m.date)}` : ''].filter(Boolean).join(' · '), <span className="text-kred tabular-nums">+ {amt(m.amount)}</span>, editable ? () => cancelMovement(m.id, 'Enlevée de la paie') : undefined))}
@@ -188,7 +188,7 @@ export function AddLineDialog({ empId, period, max, open, onOpenChange }: { empI
           <DialogDescription className="text-left">{emp.name}</DialogDescription>
         </DialogHeader>
         <form
-          className="flex flex-col gap-4 pb-2 min-h-0 flex-1 overflow-y-auto"
+          className="flex flex-col gap-4 pb-2 min-h-0 flex-1 overflow-y-auto [&>*]:shrink-0"
           onSubmit={e => {
             e.preventDefault()
             save()

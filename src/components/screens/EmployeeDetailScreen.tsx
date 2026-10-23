@@ -350,7 +350,7 @@ function EmployeeMenu({ empId, open, onOpenChange }: { empId: string; open: bool
             <DialogTitle className="text-left text-lg">Historique des versements</DialogTitle>
             <DialogDescription className="text-left">{emp.name}</DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col pb-2 min-h-0 flex-1 overflow-y-auto">
+          <div className="flex flex-col pb-2 min-h-0 flex-1 overflow-y-auto [&>*]:shrink-0">
             {L.pr.payments.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Rien versé pour l'instant.</p>}
             {L.pr.payments.map((m, i) => (
               <div key={m.id} className={cn('flex items-center gap-3 py-2.5', i < L.pr.payments.length - 1 && 'border-b border-border', m.isCancelled && 'opacity-50')}>

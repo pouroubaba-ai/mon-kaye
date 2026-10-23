@@ -103,7 +103,7 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: { open: boo
           <DialogDescription className="sr-only">Ajouter un employé</DialogDescription>
         </DialogHeader>
         <form
-          className="flex flex-col gap-4 pb-2 min-h-0 flex-1 overflow-y-auto"
+          className="flex flex-col gap-4 pb-2 min-h-0 flex-1 overflow-y-auto [&>*]:shrink-0"
           onSubmit={e => {
             e.preventDefault()
             save()
