@@ -20,6 +20,7 @@ import { auth, authError, createShop, loadShop, logOut, makePersister, resetPass
 import { resetModulesLocal, type StoreData } from '@/data/store'
 import { SplashScreen } from '@/components/splash-screen'
 import { PullToRefresh } from '@/components/pull-to-refresh'
+import { installUnstick } from '@/lib/unstick'
 import { HomeScreen } from '@/components/screens/HomeScreen'
 import { EmployeesHome } from '@/components/screens/EmployeesHome'
 
@@ -127,6 +128,9 @@ export function App() {
   const [phase, setPhase] = React.useState<Phase>({ k: 'loading' })
   const pendingName = React.useRef('')
   const [retry, setRetry] = React.useState(0)
+
+  // L'écran ne reste jamais bloqué après la fermeture d'une fenêtre
+  React.useEffect(() => installUnstick(), [])
 
   React.useEffect(() => {
     if (DEMO) return

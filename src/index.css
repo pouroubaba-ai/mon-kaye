@@ -198,3 +198,11 @@ html body[data-scroll-locked] {
   margin-right: 0 !important;
   padding-right: 0 !important;
 }
+
+/* Une fenêtre en train de se fermer ne doit plus attraper les touchers */
+[data-slot="drawer-overlay"][data-state="closed"],
+[data-slot="dialog-overlay"][data-state="closed"],
+[data-vaul-drawer][data-state="closed"],
+[data-slot="dialog-content"][data-state="closed"] {
+  pointer-events: none !important;
+}
