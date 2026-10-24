@@ -1,5 +1,5 @@
 import React from 'react'
-import { BarChart3, Banknote, ChevronDown, ChevronRight, Eye, EyeOff, Moon, Plus, Search, Settings, Sun, X } from 'lucide-react'
+import { BarChart3, ChevronDown, ChevronRight, Eye, EyeOff, Moon, Plus, Search, Settings, Sun, X } from 'lucide-react'
 
 import { useStore } from '@/data/store'
 import type { Person } from '@/data/mockData'
@@ -9,6 +9,7 @@ import { ALL_TIME, inRange, isFiltered, rangeLabel, type DateRange } from '@/lib
 import { cn, matchesPerson } from '@/lib/utils'
 import { amt, balanceOf, CREDIT_OF, initials, lastPayDate, lastPayText, paidOn, type Side } from '@/modules/personnes/view'
 import { daysSince } from '@/data/payHistory'
+import { Banknotes } from '@/components/armed'
 
 // ——— Accueil « Kayé simple » ———
 // Un seul écran : deux onglets avec leur montant (On me doit / Je dois), une recherche,
@@ -79,6 +80,11 @@ export const HomeScreen: React.FC = () => {
   const count = (s: Side) => partners.filter(p => balanceOf(p, s) > 0).length
   const total = (s: Side) => (s === 'lui' ? totals.partnersOwesMe : totals.partnersIOwe)
   const versé = paidOn(movements, null, side)
+  // Combien de personnes derrière chaque chiffre de l'œil
+  const nPris = partners.filter(p => balanceOf(p, side) + paidOn(movements, p.id, side) > 0).length
+  const nVersé = partners.filter(p => paidOn(movements, p.id, side) > 0).length
+  const nReste = count(side)
+  const who = (n: number) => `${n} ${lui ? (n > 1 ? 'clients' : 'client') : n > 1 ? 'fournisseurs' : 'fournisseur'}`
 
   // La liste : ceux qui doivent (du plus grand au plus petit) ; en cherchant, tout le monde
   const searching = search.trim() !== ''
@@ -163,14 +169,17 @@ export const HomeScreen: React.FC = () => {
           <div className="flex flex-col items-center gap-0.5">
             <span className="text-xs text-muted-foreground">Pris</span>
             <span className="text-base font-bold tabular-nums">{amt(total(side) + versé)}</span>
+            <span className="text-[11px] text-muted-foreground">{who(nPris)}</span>
           </div>
           <div className="flex flex-col items-center gap-0.5 border-x">
             <span className="text-xs text-muted-foreground">Versé</span>
             <span className="text-base font-bold text-kblue tabular-nums">{amt(versé)}</span>
+            <span className="text-[11px] text-muted-foreground">{who(nVersé)}</span>
           </div>
           <div className="flex flex-col items-center gap-0.5">
             <span className="text-xs text-muted-foreground">Reste</span>
             <span className={cn('text-base font-bold tabular-nums', lui ? 'text-kgreen' : 'text-kred')}>{amt(total(side))}</span>
+            <span className="text-[11px] text-muted-foreground">{who(nReste)}</span>
           </div>
         </div>
       )}
@@ -211,7 +220,7 @@ export const HomeScreen: React.FC = () => {
           <button
             type="button"
             onClick={() => setAdding(true)}
-            className="my-1 flex h-[52px] items-center justify-center gap-2 rounded-[14px] border border-dashed border-foreground/25 text-[15px] font-semibold text-muted-foreground transition-colors hover:bg-muted/40"
+            className="my-1 flex h-[52px] items-center justify-center gap-2 rounded-[14px] border-2 border-dashed border-kgold text-[15px] font-semibold text-muted-foreground transition-colors hover:bg-kgold/5"
           >
             <Plus className="size-5" strokeWidth={2.4} />
             {lui ? 'Nouveau client' : 'Nouveau fournisseur'}
@@ -281,7 +290,7 @@ export const HomeScreen: React.FC = () => {
           onClick={() => openNewMovement(undefined, lui ? 'il_m_a_verse' : 'je_lui_ai_verse')}
           className={cn('flex h-[60px] items-center justify-center gap-2 rounded-2xl border-2 text-lg font-bold active:scale-[0.98]', lui ? 'border-kgreen-solid text-kgreen' : 'border-kred-solid text-kred')}
         >
-          <Banknote className="size-6" />
+          <Banknotes className="size-6" />
           Versement
         </button>
       </div>

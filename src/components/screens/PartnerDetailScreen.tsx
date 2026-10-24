@@ -1,6 +1,7 @@
 import React from 'react'
 import { ArrowLeftRight, Banknote, ChevronLeft, ChevronUp, Eye, EyeOff, FileText, MoreVertical, Plus, Undo2 } from 'lucide-react'
 import { DetailBand } from '@/components/detail-band'
+import { ARMED_HINT, ARMED_ROW, Banknotes, useArmed } from '@/components/armed'
 
 import { useStore, returnedOn } from '@/data/store'
 import type { Movement } from '@/data/mockData'
@@ -33,6 +34,7 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
   const partner = persons.find(p => p.id === partnerId)
   const sides = partner ? usedSides(partner, movements) : []
   const [chosen, setChosen] = React.useState<Side | null>(null)
+  const { armed, tap } = useArmed()
   const [detail, setDetail] = React.useState(false)
   const [range, setRange] = React.useState<DateRange>(ALL_TIME)
   const [statement, setStatement] = React.useState(false)
@@ -226,7 +228,7 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
         <div className="flex flex-col">
           {shown.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">{isFiltered(range) ? 'Rien sur cette période.' : 'Aucune opération.'}</p>}
           {shown.map((m, i) => (
-            <Line key={m.id} m={m} side={side} returned={m.type === CREDIT_OF[side] ? returnedOn(movements, m.id) : 0} last={i === shown.length - 1} onOpen={() => openMovementDetail(m)} />
+            <Line key={m.id} m={m} side={side} returned={m.type === CREDIT_OF[side] ? returnedOn(movements, m.id) : 0} last={i === shown.length - 1} armed={armed === m.id} onTap={() => tap(m.id, () => openMovementDetail(m))} />
           ))}
         </div>
       </div>
@@ -245,7 +247,7 @@ export const PartnerDetailScreen: React.FC<{ partnerId: string }> = ({ partnerId
           onClick={() => openNewMovement(partner.id, PAY_OF[side])}
           className={cn('flex h-[60px] items-center justify-center gap-2 rounded-2xl border-2 text-lg font-bold active:scale-[0.98]', lui ? 'border-kgreen-solid text-kgreen' : 'border-kred-solid text-kred')}
         >
-          <Banknote className="size-6" />
+          <Banknotes className="size-6" />
           Versement
         </button>
       </Bottom>
@@ -261,7 +263,7 @@ function Bottom({ children }: { children: React.ReactNode }) {
 }
 
 // Une ligne de l'historique : icône, ce que c'est, quand, et le montant
-function Line({ m, side, returned, last, onOpen }: { m: Movement; side: Side; returned: number; last: boolean; onOpen: () => void }) {
+function Line({ m, side, returned, last, armed, onTap }: { m: Movement; side: Side; returned: number; last: boolean; armed: boolean; onTap: () => void }) {
   const isCredit = m.type === CREDIT_OF[side]
   const isReturn = m.type === RETURN_OF[side]
   const isComp = m.paymentMethod === 'compensation'
@@ -269,7 +271,7 @@ function Line({ m, side, returned, last, onOpen }: { m: Movement; side: Side; re
   const what = m.items?.length ? m.items.map(l => l.label).join(', ') : m.note || (m.paymentMethod && !isComp ? PAYMENT_LABELS[m.paymentMethod] : '')
   const Icon = isCredit ? Plus : isReturn ? Undo2 : isComp ? ArrowLeftRight : Banknote
   return (
-    <button type="button" onClick={onOpen} className={cn('flex items-center gap-3 px-1 py-3 text-left', !last && 'border-b border-border', m.isCancelled && 'opacity-50')}>
+    <button type="button" onClick={onTap} className={cn('flex items-center gap-3 px-1 py-3 text-left transition-shadow', !last && 'border-b border-border', m.isCancelled && !armed && 'opacity-50', armed && ARMED_ROW)}>
       <span
         className={cn(
           'flex size-9 shrink-0 items-center justify-center rounded-[10px]',
@@ -284,10 +286,14 @@ function Line({ m, side, returned, last, onOpen }: { m: Movement; side: Side; re
           {m.isCancelled && <span className="shrink-0 rounded-full bg-muted px-2 py-px text-[11px] font-semibold text-muted-foreground">Annulé</span>}
           {returned > 0 && !m.isCancelled && <span className="shrink-0 rounded-full bg-kred/15 px-2 py-px text-[11px] font-semibold text-kred">Retour {amt(returned)}</span>}
         </span>
-        <span className="truncate text-xs text-muted-foreground">
-          {dayLabel(m.date)}
-          {what ? ` · ${what}` : ''}
-        </span>
+        {armed ? (
+          <span className="truncate text-xs font-semibold text-kgold">{ARMED_HINT}</span>
+        ) : (
+          <span className="truncate text-xs text-muted-foreground">
+            {dayLabel(m.date)}
+            {what ? ` · ${what}` : ''}
+          </span>
+        )}
       </span>
       <span className={cn('shrink-0 text-[15px] font-bold tabular-nums', m.isCancelled && 'line-through', isCredit ? '' : isReturn ? 'text-muted-foreground' : 'text-kblue')}>
         {isCredit ? '+' : '−'} {amt(m.amount)}
