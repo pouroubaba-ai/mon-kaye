@@ -8,7 +8,14 @@ import { PaySalaryDialog } from '@/components/modals/PaySalaryDialog'
 import { daysSince } from '@/data/payHistory'
 import { cn, matchesPerson } from '@/lib/utils'
 import { amt, initials } from '@/modules/personnes/view'
-import { dueRows, empLine, inDays, monthName, shortDate, type EmpLine } from '@/modules/employes/view'
+import { empLine, inDays, shortDate, type EmpLine } from '@/modules/employes/view'
+import { daysUntil, dueDateOf } from '@/modules/employes/payroll'
+
+// La période qui suit (« 2026-11 » → « 2026-12 »)
+const nextPeriod = (p: string) => {
+  const [y, m] = p.split('-').map(Number)
+  return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`
+}
 
 // ——— Employés « Kayé simple » ———
 // Deux onglets avec leur montant : Salaires à payer (rouge) / Avances à rendre (vert), une recherche,
@@ -61,7 +68,10 @@ export const EmployeesHome: React.FC = () => {
     <button
       key={l.emp.id}
       type="button"
-      onClick={() => setSelectedPersonId(l.emp.id)}
+      onClick={() => {
+        setShowCur(false) // au retour de la fiche, la carte est repliée
+        setSelectedPersonId(l.emp.id)
+      }}
       className={cn('flex w-full items-center gap-3 px-2 py-3 text-left transition-colors hover:bg-muted/40', !last && 'border-b border-border', opts.dim && 'opacity-55')}
     >
       <span className="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground">{initials(l.emp.name)}</span>
@@ -76,33 +86,27 @@ export const EmployeesHome: React.FC = () => {
     </button>
   )
 
-  // Le texte et le montant d'un employé dans « Salaires à payer »
+  // Le texte et le montant d'un employé dans « Salaires à payer » :
+  // sous le nom, seulement le prochain jour de paie (« Paie le 13 nov. · dans 21 jours ») ;
+  // à droite, ce que je lui dois maintenant (0 quand je ne lui dois rien).
   const salaryRow = (l: EmpLine, last: boolean, gone = false) => {
-    const day = shortDate(l.dueDate) // « 13 nov. » : le jour et le mois
-    if (l.due > 0) {
-      const late = dueRows(l.pr)
-      const first = late[0]
-      const what = gone
-        ? 'Reste de sa dernière paie'
-        : late.length > 1
-          ? `${late.length} paies en retard`
-          : first
-            ? `${first.verse > 0 ? 'Reste' : 'Paie'} ${/^[aeiouéâ]/i.test(monthName(first.period)) ? "d'" : 'de '}${monthName(first.period)}`
-            : 'À payer'
-      const then = !gone && l.upcoming > 0 ? ` · puis ${amt(l.upcoming)} le ${day}` : ''
-      return row(l, what + then, <span className="shrink-0 text-base font-bold text-kred tabular-nums">{amt(l.due)}</span>, last, { gone })
-    }
-    if (l.upcoming > 0)
-      return row(
-        l,
-        <span className={l.days <= 3 ? 'font-semibold text-kgold' : undefined}>
-          Paie le {day} · {inDays(l.days)}
-        </span>,
-        // Rien de dû aujourd'hui : 0 (le montant de la prochaine paie n'est pas une dette)
-        <span className="shrink-0 text-base font-semibold text-muted-foreground tabular-nums">0</span>,
-        last
+    if (gone && l.due > 0) return row(l, 'Reste de sa dernière paie', <span className="shrink-0 text-base font-bold text-kred tabular-nums">{amt(l.due)}</span>, last, { gone })
+    // Déjà payé pour la période en cours : le prochain jour de paie est celui du mois suivant
+    const paidAhead = l.due === 0 && l.upcoming === 0
+    const date = paidAhead ? dueDateOf(nextPeriod(l.pr.currentPeriod), l.emp.id) : l.dueDate
+    const days = paidAhead ? daysUntil(date) : l.days
+    const sub = (
+      <span className={days <= 3 ? 'font-semibold text-kgold' : undefined}>
+        Paie le {shortDate(date)} · {inDays(days)}
+      </span>
+    )
+    const value =
+      l.due > 0 ? (
+        <span className="shrink-0 text-base font-bold text-kred tabular-nums">{amt(l.due)}</span>
+      ) : (
+        <span className="shrink-0 text-base font-semibold text-muted-foreground tabular-nums">0</span>
       )
-    return row(l, `${l.emp.sex === 'f' ? 'Payée' : 'Payé'} pour ${monthName(l.pr.currentPeriod)}`, <Check className="size-[22px] shrink-0 text-kgreen" strokeWidth={2.6} aria-label="Payé" />, last, { dim: true })
+    return row(l, sub, value, last, { gone })
   }
 
   const advRow = (l: EmpLine, last: boolean) => {
@@ -249,7 +253,7 @@ export const EmployeesHome: React.FC = () => {
         )}
       </div>
 
-      <NewEmployeeDialog open={adding} onOpenChange={setAdding} onCreated={id => setSelectedPersonId(id)} />
+      <NewEmployeeDialog open={adding} onOpenChange={setAdding} onCreated={id => (setShowCur(false), setSelectedPersonId(id))} />
       <PaySalaryDialog empId={null} open={paying} onOpenChange={setPaying} />
     </div>
   )

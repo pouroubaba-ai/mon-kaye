@@ -112,7 +112,10 @@ export const HomeScreen: React.FC = () => {
     <button
       key={p.id}
       type="button"
-      onClick={() => setSelectedPersonId(p.id)}
+      onClick={() => {
+        setDetail(false) // au retour de la fiche, la carte est repliée
+        setSelectedPersonId(p.id)
+      }}
       className={cn(
         'flex w-full items-center gap-3 px-2 py-3 text-left transition-colors hover:bg-muted/40 animate-in fade-in slide-in-from-bottom-1 fill-mode-both duration-300 motion-reduce:animate-none',
         !last && 'border-b border-border'
@@ -295,7 +298,7 @@ export const HomeScreen: React.FC = () => {
         </button>
       </div>
 
-      <PersonFormDialog type="partner" side={side} open={adding} onOpenChange={setAdding} onCreated={id => setSelectedPersonId(id)} />
+      <PersonFormDialog type="partner" side={side} open={adding} onOpenChange={setAdding} onCreated={id => (setDetail(false), setSelectedPersonId(id))} />
     </div>
   )
 }
