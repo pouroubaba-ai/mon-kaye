@@ -3,7 +3,7 @@ import { Banknote, FileText, Plus, X } from 'lucide-react'
 
 import { useStore } from '@/data/store'
 import type { Movement } from '@/data/mockData'
-import { dueDateOf, payrollOf, periodBounds, dueDayOf } from '@/data/payroll'
+import { dayMonth, dueDateOf, payrollOf, periodBounds, dueDayOf } from '@/data/payroll'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/responsive-dialog'
 import { PayslipDialog } from '@/components/modals/PayslipDialog'
 import { cn } from '@/lib/utils'
@@ -148,25 +148,38 @@ export function PeriodSheet({ empId, period, open, onOpenChange }: { empId: stri
 const REASONS = { ajout_salaire: ['Bon travail', 'Heures en plus', 'Fête', 'Autre'], retenue_manuelle: ['Absence', 'Retard', 'Casse', 'Autre'] } as const
 
 export function AddLineDialog({ empId, period, max, open, onOpenChange }: { empId: string; period: string; max: number; open: boolean; onOpenChange: (o: boolean) => void }) {
-  const { persons, addMovement } = useStore()
+  const { persons, addMovement, movements, monthStates } = useStore()
   const [type, setType] = React.useState<'ajout_salaire' | 'retenue_manuelle'>('retenue_manuelle')
   const [amountStr, setAmountStr] = React.useState('')
   const [reason, setReason] = React.useState('')
   const [note, setNote] = React.useState('')
+  const [days, setDays] = React.useState(0) // Absence : nombre de jours (facultatif)
   React.useEffect(() => {
     if (!open) return
     setType('retenue_manuelle')
     setAmountStr('')
     setReason('')
     setNote('')
+    setDays(0)
   }, [open])
   const emp = persons.find(x => x.id === empId)
   if (!emp) return null
+  // Absence : une journée = le salaire de la paie ÷ le nombre de jours entre le jour de paie précédent et celui-ci
+  const base = payrollOf(empId, movements, monthStates).months.find(m => m.period === period)?.base || emp.salary || 0
+  const { start, end } = periodBounds(period, dueDayOf(empId))
+  const nDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86_400_000))
+  const perDay = Math.round(base / nDays) // arrondi : c'est ce montant qui est montré et multiplié
+  const absence = type === 'retenue_manuelle' && reason === 'Absence'
+  const setAbsentDays = (n: number) => {
+    const d = Math.max(0, Math.min(nDays, n))
+    setDays(d)
+    setAmountStr(d > 0 ? String(perDay * d) : '')
+  }
   const amount = parseInt(amountStr, 10) || 0
   const prime = type === 'ajout_salaire'
   const after = prime ? max + amount : max - amount
   const tooMuch = !prime && amount > max
-  const motif = [reason !== 'Autre' ? reason : '', note.trim()].filter(Boolean).join(', ')
+  const motif = absence && days > 0 ? `Absence, ${days} jour${days > 1 ? 's' : ''}` : [reason !== 'Autre' ? reason : '', note.trim()].filter(Boolean).join(', ')
   const save = () => {
     if (amount <= 0 || tooMuch) return
     addMovement({
@@ -204,6 +217,7 @@ export function AddLineDialog({ empId, period, max, open, onOpenChange }: { empI
                 onClick={() => {
                   setType(t)
                   setReason('')
+                  setDays(0)
                 }}
                 className={cn('h-11 rounded-[9px] text-[15px]', type === t ? (t === 'ajout_salaire' ? 'bg-kred-solid font-bold text-white shadow-sm' : 'bg-kgreen-solid font-bold text-white shadow-sm') : 'font-semibold text-muted-foreground')}
               >
@@ -237,7 +251,10 @@ export function AddLineDialog({ empId, period, max, open, onOpenChange }: { empI
                 <button
                   key={r}
                   type="button"
-                  onClick={() => setReason(reason === r ? '' : r)}
+                  onClick={() => {
+                    if (reason === 'Absence' && days > 0) setAbsentDays(0)
+                    setReason(reason === r ? '' : r)
+                  }}
                   className={cn('h-10 rounded-full px-4 text-sm', reason === r ? 'border-[1.5px] border-kgold bg-kgold font-bold text-white dark:text-black' : 'border font-semibold text-muted-foreground')}
                 >
                   {r}
@@ -245,13 +262,60 @@ export function AddLineDialog({ empId, period, max, open, onOpenChange }: { empI
               ))}
             </div>
           </div>
-          <input
-            value={note}
-            onChange={e => setNote(e.target.value)}
-            placeholder={prime ? 'Petite note (facultatif)' : 'Ex : 1 jour, le 14 oct.'}
-            aria-label="Petite note"
-            className="h-12 rounded-xl border bg-background px-3.5 text-[15px] outline-none"
-          />
+          {/* Absence : le calcul d'une journée, montré clairement, puis le nombre de jours ; le montant se calcule tout seul.
+              La fenêtre a une hauteur fixe : ce bloc ne la fait pas grandir. */}
+          {absence ? (
+            <div className="flex flex-col gap-3 rounded-2xl border border-kgold/40 bg-kgold/5 p-3.5">
+              <div className="flex flex-col gap-1.5 text-sm">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-muted-foreground">
+                    Paie du {dayMonth(start)} au {dayMonth(end)}
+                  </span>
+                  <b className="shrink-0 tabular-nums">{nDays} jours</b>
+                </div>
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-muted-foreground">Salaire de cette paie</span>
+                  <b className="shrink-0 tabular-nums">{amt(base)}</b>
+                </div>
+                <div className="flex items-baseline justify-between gap-3 border-t border-kgold/30 pt-1.5">
+                  <span className="font-semibold">1 jour</span>
+                  <b className="shrink-0 text-kgold tabular-nums">
+                    {amt(perDay)} <span className="text-xs font-semibold">FCFA</span>
+                  </b>
+                </div>
+              </div>
+              <div className="flex h-12 items-center justify-between gap-2 rounded-xl border bg-background pr-1.5 pl-3.5">
+                <span className="text-[15px] font-semibold">Jours d'absence</span>
+                <span className="flex shrink-0 items-center gap-1">
+                  <button type="button" aria-label="Un jour de moins" onClick={() => setAbsentDays(days - 1)} disabled={days === 0} className="flex size-9 items-center justify-center rounded-lg bg-muted text-xl font-bold disabled:opacity-40">
+                    −
+                  </button>
+                  <span className="w-8 text-center text-lg font-bold tabular-nums">{days}</span>
+                  <button type="button" aria-label="Un jour de plus" onClick={() => setAbsentDays(days + 1)} disabled={days >= nDays} className="flex size-9 items-center justify-center rounded-lg bg-muted text-xl font-bold disabled:opacity-40">
+                    +
+                  </button>
+                </span>
+              </div>
+              {/* La place du calcul est toujours gardée */}
+              <span className="min-h-5 text-center text-sm text-muted-foreground tabular-nums">
+                {days > 0 ? (
+                  <>
+                    {days} jour{days > 1 ? 's' : ''} × {amt(perDay)} = <b className="text-kgreen">{amt(perDay * days)} FCFA</b> retenus
+                  </>
+                ) : (
+                  'Touche + pour chaque jour d\'absence'
+                )}
+              </span>
+            </div>
+          ) : (
+            <input
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              placeholder={prime ? 'Petite note (facultatif)' : 'Ex : 1 jour, le 14 oct.'}
+              aria-label="Petite note"
+              className="h-12 rounded-xl border bg-background px-3.5 text-[15px] outline-none"
+            />
+          )}
           <div className="flex justify-between rounded-xl bg-muted/60 px-3.5 py-3 text-sm">
             <span className="text-muted-foreground">À payer</span>
             <span>
