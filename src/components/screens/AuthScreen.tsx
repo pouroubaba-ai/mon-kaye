@@ -58,14 +58,14 @@ export function AuthScreen({ mode, onSwitch, actions }: { mode: AuthMode; onSwit
   React.useLayoutEffect(() => {
     document.documentElement.classList.add('dark')
   }, [])
-  const [shop, setShop] = React.useState('')
   const [email, setEmail] = React.useState('')
   const [pwd, setPwd] = React.useState('')
   const [showPwd, setShowPwd] = React.useState(false)
 
   const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
   const pwdOk = pwd.length >= 6
-  const ok = emailOk && pwdOk && (!signup || shop.trim().length > 0)
+  // Le nom de l'activité est demandé juste après, sur l'écran suivant
+  const ok = emailOk && pwdOk
 
   // Touche Entrée (ou « Suivant » du clavier du téléphone) : aller au champ suivant au lieu d'envoyer
   const goNext = (id: string) => (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -113,15 +113,9 @@ export function AuthScreen({ mode, onSwitch, actions }: { mode: AuthMode; onSwit
           className="flex flex-col gap-4"
           onSubmit={e => {
             e.preventDefault()
-            if (ok && !busy) run(() => actions.email(mode, email, pwd, shop.trim()))
+            if (ok && !busy) run(() => actions.email(mode, email, pwd, ''))
           }}
         >
-          {signup && (
-            <div className="grid gap-2">
-              <Label htmlFor="auth-shop">Nom de l'activité</Label>
-              <Input id="auth-shop" className="h-12" placeholder="Ex : Alimentation La Grâce" value={shop} onChange={e => setShop(e.target.value)} enterKeyHint="next" onKeyDown={goNext('auth-email')} />
-            </div>
-          )}
           <div className="grid gap-2">
             <Label htmlFor="auth-email">E-mail</Label>
             <Input id="auth-email" className="h-12" type="email" inputMode="email" autoComplete="email" placeholder="vous@exemple.com" value={email} onChange={e => setEmail(e.target.value)} enterKeyHint="next" onKeyDown={goNext('auth-pwd')} />
