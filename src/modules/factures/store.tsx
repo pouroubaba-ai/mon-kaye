@@ -45,7 +45,7 @@ const DEMO_PROFILE = (): InvoiceProfile => ({
 const DEMO_INVOICES: Invoice[] = [
   {
     id: 'inv-demo-1', kind: 'facture', number: 'LG/2026-003', date: '2026-10-21', status: 'credit',
-    client: { personId: 'part-1', name: 'Boutique La Bénédiction', lines: ['Moungali, Brazzaville'] },
+    client: { personId: 'part-1', name: 'Maman Sylvie (Épicerie du Marché)', lines: ['Marché Total, Brazzaville'] },
     objet: 'Approvisionnement de la boutique', createdAt: '2026-10-21T10:00:00',
     lines: [{ d: 'Riz parfumé', x: 'Sacs de 25 kg', q: 4, u: 'sac', p: 17500 }, { d: 'Huile végétale', q: 2, u: 'carton', p: 24000 }],
   },

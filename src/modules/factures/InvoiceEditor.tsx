@@ -17,7 +17,7 @@ import type { Invoice, InvoiceClient, InvoiceKind, InvoiceLine } from './types'
 import { money, totals, unitFor } from './view'
 
 // Ce qu'on ouvre : une nouvelle, une modification, un devis accepté, ou une copie
-export type EditorStart = { mode: 'new'; kind: InvoiceKind } | { mode: 'edit' | 'convert' | 'duplicate'; base: Invoice }
+export type EditorStart = { mode: 'new'; kind: InvoiceKind; personId?: string } | { mode: 'edit' | 'convert' | 'duplicate'; base: Invoice }
 
 type Draft = { label: string; price: string; qty: string; u?: string; x?: string }
 const emptyLine = (): Draft => ({ label: '', price: '', qty: '1' })
@@ -54,9 +54,9 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
   React.useEffect(() => {
     if (!start) return
     const b = start.mode === 'new' ? null : start.base
-    const pid = b ? (b.client.personId ?? persons.find(p => p.type === 'partner' && key(p.name) === key(b.client.name))?.id ?? null) : null
+    const pid = b ? (b.client.personId ?? persons.find(p => p.type === 'partner' && key(p.name) === key(b.client.name))?.id ?? null) : start.mode === 'new' ? (start.personId ?? null) : null
     setPersonId(pid)
-    setStep(b && pid ? 'produits' : 'qui')
+    setStep(pid ? 'produits' : 'qui')
     setSearch('')
     setLines(b ? b.lines.map(toDraft) : [emptyLine()])
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -118,7 +118,7 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
 
   // Retour : à l'étape d'avant, ou quitter (en demandant si quelque chose a été saisi)
   const back = () => {
-    if (step === 'produits' && start?.mode === 'new') return setStep('qui')
+    if (step === 'produits' && start?.mode === 'new' && !start.personId) return setStep('qui')
     if (dirty) setAskLeave(true)
     else onClose()
   }
@@ -150,7 +150,7 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
             <DialogDescription className="sr-only">Choisir le client</DialogDescription>
           </DialogHeader>
             <div className="flex min-h-0 flex-1 flex-col gap-3">
-              {/* La recherche, puis « Nouveau » juste après */}
+              {/* La recherche (un nouveau client s'ajoute sur l'écran Factures) */}
               <div className="flex items-center gap-1">
                 <div className="relative min-w-0 flex-1">
                   <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -161,9 +161,6 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
                     </button>
                   )}
                 </div>
-                <button type="button" aria-label="Nouveau client" onClick={() => openClient()} className="flex h-[46px] shrink-0 items-center gap-1.5 rounded-xl bg-kgold px-3 text-sm font-bold text-white active:scale-[0.98] dark:text-black">
-                  <Plus className="size-[18px]" strokeWidth={2.4} /> Nouveau
-                </button>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto">
                 <div className="flex flex-col divide-y rounded-lg border">
@@ -184,7 +181,7 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
                       <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
                     </button>
                   ))}
-                  {visible.length === 0 && <p className="p-3 text-sm text-muted-foreground">{search.trim() ? 'Personne ne s’appelle comme ça.' : 'Pas encore de client : touchez « Nouveau ».'}</p>}
+                  {visible.length === 0 && <p className="p-3 text-sm text-muted-foreground">{search.trim() ? 'Personne ne s’appelle comme ça.' : 'Pas encore de client : ajoutez-le avec « Nouveau » sur l’écran Factures.'}</p>}
                 </div>
               </div>
             </div>
