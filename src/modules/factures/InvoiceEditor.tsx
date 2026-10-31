@@ -48,6 +48,7 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
   const [tva, setTva] = React.useState(false)
   const [unitOf, setUnitOf] = React.useState<number | null>(null)
   const [askLeave, setAskLeave] = React.useState(false)
+  const [editingClient, setEditingClient] = React.useState(false)
   const linesRef = React.useRef<HTMLDivElement>(null)
 
   // À l'ouverture : vide, ou rempli à partir de la facture / du devis de départ
@@ -197,6 +198,22 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
           {/* 2. Les produits : une ligne par produit */}
           {step === 'produits' && (
             <div className="flex flex-1 flex-col gap-3">
+              {/* Le client : ses infos, gardées dans sa fiche (données une seule fois) */}
+              {person && (
+                <div className="flex items-start justify-between gap-3 rounded-lg border px-3 py-2.5">
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate text-sm font-semibold">{person.name}</span>
+                    {(person.details ?? '').trim() ? (
+                      <span className="text-xs leading-snug whitespace-pre-line text-muted-foreground">{person.details}</span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Pas d'adresse ni de RCCM pour la facture</span>
+                    )}
+                  </span>
+                  <button type="button" onClick={() => setEditingClient(true)} className="h-8 shrink-0 rounded-full px-2 text-sm font-semibold text-kgold">
+                    {(person.details ?? '').trim() ? 'Modifier' : 'Ajouter'}
+                  </button>
+                </div>
+              )}
               <div ref={linesRef} className="flex flex-1 flex-col gap-1.5">
                 {lines.map((l, i) => (
                   <div key={i} className="flex flex-col gap-1 rounded-lg border px-2 py-1.5">
@@ -296,6 +313,7 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
           setStep('produits')
         }}
       />
+      <PersonFormDialog person={person} open={editingClient && !!person} onOpenChange={setEditingClient} />
       <UnitPicker open={unitOf !== null} onOpenChange={o => !o && setUnitOf(null)} value={unitOf !== null ? lines[unitOf]?.u : undefined} onPick={u => (unitOf !== null && setLine(unitOf, { u }), setUnitOf(null))} />
     </>
   )
