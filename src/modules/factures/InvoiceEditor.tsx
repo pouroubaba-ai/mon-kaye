@@ -130,14 +130,14 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
   const backRef = React.useRef(back)
   backRef.current = back
   React.useEffect(() => {
-    if (!open) return
+    if (!open || step !== 'produits') return
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || document.querySelectorAll('[role="dialog"]').length > 1) return
       backRef.current()
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [open])
+  }, [open, step])
   React.useEffect(() => {
     if (open) window.scrollTo({ top: 0, behavior: 'instant' })
   }, [open, step])
@@ -145,21 +145,14 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
   if (!open) return null
   return (
     <>
-      <div role="dialog" aria-label={title} className="fixed inset-0 z-40 overflow-y-auto bg-background">
-        <div className="mx-auto flex min-h-dvh w-full max-w-xl flex-col">
-          <header className="sticky top-0 z-10 flex h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0 items-center gap-1 border-b bg-background px-2 pt-[env(safe-area-inset-top)]">
-            <button type="button" aria-label="Retour" onClick={back} className="flex size-11 items-center justify-center rounded-full hover:bg-muted">
-              <ChevronLeft className="size-6" />
-            </button>
-            <span className="flex min-w-0 flex-col">
-              <h1 className="truncate text-lg leading-tight font-semibold">{step === 'qui' ? 'Pour qui ?' : title}</h1>
-              {step === 'produits' && <span className="truncate text-[13px] text-muted-foreground">{person?.name}</span>}
-            </span>
-          </header>
-          <div className="flex flex-1 flex-col px-4 pt-3">
-          {/* 1. Pour qui ? */}
-          {step === 'qui' && (
-            <div className="flex flex-1 flex-col gap-3">
+      {/* 1. Pour qui ? : une fenêtre qui monte du bas ; le client choisi, la facture se fait sur un écran plein */}
+      <Dialog open={step === 'qui'} onOpenChange={o => !o && onClose()}>
+        <DialogContent fixedHeight>
+          <DialogHeader className="text-left">
+            <DialogTitle className="text-left text-xl">Pour qui ?</DialogTitle>
+            <DialogDescription className="text-left">{title}</DialogDescription>
+          </DialogHeader>
+            <div className="flex min-h-0 flex-1 flex-col gap-3">
               {/* La recherche, et « Nouveau » à sa droite */}
               <div className="flex items-center gap-1">
                 <div className="relative min-w-0 flex-1">
@@ -175,7 +168,7 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
                   <Plus className="size-[18px]" strokeWidth={2.4} /> Nouveau
                 </button>
               </div>
-              <div className="pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
+              <div className="min-h-0 flex-1 overflow-y-auto">
                 <div className="flex flex-col divide-y rounded-lg border">
                   {visible.map(p => (
                     <button
@@ -198,8 +191,22 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
                 </div>
               </div>
             </div>
-          )}
+        </DialogContent>
+      </Dialog>
 
+      {step === 'produits' && (
+      <div role="dialog" aria-label={title} className="fixed inset-0 z-40 overflow-y-auto bg-background">
+        <div className="mx-auto flex min-h-dvh w-full max-w-xl flex-col">
+          <header className="sticky top-0 z-10 flex h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0 items-center gap-1 border-b bg-background px-2 pt-[env(safe-area-inset-top)]">
+            <button type="button" aria-label="Retour" onClick={back} className="flex size-11 items-center justify-center rounded-full hover:bg-muted">
+              <ChevronLeft className="size-6" />
+            </button>
+            <span className="flex min-w-0 flex-col">
+              <h1 className="truncate text-lg leading-tight font-semibold">{title}</h1>
+              {step === 'produits' && <span className="truncate text-[13px] text-muted-foreground">{person?.name}</span>}
+            </span>
+          </header>
+          <div className="flex flex-1 flex-col px-4 pt-3">
           {/* 2. Les produits : une ligne par produit */}
           {step === 'produits' && (
             <div className="flex flex-1 flex-col gap-3">
@@ -289,6 +296,7 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
           </div>
         </div>
       </div>
+      )}
 
       <Dialog open={askLeave} onOpenChange={setAskLeave}>
         <DialogContent>
