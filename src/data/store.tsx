@@ -27,7 +27,7 @@ import {
 } from '@/modules/employes'
 import { applyMovement, partnerTotals, planCancel, planCompensation, planReturn, type ExcessChoice } from '@/modules/personnes'
 import { downloadCsv, markCancelled, newId, nowStamp, todayStr } from '@/modules/mouvements'
-import { parsePath, useHistorySync, type AccountsView, type Screen, type Tab } from '@/modules/navigation'
+import { parsePath, useHistorySync, type AccountsView, type Screen, type SettingsView, type Tab } from '@/modules/navigation'
 import { cleanModules, loadLateDays, loadModulesLocal, loadTheme, saveLateDays, saveModulesLocal, saveTheme, type Modules, type Theme } from '@/modules/reglages'
 
 // Anciens imports : ces noms restent disponibles depuis le store
@@ -61,8 +61,8 @@ interface StoreContextType {
   accountsView: AccountsView | null
   setAccountsView: (v: AccountsView | null) => void
   // Réglages : la page principale ou la page « Modules » (une vraie page, avec retour)
-  settingsView: 'main' | 'modules'
-  setSettingsView: (v: 'main' | 'modules') => void
+  settingsView: SettingsView
+  setSettingsView: (v: SettingsView) => void
 
   // Fenêtres
   isNewMovementOpen: boolean
@@ -133,7 +133,7 @@ const StoreContext = createContext<StoreContextType | undefined>(undefined)
 
 // Données d'un vrai compte (venues de Firebase) ; sans elles : la démonstration
 export type StoreData = {
-  shop: { name: string; modules?: Modules }
+  shop: { name: string; modules?: Partial<Modules> }
   persons: Person[]
   movements: Movement[]
   monthStates: MonthStates
@@ -165,7 +165,7 @@ export const StoreProvider: React.FC<{
   const [activeTab, setActiveTabRaw] = useState<Tab>(() => startScreen().tab)
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(() => startScreen().person)
   const [accountsView, setAccountsView] = useState<AccountsView | null>(() => startScreen().accounts)
-  const [settingsView, setSettingsView] = useState<'main' | 'modules'>(() => startScreen().settings)
+  const [settingsView, setSettingsView] = useState<SettingsView>(() => startScreen().settings)
   const [navKey, setNavKey] = useState(0)
   // Changer de page referme l'écran « Leurs comptes / Mes comptes ».
   const setActiveTab = (tab: Tab) => {
@@ -188,14 +188,15 @@ export const StoreProvider: React.FC<{
 
   const setModule: StoreContextType['setModule'] = (key, on) => {
     const next = { ...modules, [key]: on }
-    if (!next.personnes && !next.employes) return // au moins un module allumé
+    if (!next.personnes && !next.employes && !next.factures) return // au moins un module allumé
     setModules(next)
     if (!on) {
       // On quitte ce qui vient d'être caché
       setSelectedPersonId(null)
       setAccountsView(null)
-      if ((key === 'personnes' && activeTab === 'personnes') || (key === 'employes' && (activeTab === 'employes' || activeTab === 'salaires')))
+      if ((key === 'personnes' && activeTab === 'personnes') || (key === 'employes' && (activeTab === 'employes' || activeTab === 'salaires')) || (key === 'factures' && activeTab === 'factures'))
         setActiveTabRaw('accueil')
+      if (key === 'factures' && settingsView === 'factures') setSettingsView('main')
     }
   }
 

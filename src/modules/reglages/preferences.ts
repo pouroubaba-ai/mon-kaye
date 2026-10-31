@@ -1,18 +1,18 @@
 // Réglages : modules allumés et thème.
-// - Modules : Partenaires (clients, fournisseurs) et Employés (salaires, avances). Un module coupé est
+// - Modules : Partenaires (clients, fournisseurs), Employés (salaires, avances) et Factures (factures, devis). Un module coupé est
 //   seulement caché : ses données restent. Au moins un reste allumé. Le choix est enregistré dans le
 //   compte (avec la boutique) et gardé aussi sur l'appareil.
 // - Thème : gardé sur l'appareil ; la première fois, celui du téléphone (sombre par défaut).
 
-export type Modules = { personnes: boolean; employes: boolean }
+export type Modules = { personnes: boolean; employes: boolean; factures: boolean }
 
 // Compte neuf : Partenaires seulement
-export const DEFAULT_MODULES: Modules = { personnes: true, employes: false }
+export const DEFAULT_MODULES: Modules = { personnes: true, employes: false, factures: false }
 const MODULES_KEY = 'kaye.modules'
 
 export const cleanModules = (m: Partial<Modules>): Modules => {
-  const out = { personnes: m.personnes !== false, employes: m.employes === true }
-  return out.personnes || out.employes ? out : DEFAULT_MODULES
+  const out = { personnes: m.personnes !== false, employes: m.employes === true, factures: m.factures === true }
+  return out.personnes || out.employes || out.factures ? out : DEFAULT_MODULES
 }
 
 export const saveModulesLocal = (m: Modules) => {

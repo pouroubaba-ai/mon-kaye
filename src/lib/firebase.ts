@@ -25,9 +25,11 @@ import {
   persistentMultipleTabManager,
   setDoc,
   writeBatch,
+  deleteDoc,
 } from 'firebase/firestore'
 
 import type { Movement, Person } from '@/data/mockData'
+import type { Invoice, InvoiceProfile } from '@/modules/factures/types'
 
 // Projet Firebase « kaye-8e8ca ». Ces identifiants ne sont pas secrets : ce qui protège les données,
 // ce sont les règles de sécurité (fichier firestore.rules) : chaque commerçant ne lit que son espace.
@@ -104,7 +106,7 @@ export function authError(e: unknown): string {
 // shops/{uid}/movements/{id}  toutes les opérations
 // shops/{uid}/meta/months     état des mois (arrêté, annulé)
 // modules : les modules allumés par le commerçant (gardés dans le compte, retrouvés à chaque connexion)
-export type ShopDoc = { name: string; createdAt?: string; modules?: { personnes: boolean; employes: boolean } }
+export type ShopDoc = { name: string; createdAt?: string; modules?: { personnes?: boolean; employes?: boolean; factures?: boolean } }
 export type CloudData = {
   shop: ShopDoc
   persons: Person[]
@@ -227,5 +229,20 @@ export function makePersister(uid: string, start: CloudData) {
   persist.touched = () => touched || pending !== null
   return persist
 }
+
+// ——— Factures ———
+// shops/{uid}/invoices/{id}        factures et devis
+// shops/{uid}/meta/invoiceProfile  mes infos de facture (logo, nom, numéros…)
+export async function loadInvoices(uid: string, source: 'cache' | 'default' = 'default'): Promise<{ invoices: Invoice[]; profile: InvoiceProfile | null }> {
+  const one = source === 'cache' ? getDocFromCache : getDoc
+  const many = source === 'cache' ? getDocsFromCache : getDocs
+  const [list, prof] = await Promise.all([many(collection(db, 'shops', uid, 'invoices')), one(doc(db, 'shops', uid, 'meta', 'invoiceProfile')).catch(() => null)])
+  return { invoices: list.docs.map(d => d.data() as Invoice), profile: prof && prof.exists() ? (prof.data() as InvoiceProfile) : null }
+}
+// Firestore n'accepte pas « undefined » : on enlève ces champs
+const clean = <T extends object>(o: T) => JSON.parse(JSON.stringify(o)) as T
+export const saveInvoiceDoc = (uid: string, inv: Invoice) => setDoc(doc(db, 'shops', uid, 'invoices', inv.id), clean(inv)).catch(e => console.error('[Kayé] Facture', e))
+export const deleteInvoiceDoc = (uid: string, id: string) => deleteDoc(doc(db, 'shops', uid, 'invoices', id)).catch(e => console.error('[Kayé] Facture', e))
+export const saveInvoiceProfile = (uid: string, p: InvoiceProfile) => setDoc(doc(db, 'shops', uid, 'meta', 'invoiceProfile'), clean(p)).catch(e => console.error('[Kayé] Infos de facture', e))
 
 export type { User }

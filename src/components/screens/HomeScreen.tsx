@@ -18,7 +18,15 @@ import { Banknotes } from '@/components/armed'
 // Le logo et les deux icônes (Statistiques, Réglages), puis « Clients et fournisseurs | Employés »
 export function HomeTop() {
   const { navigate, modules, activeTab, theme, toggleTheme } = useStore()
-  const group = activeTab === 'employes' || activeTab === 'salaires' ? 'employee' : 'partner'
+  const group = activeTab === 'factures' ? 'factures' : activeTab === 'employes' || activeTab === 'salaires' ? 'employee' : 'partner'
+  // Les modules ouverts : 2 ou 3 onglets (noms courts quand il y en a 3)
+  const tabs = (
+    [
+      ['partner', modules.employes && modules.factures ? 'Clients' : 'Clients et fournisseurs', modules.personnes, 'accueil'],
+      ['employee', 'Employés', modules.employes, 'employes'],
+      ['factures', 'Factures', modules.factures, 'factures'],
+    ] as const
+  ).filter(t => t[2])
   return (
     <>
       <header className="flex items-center justify-between px-5 pt-[calc(1rem+env(safe-area-inset-top))] pb-2">
@@ -38,20 +46,15 @@ export function HomeTop() {
           </button>
         </div>
       </header>
-      {modules.personnes && modules.employes && (
-        <div role="tablist" aria-label="Cahier ou employés" className="mx-5 mb-2.5 grid grid-cols-2 gap-1 rounded-xl bg-muted p-1">
-          {(
-            [
-              ['partner', 'Clients et fournisseurs'],
-              ['employee', 'Employés'],
-            ] as const
-          ).map(([g, label]) => (
+      {tabs.length > 1 && (
+        <div role="tablist" aria-label="Modules" className={cn('mx-5 mb-2.5 grid gap-1 rounded-xl bg-muted p-1', tabs.length === 3 ? 'grid-cols-3' : 'grid-cols-2')}>
+          {tabs.map(([g, label, , tab]) => (
             <button
               key={g}
               type="button"
               role="tab"
               aria-selected={group === g}
-              onClick={() => group !== g && navigate(g === 'partner' ? 'accueil' : 'employes')}
+              onClick={() => group !== g && navigate(tab)}
               className={cn('h-[38px] rounded-[9px] text-sm transition-colors', group === g ? 'bg-foreground font-bold text-background shadow-sm' : 'font-semibold text-muted-foreground')}
             >
               {label}

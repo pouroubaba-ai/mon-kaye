@@ -23,6 +23,8 @@ import { PullToRefresh } from '@/components/pull-to-refresh'
 import { installUnstick } from '@/lib/unstick'
 import { HomeScreen } from '@/components/screens/HomeScreen'
 import { EmployeesHome } from '@/components/screens/EmployeesHome'
+import { InvoicesProvider } from '@/modules/factures/store'
+import { InvoicesHome } from '@/modules/factures/InvoicesHome'
 
 const AppContent: React.FC = () => {
   const { activeTab, selectedPersonId, persons, accountsView, modules } = useStore()
@@ -70,7 +72,8 @@ const AppContent: React.FC = () => {
           </div>
         ) : (
           <>
-            {(activeTab === 'accueil' || activeTab === 'personnes') && (modules.personnes ? <HomeScreen /> : <EmployeesHome />)}
+            {(activeTab === 'accueil' || activeTab === 'personnes') && (modules.personnes ? <HomeScreen /> : modules.employes ? <EmployeesHome /> : <InvoicesHome />)}
+            {activeTab === 'factures' && modules.factures && <InvoicesHome />}
             {activeTab === 'stats' && <StatsScreen />}
                         {(activeTab === 'salaires' || activeTab === 'employes') && modules.employes && <EmployeesHome />}
           </>
@@ -215,7 +218,9 @@ export function App() {
     body = (
       // ?demo=vide : un compte neuf, sans aucune donnée (pour essayer comme un nouveau commerçant)
       <StoreProvider data={new URLSearchParams(window.location.search).get('demo') === 'vide' ? EMPTY_DEMO : undefined}>
-        <AppContent />
+        <InvoicesProvider uid={null}>
+          <AppContent />
+        </InvoicesProvider>
       </StoreProvider>
     )
   } else if (phase.k === 'loading') {
@@ -265,7 +270,9 @@ export function App() {
   } else {
     body = (
       <StoreProvider key={`${phase.uid}-${phase.v ?? 0}`} data={phase.data} persist={phase.persist} onLogout={() => void logOut()}>
-        <AppContent />
+        <InvoicesProvider uid={phase.uid}>
+          <AppContent />
+        </InvoicesProvider>
       </StoreProvider>
     )
   }

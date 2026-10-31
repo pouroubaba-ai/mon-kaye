@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { SubHeader } from '@/components/layout/AppLayout'
 import { cn } from '@/lib/utils'
+import { ChevronRight } from 'lucide-react'
+import { InvoiceProfileScreen } from '@/modules/factures/InvoiceProfileScreen'
 
 // ——— Réglages « Kayé simple » ———
 // Ma boutique (le stylo pour changer le nom), Clients en retard (7, 15, 30 jours ou mon nombre),
@@ -24,7 +26,7 @@ function Section({ title, gold, children, className }: { title?: string; gold?: 
 }
 
 export const SettingsScreen: React.FC = () => {
-  const { shop, setShopName, theme, toggleTheme, modules, setModule, logout, lateDays, setLateDays } = useStore()
+  const { shop, setShopName, theme, toggleTheme, modules, setModule, logout, lateDays, setLateDays, settingsView, setSettingsView } = useStore()
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(shop.name)
   const [askLogout, setAskLogout] = useState(false)
@@ -36,6 +38,18 @@ export const SettingsScreen: React.FC = () => {
     setShopName(name.trim())
     setEditing(false)
   }
+
+  // Une seule allumée : on ne peut pas l'éteindre
+  const onCount = [modules.personnes, modules.employes, modules.factures].filter(Boolean).length
+  const last = (on: boolean) => on && onCount === 1
+
+  if (settingsView === 'factures' && modules.factures)
+    return (
+      <div className="flex min-h-dvh flex-col">
+        <SubHeader title="Mes infos de facture" onBack={() => setSettingsView('main')} />
+        <InvoiceProfileScreen onBack={() => setSettingsView('main')} />
+      </div>
+    )
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -145,24 +159,38 @@ export const SettingsScreen: React.FC = () => {
 
         {/* Interrupteurs */}
         <Section className="gap-0 py-1.5">
-          {/* Les deux modules s'allument et s'éteignent ; il en reste toujours au moins un d'allumé */}
+          {/* Les modules s'allument et s'éteignent ; il en reste toujours au moins un d'allumé */}
           <label className="flex items-center justify-between gap-3 border-b py-3">
             <span className="flex flex-col">
               <span className="text-base font-semibold">Clients et fournisseurs</span>
               <span className="text-[13px] text-muted-foreground">Crédits, dettes et versements</span>
             </span>
-            <Switch checked={modules.personnes} disabled={modules.personnes && !modules.employes} onCheckedChange={on => setModule('personnes', on)} aria-label="Module Clients et fournisseurs" className="data-[state=checked]:bg-kgreen-solid" />
+            <Switch checked={modules.personnes} disabled={last(modules.personnes)} onCheckedChange={on => setModule('personnes', on)} aria-label="Module Clients et fournisseurs" className="data-[state=checked]:bg-kgreen-solid" />
           </label>
           <label className="flex items-center justify-between gap-3 border-b py-3">
             <span className="flex flex-col">
               <span className="text-base font-semibold">Employés</span>
               <span className="text-[13px] text-muted-foreground">Salaires et avances</span>
             </span>
-            <Switch checked={modules.employes} disabled={modules.employes && !modules.personnes} onCheckedChange={on => setModule('employes', on)} aria-label="Module Employés" className="data-[state=checked]:bg-kgreen-solid" />
+            <Switch checked={modules.employes} disabled={last(modules.employes)} onCheckedChange={on => setModule('employes', on)} aria-label="Module Employés" className="data-[state=checked]:bg-kgreen-solid" />
           </label>
-          {!(modules.personnes && modules.employes) && (
-            <p className="border-b py-2.5 text-xs text-muted-foreground">Il faut au moins un module allumé : allumez l'autre pour pouvoir éteindre celui-ci.</p>
+          <label className="flex items-center justify-between gap-3 border-b py-3">
+            <span className="flex flex-col">
+              <span className="text-base font-semibold">Factures</span>
+              <span className="text-[13px] text-muted-foreground">Factures et devis avec mon logo</span>
+            </span>
+            <Switch checked={modules.factures} disabled={last(modules.factures)} onCheckedChange={on => setModule('factures', on)} aria-label="Module Factures" className="data-[state=checked]:bg-kgreen-solid" />
+          </label>
+          {modules.factures && (
+            <button type="button" onClick={() => setSettingsView('factures')} className="flex items-center justify-between gap-3 border-b py-3 text-left">
+              <span className="flex flex-col">
+                <span className="text-base font-semibold">Mes infos de facture</span>
+                <span className="text-[13px] text-muted-foreground">Logo, adresse, numéros</span>
+              </span>
+              <ChevronRight className="size-5 text-muted-foreground" />
+            </button>
           )}
+          {onCount === 1 && <p className="border-b py-2.5 text-xs text-muted-foreground">Il faut au moins un module allumé : allumez-en un autre pour pouvoir éteindre celui-ci.</p>}
           <label className="flex items-center justify-between gap-3 py-3">
             <span className="text-base font-semibold">Thème sombre</span>
             <Switch checked={theme === 'dark'} onCheckedChange={toggleTheme} aria-label="Thème sombre" className="data-[state=checked]:bg-kgreen-solid" />

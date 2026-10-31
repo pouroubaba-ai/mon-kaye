@@ -3,19 +3,21 @@
 //   /                      tableau de bord        /comptes/leurs[/employes]  « Leurs comptes »
 //   /personnes[/id]        liste ou fiche          /comptes/mes[/employes]    « Mes comptes »
 //   /employes[/id]         liste ou fiche          /salaires                   page Salaires
-//   /reglages[/modules]    réglages ou Modules
+//   /reglages[/modules|/factures]  réglages, Modules ou Mes infos de facture
+//   /factures              factures et devis
 // Les fenêtres (verser, fiche de paie…) n'ont pas d'adresse.
 import type { Person } from '@/data/mockData'
 import type { Modules } from '@/modules/reglages/preferences'
 
-export type Tab = 'accueil' | 'personnes' | 'employes' | 'salaires' | 'reglages' | 'stats'
+export type Tab = 'accueil' | 'personnes' | 'employes' | 'salaires' | 'reglages' | 'stats' | 'factures'
+export type SettingsView = 'main' | 'modules' | 'factures'
 // only : ouvert depuis la vue Partenaires ou Employés du tableau de bord : on reste de ce côté (pas d'interrupteur)
 export type AccountsView = { dir: 'leurs' | 'mes'; group: 'partner' | 'employee'; only?: boolean }
 export type Screen = {
   tab: Tab
   person: string | null
   accounts: AccountsView | null
-  settings: 'main' | 'modules'
+  settings: SettingsView
 }
 
 export function parsePath(path: string, modules: Modules, persons: Person[]): Screen {
@@ -34,10 +36,12 @@ export function parsePath(path: string, modules: Modules, persons: Person[]): Sc
       return modules.employes ? { ...home, tab: 'employes', person: person('employee') } : home
     case 'salaires':
       return modules.employes ? { ...home, tab: 'salaires' } : home
+    case 'factures':
+      return modules.factures ? { ...home, tab: 'factures' } : home
     case 'statistiques':
       return { ...home, tab: 'stats' }
     case 'reglages':
-      return { ...home, tab: 'reglages', settings: b === 'modules' ? 'modules' : 'main' }
+      return { ...home, tab: 'reglages', settings: b === 'modules' ? 'modules' : b === 'factures' && modules.factures ? 'factures' : 'main' }
     default:
       return home
   }
@@ -50,6 +54,6 @@ export function buildPath(s: Screen, persons: Person[]): string {
   }
   if (s.tab === 'accueil') return s.accounts ? `/comptes/${s.accounts.dir}${s.accounts.group === 'employee' ? '/employes' : ''}` : '/'
   if (s.tab === 'stats') return '/statistiques'
-  if (s.tab === 'reglages') return s.settings === 'modules' ? '/reglages/modules' : '/reglages'
+  if (s.tab === 'reglages') return s.settings === 'main' ? '/reglages' : `/reglages/${s.settings}`
   return `/${s.tab}`
 }
