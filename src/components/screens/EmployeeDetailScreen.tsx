@@ -74,7 +74,7 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
       badge: 'À venir',
       sub: `Paie ${/^[aeiouéâ]/i.test(monthName(pr.currentPeriod)) ? "d'" : 'de '}${monthName(pr.currentPeriod)} · le ${shortDate(dueDateOf(pr.currentPeriod, emp.id))}`,
       amount: pr.plannedRetenue,
-      tone: 'muted',
+      tone: 'blue',
     })
 
   const card = (v: 'salaire' | 'avance') => {
@@ -157,7 +157,7 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
               const enCours = r.state === 'en_cours'
               const value = enCours || r.reste > 0 ? r.reste : r.brut
               return (
-                <button key={r.period} type="button" onClick={() => tap('p' + r.period, () => setPeriod(r.period))} className={cn('flex items-center gap-3 px-1 py-3 text-left transition-shadow', i < pr.months.length - 1 && 'border-b border-border', r.state === 'annule' && armed !== 'p' + r.period && 'opacity-50', armed === 'p' + r.period && ARMED_ROW)}>
+                <button key={r.period} type="button" onClick={() => setPeriod(r.period)} className={cn('flex items-center gap-3 px-1 py-3 text-left', i < pr.months.length - 1 && 'border-b border-border', r.state === 'annule' && 'opacity-50')}>
                   <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <span className="flex items-center gap-2">
                       <span className="text-[15px] font-semibold">{Cap(monthName(r.period))}</span>
@@ -165,7 +165,7 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
                         {enCours ? 'En cours' : r.state === 'annule' ? 'Annulée' : 'Terminé'}
                       </span>
                     </span>
-                    {armed === 'p' + r.period ? <span className="truncate text-xs font-semibold text-kgold">{ARMED_HINT}</span> : <span className="truncate text-xs text-muted-foreground">{rowSub(r, pr, emp.id)}</span>}
+                    <span className="truncate text-xs text-muted-foreground">{rowSub(r, pr, emp.id)}</span>
                   </span>
                   <span className={cn('shrink-0 text-[15px] font-bold tabular-nums', !enCours && r.reste > 0 ? 'text-kred' : enCours ? 'text-foreground/80' : 'font-semibold text-muted-foreground')}>{amt(value)}</span>
                 </button>
@@ -190,7 +190,7 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
                   </span>
                   {armed === 'a' + a.key ? <span className="truncate text-xs font-semibold text-kgold">{ARMED_HINT}</span> : <span className="truncate text-xs text-muted-foreground">{a.sub}</span>}
                 </span>
-                <span className={cn('shrink-0 text-[15px] font-bold tabular-nums', a.tone === 'green' ? 'text-kgreen' : a.tone === 'blue' ? 'text-kblue' : 'text-foreground/80')}>{amt(a.amount)}</span>
+                <span className={cn('shrink-0 text-[15px] font-bold tabular-nums', a.tone === 'green' ? 'text-kgreen' : a.tone === 'blue' ? 'text-kblue' : 'text-muted-foreground line-through')}>{a.tone === 'green' ? '+ ' : a.tone === 'blue' ? '− ' : ''}{amt(a.amount)}</span>
               </button>
             ))}
           </div>
