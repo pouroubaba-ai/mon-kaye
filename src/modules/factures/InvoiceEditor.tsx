@@ -46,7 +46,6 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
   // Nouveau client, ou ses infos à changer : la même fenêtre que partout (nouveau : 'new' ; changer : son id)
   const [clientForm, setClientForm] = React.useState<'new' | string | null>(null)
   const [lines, setLines] = React.useState<Draft[]>([emptyLine()])
-  const [tva, setTva] = React.useState(false)
   const [unitOf, setUnitOf] = React.useState<number | null>(null)
   const [askLeave, setAskLeave] = React.useState(false)
   const linesRef = React.useRef<HTMLDivElement>(null)
@@ -60,7 +59,6 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
     setStep(b && pid ? 'produits' : 'qui')
     setSearch('')
     setLines(b ? b.lines.map(toDraft) : [emptyLine()])
-    setTva(b?.tva ?? false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [start])
 
@@ -75,7 +73,7 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
   const filled = lines.filter(l => l.label.trim() || num(l.price) > 0)
   const ok = !!person && filled.length > 0 && filled.every(l => l.label.trim() && num(l.price) > 0 && dec(l.qty) > 0)
   const finalLines: InvoiceLine[] = filled.map(l => ({ d: l.label.trim(), ...(l.x ? { x: l.x } : {}), q: dec(l.qty), ...(l.u ? { u: l.u } : {}), p: num(l.price) }))
-  const { net } = totals({ lines: finalLines, tva })
+  const { net } = totals({ lines: finalLines })
   const dirty = !!personId || filled.length > 0
 
   // Entrée passe au champ suivant ; sur le dernier, une nouvelle ligne
@@ -99,7 +97,7 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
     const client: InvoiceClient = { personId: person.id, name: person.name, lines: saved.length ? saved : (last?.client.lines ?? []), ...(person.phone ? { phone: person.phone } : {}) }
     let inv: Invoice
     if (start?.mode === 'edit' && base) {
-      inv = { ...base, client, lines: finalLines, tva }
+      inv = { ...base, client, lines: finalLines }
       update(inv)
     } else {
       inv = create({
@@ -107,7 +105,6 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
         client,
         ...(base?.objet ? { objet: base.objet } : {}),
         lines: finalLines,
-        tva,
         status: devis ? 'devis' : 'non_payee',
         ...(start?.mode === 'convert' && base ? { fromQuote: base.number } : {}),
         date: todayIso(),
@@ -153,8 +150,11 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
             <DialogDescription className="sr-only">Choisir le client</DialogDescription>
           </DialogHeader>
             <div className="flex min-h-0 flex-1 flex-col gap-3">
-              {/* La recherche (les nouveaux clients s'ajoutent dans Clients) */}
+              {/* « Nouveau » devant la recherche */}
               <div className="flex items-center gap-1">
+                <button type="button" aria-label="Nouveau client" onClick={() => openClient()} className="flex h-[46px] shrink-0 items-center gap-1.5 rounded-xl bg-kgold px-3 text-sm font-bold text-white active:scale-[0.98] dark:text-black">
+                  <Plus className="size-[18px]" strokeWidth={2.4} /> Nouveau
+                </button>
                 <div className="relative min-w-0 flex-1">
                   <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                   <Input placeholder="Chercher un client" value={search} onChange={e => setSearch(e.target.value)} className="h-[46px] pr-10 pl-9" />
@@ -184,7 +184,7 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
                       <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
                     </button>
                   ))}
-                  {visible.length === 0 && <p className="p-3 text-sm text-muted-foreground">{search.trim() ? 'Personne ne s’appelle comme ça.' : 'Pas encore de client : ajoutez-le dans Clients.'}</p>}
+                  {visible.length === 0 && <p className="p-3 text-sm text-muted-foreground">{search.trim() ? 'Personne ne s’appelle comme ça.' : 'Pas encore de client : touchez « Nouveau ».'}</p>}
                 </div>
               </div>
             </div>
@@ -276,10 +276,6 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
               </div>
 
               <div className="sticky bottom-0 -mx-4 flex flex-col gap-2 border-t bg-background px-4 pt-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
-                <label className="flex items-center justify-between gap-3 text-sm">
-                  <span>TVA 18 %</span>
-                  <Switch checked={tva} onCheckedChange={setTva} aria-label="TVA 18 %" className="data-[state=checked]:bg-kgreen-solid" />
-                </label>
                 <div className="flex items-baseline justify-between">
                   <span className="text-sm text-muted-foreground">{devis ? 'Montant du devis' : 'Net à payer'}</span>
                   <span className="text-2xl font-bold tabular-nums">{money(net)} FCFA</span>

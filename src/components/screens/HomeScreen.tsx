@@ -194,6 +194,10 @@ export const HomeScreen: React.FC = () => {
 
       {/* Recherche, le calendrier pour filtrer par période, et « Nouveau » */}
       <div className="mx-4 mt-3 flex items-center gap-1">
+        {/* Nouveau client / fournisseur : devant la recherche */}
+        <button type="button" onClick={() => setAdding(true)} aria-label={lui ? 'Nouveau client' : 'Nouveau fournisseur'} className="flex h-[46px] shrink-0 items-center gap-1.5 rounded-xl bg-kgold px-3 text-sm font-bold text-white transition-colors active:scale-[0.98] dark:text-black">
+          <Plus className="size-[18px]" strokeWidth={2.4} /> Nouveau
+        </button>
         <label className="flex h-[46px] min-w-0 flex-1 items-center gap-2.5 rounded-xl bg-muted px-3.5 text-muted-foreground">
           <Search className="size-[18px] shrink-0" />
           <input
@@ -210,10 +214,6 @@ export const HomeScreen: React.FC = () => {
           )}
         </label>
         {!filtered && <DateFilter iconOnly value={range} onChange={setRange} align="end" />}
-        {/* Nouveau client / fournisseur : à droite de la recherche */}
-        <button type="button" onClick={() => setAdding(true)} aria-label={lui ? 'Nouveau client' : 'Nouveau fournisseur'} className="flex h-[46px] shrink-0 items-center gap-1.5 rounded-xl bg-kgold px-3 text-sm font-bold text-white transition-colors active:scale-[0.98] dark:text-black">
-          <Plus className="size-[18px]" strokeWidth={2.4} /> Nouveau
-        </button>
       </div>
 
       {filtered && (

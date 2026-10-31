@@ -46,19 +46,19 @@ const DEMO_INVOICES: Invoice[] = [
   {
     id: 'inv-demo-1', kind: 'facture', number: 'LG/2026-003', date: '2026-10-21', status: 'credit',
     client: { personId: 'part-1', name: 'Boutique La Bénédiction', lines: ['Moungali, Brazzaville'] },
-    objet: 'Approvisionnement de la boutique', tva: false, createdAt: '2026-10-21T10:00:00',
+    objet: 'Approvisionnement de la boutique', createdAt: '2026-10-21T10:00:00',
     lines: [{ d: 'Riz parfumé', x: 'Sacs de 25 kg', q: 4, u: 'sac', p: 17500 }, { d: 'Huile végétale', q: 2, u: 'carton', p: 24000 }],
   },
   {
     id: 'inv-demo-2', kind: 'facture', number: 'LG/2026-002', date: '2026-10-02', status: 'payee',
     client: { name: 'Hôtel Le Fleuve', lines: ['Centre-ville, Brazzaville'] },
-    tva: true, createdAt: '2026-10-02T10:00:00',
+    createdAt: '2026-10-02T10:00:00',
     lines: [{ d: 'Eau minérale 1,5 L', q: 10, u: 'carton', p: 3500 }, { d: 'Livraison', q: 1, u: 'forfait', p: 5000 }],
   },
   {
     id: 'inv-demo-3', kind: 'devis', number: 'LG-D/2026-001', date: '2026-10-28', status: 'devis',
     client: { name: 'Mairie de Moungali', lines: ['Bd Denis Sassou Nguesso'] },
-    objet: 'Boissons pour la fête du quartier', tva: false, createdAt: '2026-10-28T10:00:00',
+    objet: 'Boissons pour la fête du quartier', createdAt: '2026-10-28T10:00:00',
     lines: [{ d: 'Jus de fruits', q: 15, u: 'carton', p: 9000 }, { d: 'Eau minérale 1,5 L', q: 20, u: 'carton', p: 3500 }],
   },
 ]

@@ -31,7 +31,6 @@ export interface Invoice {
   client: InvoiceClient
   objet?: string
   lines: InvoiceLine[]
-  tva: boolean
   status: InvoiceStatus
   movementId?: string // crédit ajouté au compte du client (« il paie plus tard »)
   fromQuote?: string // facture née d'un devis : le numéro du devis

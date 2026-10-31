@@ -1,13 +1,10 @@
 // ——— Calculs des factures : totaux, numéros, montant en lettres, unités ———
 import type { Invoice, InvoiceLine, InvoiceProfile } from './types'
 
-export const TVA_RATE = 0.18
-
 export const lineTotal = (l: InvoiceLine) => Math.round(l.q * l.p)
-export function totals(inv: Pick<Invoice, 'lines' | 'tva'>) {
-  const ht = inv.lines.reduce((a, l) => a + lineTotal(l), 0)
-  const tva = inv.tva ? Math.round(ht * TVA_RATE) : 0
-  return { ht, tva, net: ht + tva }
+export function totals(inv: Pick<Invoice, 'lines'>) {
+  const net = inv.lines.reduce((a, l) => a + lineTotal(l), 0)
+  return { net }
 }
 
 // « 2 » → « 002 » (au moins 3 chiffres)

@@ -67,7 +67,7 @@ const CSS = `
 const lines = (s?: string) => (s ?? '').split('\n').map(x => x.trim()).filter(Boolean)
 
 export const InvoicePaper = React.forwardRef<HTMLDivElement, { inv: Invoice; profile: InvoiceProfile }>(function InvoicePaper({ inv, profile: p }, ref) {
-  const { ht, tva, net } = totals(inv)
+  const { net } = totals(inv)
   const devis = inv.kind === 'devis'
   const address = lines(p.address)
   const activities = lines(p.activities.replace(/\s*·\s*/g, '\n'))
@@ -156,28 +156,14 @@ export const InvoicePaper = React.forwardRef<HTMLDivElement, { inv: Invoice; pro
         </table>
 
         <div className="tot">
-          {inv.tva ? (
-            <>
-              <div>
-                <span>Total hors taxe</span>
-                <b>{money(ht)} FCFA</b>
-              </div>
-              <div>
-                <span>TVA 18 %</span>
-                <b>{money(tva)} FCFA</b>
-              </div>
-            </>
-          ) : (
-            <div>
-              <span>Sous-total</span>
-              <b>{money(ht)} FCFA</b>
-            </div>
-          )}
+          <div>
+            <span>Sous-total</span>
+            <b>{money(net)} FCFA</b>
+          </div>
         </div>
         <div className="net">
           <span>
             {devis ? 'MONTANT DU DEVIS' : 'NET À PAYER'}
-            {inv.tva ? ' TTC' : ''}
           </span>
           <b>{money(net)} FCFA</b>
         </div>

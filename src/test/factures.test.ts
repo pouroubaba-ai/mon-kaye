@@ -23,8 +23,7 @@ describe('Totaux', () => {
     { d: 'Pelle', q: 2, u: 'jour', p: 450000 },
     { d: 'Porte-char', q: 1, u: 'forfait', p: 300000 },
   ]
-  it('sans TVA', () => expect(totals({ lines, tva: false })).toEqual({ ht: 1200000, tva: 0, net: 1200000 }))
-  it('avec TVA 18 %', () => expect(totals({ lines, tva: true })).toEqual({ ht: 1200000, tva: 216000, net: 1416000 }))
+  it('net à payer', () => expect(totals({ lines })).toEqual({ net: 1200000 }))
 })
 
 describe('Numéros et unités', () => {
