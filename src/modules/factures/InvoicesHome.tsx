@@ -161,6 +161,7 @@ export function InvoicesHome() {
         onSaved={inv => {
           setTab(inv.kind === 'devis' ? 'devis' : 'factures')
           setSearch('')
+          setOpenId(inv.id) // elle s'ouvre : l'envoyer, ou dire s'il a payé
         }}
       />
     </div>
