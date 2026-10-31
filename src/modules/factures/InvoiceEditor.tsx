@@ -149,8 +149,8 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
       <Dialog open={step === 'qui'} onOpenChange={o => !o && onClose()}>
         <DialogContent fixedHeight>
           <DialogHeader className="text-left">
-            <DialogTitle className="text-left text-xl">Pour qui ?</DialogTitle>
-            <DialogDescription className="text-left">{title}</DialogDescription>
+            <DialogTitle className="text-left text-xl">{title}</DialogTitle>
+            <DialogDescription className="sr-only">Choisir le client</DialogDescription>
           </DialogHeader>
             <div className="flex min-h-0 flex-1 flex-col gap-3">
               {/* La recherche, et « Nouveau » à sa droite */}
