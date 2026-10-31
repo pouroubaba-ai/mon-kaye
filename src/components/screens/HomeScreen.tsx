@@ -192,14 +192,14 @@ export const HomeScreen: React.FC = () => {
         </div>
       )}
 
-      {/* Recherche, et le calendrier pour filtrer par période */}
+      {/* Recherche, le calendrier pour filtrer par période, et « Nouveau » */}
       <div className="mx-4 mt-3 flex items-center gap-1">
         <label className="flex h-[46px] min-w-0 flex-1 items-center gap-2.5 rounded-xl bg-muted px-3.5 text-muted-foreground">
           <Search className="size-[18px] shrink-0" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder={lui ? 'Chercher un client' : 'Chercher un fournisseur'}
+            placeholder="Chercher"
             aria-label={lui ? 'Chercher un client' : 'Chercher un fournisseur'}
             className="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-muted-foreground"
           />
@@ -210,6 +210,10 @@ export const HomeScreen: React.FC = () => {
           )}
         </label>
         {!filtered && <DateFilter iconOnly value={range} onChange={setRange} align="end" />}
+        {/* Nouveau client / fournisseur : sur la ligne de la recherche */}
+        <button type="button" onClick={() => setAdding(true)} aria-label={lui ? 'Nouveau client' : 'Nouveau fournisseur'} className="flex h-[46px] shrink-0 items-center gap-1.5 rounded-xl border-2 border-dashed border-kgold px-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-kgold/5">
+          <Plus className="size-[18px]" strokeWidth={2.4} /> Nouveau
+        </button>
       </div>
 
       {filtered && (
@@ -222,19 +226,6 @@ export const HomeScreen: React.FC = () => {
       )}
 
       <div className="flex flex-1 flex-col px-3 pt-1 pb-[calc(7rem+env(safe-area-inset-bottom))]">
-        {/* Nouveau client / fournisseur : toujours en haut de la liste */}
-        {/* Toujours là (même pendant une recherche) : la liste ne saute pas quand on tape */}
-        {!filtered && (
-          <button
-            type="button"
-            onClick={() => setAdding(true)}
-            className="my-1 flex h-[52px] items-center justify-center gap-2 rounded-[14px] border-2 border-dashed border-kgold text-[15px] font-semibold text-muted-foreground transition-colors hover:bg-kgold/5"
-          >
-            <Plus className="size-5" strokeWidth={2.4} />
-            {lui ? 'Nouveau client' : 'Nouveau fournisseur'}
-          </button>
-        )}
-
         {searching ? (
           found.length === 0 ? (
             <p className="px-2 py-8 text-center text-sm text-muted-foreground">Personne ne s'appelle comme ça.</p>

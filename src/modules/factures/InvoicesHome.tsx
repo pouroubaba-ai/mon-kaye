@@ -54,7 +54,7 @@ export function InvoicesHome() {
   }
 
   return (
-    <div className="flex min-h-dvh flex-col pb-[calc(2rem+env(safe-area-inset-bottom))]">
+    <div className="flex min-h-dvh flex-col pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
       <HomeTop />
 
       {/* Les deux onglets : le montant est dans l'onglet */}
@@ -112,14 +112,6 @@ export function InvoicesHome() {
       </div>
 
       <div className="px-3 pt-1">
-        {/* Nouvelle facture : comme « Nouveau client » sur l'accueil ; elle se fait sur une page */}
-        <button
-          type="button"
-          onClick={() => setEditor({ mode: 'new', kind: tab === 'devis' ? 'devis' : 'facture' })}
-          className="my-1 flex h-[52px] w-full items-center justify-center gap-2 rounded-[14px] border-2 border-dashed border-kgold text-[15px] font-semibold text-muted-foreground hover:bg-muted/40"
-        >
-          <Plus className="size-5" strokeWidth={2.4} /> {tab === 'devis' ? 'Nouveau devis' : 'Nouvelle facture'}
-        </button>
         {list.length === 0 ? (
           <p className="px-4 py-10 text-center text-sm text-muted-foreground">
             {q ? 'Rien trouvé.' : tab === 'devis' ? 'Aucun devis pour l’instant. Touchez « Devis » en bas pour en faire un.' : 'Aucune facture pour l’instant. Touchez « Facture » en bas pour en faire une.'}
@@ -150,6 +142,16 @@ export function InvoicesHome() {
             )
           })
         )}
+      </div>
+
+      {/* Les deux gros boutons : nouvelle facture, nouveau devis (chacun ouvre une page) */}
+      <div className="fixed inset-x-0 bottom-0 z-30 mx-auto grid w-full max-w-xl grid-cols-2 gap-3 border-t bg-background px-4 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
+        <button type="button" aria-label="Nouvelle facture" onClick={() => setEditor({ mode: 'new', kind: 'facture' })} className="flex h-[60px] items-center justify-center gap-2 rounded-2xl bg-kgreen-solid text-lg font-bold text-white active:scale-[0.98]">
+          <Plus className="size-[22px]" strokeWidth={2.6} /> Facture
+        </button>
+        <button type="button" aria-label="Nouveau devis" onClick={() => setEditor({ mode: 'new', kind: 'devis' })} className="flex h-[60px] items-center justify-center gap-2 rounded-2xl border-2 border-kgold text-lg font-bold text-kgold active:scale-[0.98]">
+          <Plus className="size-[22px]" strokeWidth={2.6} /> Devis
+        </button>
       </div>
 
       <InvoiceSheet inv={opened} onClose={() => setOpenId(null)} onEdit={s => (setOpenId(null), setEditor(s))} />

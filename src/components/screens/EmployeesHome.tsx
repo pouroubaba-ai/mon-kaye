@@ -198,24 +198,27 @@ export const EmployeesHome: React.FC = () => {
         </div>
       )}
 
-      <label className="mx-4 mt-3 flex h-[46px] items-center gap-2.5 rounded-xl bg-muted px-3.5 text-muted-foreground">
-        <Search className="size-[18px] shrink-0" />
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Chercher un employé" aria-label="Chercher un employé" className="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-muted-foreground" />
-        {searching && (
-          <button type="button" aria-label="Effacer la recherche" onClick={() => setSearch('')} className="flex size-7 items-center justify-center rounded-full hover:bg-background">
-            <X className="size-4" />
-          </button>
+      {/* Recherche, et « Nouvel employé » sur la même ligne */}
+      <div className="mx-4 mt-3 flex items-center gap-1">
+        <label className="flex h-[46px] min-w-0 flex-1 items-center gap-2.5 rounded-xl bg-muted px-3.5 text-muted-foreground">
+          <Search className="size-[18px] shrink-0" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Chercher un employé" aria-label="Chercher un employé" className="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-muted-foreground" />
+          {searching && (
+            <button type="button" aria-label="Effacer la recherche" onClick={() => setSearch('')} className="flex size-7 items-center justify-center rounded-full hover:bg-background">
+              <X className="size-4" />
+            </button>
+          )}
+        </label>
+        {salaires && (
+          <button type="button" onClick={() => setAdding(true)} aria-label="Nouvel employé" className="flex h-[46px] shrink-0 items-center gap-1.5 rounded-xl border-2 border-dashed border-kgold px-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-kgold/5">
+          <Plus className="size-[18px]" strokeWidth={2.4} /> Nouvel
+        </button>
         )}
-      </label>
+      </div>
 
       <div className="flex flex-1 flex-col px-3 pt-1 pb-[calc(7rem+env(safe-area-inset-bottom))]">
         {salaires ? (
           <>
-            {(
-              <button type="button" onClick={() => setAdding(true)} className="my-1 flex h-[52px] items-center justify-center gap-2 rounded-[14px] border border-dashed border-foreground/25 text-[15px] font-semibold text-muted-foreground hover:bg-muted/40">
-                <Plus className="size-5" strokeWidth={2.4} /> Nouvel employé
-              </button>
-            )}
             {mainList.length === 0 && <p className="px-2 py-8 text-center text-sm text-muted-foreground">{searching ? "Personne ne s'appelle comme ça." : 'Ajoutez votre premier employé.'}</p>}
             {mainList.map((l, i) => salaryRow(l, i === mainList.length - 1, l.emp.status === 'inactif'))}
             {goneDone.length > 0 && (

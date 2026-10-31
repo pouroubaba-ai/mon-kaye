@@ -8,9 +8,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
-import { PersonFormDialog } from '@/components/person-header'
 import { useStore } from '@/data/store'
-import { cn, matchesPerson, plain } from '@/lib/utils'
+import { cn, formatPhone, matchesPerson, nameTaken, plain } from '@/lib/utils'
 import { UnitPicker } from './LineDialog'
 import { todayIso, useInvoices } from './store'
 import type { Invoice, InvoiceClient, InvoiceKind, InvoiceLine } from './types'
@@ -33,22 +32,22 @@ const key = (s: string) => plain(s).replace(/\s+/g, ' ').trim()
 const toDraft = (l: InvoiceLine): Draft => ({ label: l.d, price: String(l.p), qty: String(l.q).replace('.', ','), ...(l.u ? { u: l.u } : {}), ...(l.x ? { x: l.x } : {}) })
 
 export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart | null; onClose: () => void; onSaved?: (inv: Invoice) => void }) {
-  const { persons } = useStore()
+  const { persons, addPerson, updatePerson } = useStore()
   const { invoices, create, update } = useInvoices()
   const open = !!start
   const base = start && start.mode !== 'new' ? start.base : null
   const kind: InvoiceKind = !start ? 'facture' : start.mode === 'new' ? start.kind : start.mode === 'convert' ? 'facture' : start.base.kind
   const devis = kind === 'devis'
 
-  const [step, setStep] = React.useState<'qui' | 'produits'>('qui')
+  const [step, setStep] = React.useState<'qui' | 'client' | 'produits'>('qui')
   const [personId, setPersonId] = React.useState<string | null>(null)
   const [search, setSearch] = React.useState('')
-  const [adding, setAdding] = React.useState(false)
+  // Le client : nouveau (sur la page, pas dans une fenêtre) ou ses infos à changer
+  const [form, setForm] = React.useState<{ id?: string; name: string; sex?: 'h' | 'f'; phone: string; details: string }>({ name: '', phone: '', details: '' })
   const [lines, setLines] = React.useState<Draft[]>([emptyLine()])
   const [tva, setTva] = React.useState(false)
   const [unitOf, setUnitOf] = React.useState<number | null>(null)
   const [askLeave, setAskLeave] = React.useState(false)
-  const [editingClient, setEditingClient] = React.useState(false)
   const linesRef = React.useRef<HTMLDivElement>(null)
 
   // À l'ouverture : vide, ou rempli à partir de la facture / du devis de départ
@@ -67,6 +66,21 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
   const person = personId ? persons.find(p => p.id === personId) : undefined
   const clients = persons.filter(p => p.type === 'partner' && !p.archived).sort((a, b) => a.name.localeCompare(b.name, 'fr'))
   const visible = search.trim() ? clients.filter(p => matchesPerson(p, search)) : clients
+
+  const openClient = (id?: string) => {
+    const p = id ? persons.find(x => x.id === id) : undefined
+    setForm(p ? { id: p.id, name: p.name, sex: p.sex, phone: p.phone ?? '', details: p.details ?? '' } : { name: search.trim(), phone: '', details: '' })
+    setStep('client')
+  }
+  const taken = nameTaken(persons, form.name, form.id)
+  const formOk = form.name.trim() !== '' && !taken
+  const saveClient = () => {
+    if (!formOk) return
+    const data = { name: form.name.trim(), phone: formatPhone(form.phone), ...(form.sex ? { sex: form.sex } : {}), details: form.details.split('\n').map(l => l.trim()).filter(Boolean).join('\n') }
+    if (form.id) updatePerson(form.id, data)
+    else setPersonId(addPerson({ type: 'partner', ...data }))
+    setStep('produits')
+  }
 
   const setLine = (i: number, c: Partial<Draft>) => setLines(ls => ls.map((l, j) => (j === i ? { ...l, ...c } : l)))
   const lineSum = (l: Draft) => Math.round(num(l.price) * dec(l.qty))
@@ -119,6 +133,7 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
 
   // Retour : à l'étape d'avant, ou quitter (en demandant si quelque chose a été saisi)
   const back = () => {
+    if (step === 'client') return setStep(form.id ? 'produits' : 'qui')
     if (step === 'produits' && start?.mode === 'new') return setStep('qui')
     if (dirty) setAskLeave(true)
     else onClose()
@@ -150,7 +165,7 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
               <ChevronLeft className="size-6" />
             </button>
             <span className="flex min-w-0 flex-col">
-              <h1 className="truncate text-lg leading-tight font-semibold">{step === 'qui' ? 'Pour qui ?' : title}</h1>
+              <h1 className="truncate text-lg leading-tight font-semibold">{step === 'qui' ? 'Pour qui ?' : step === 'client' ? (form.id ? 'Ses infos' : 'Nouveau client') : title}</h1>
               {step === 'produits' && <span className="truncate text-[13px] text-muted-foreground">{person?.name}</span>}
             </span>
           </header>
@@ -158,18 +173,21 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
           {/* 1. Pour qui ? */}
           {step === 'qui' && (
             <div className="flex flex-1 flex-col gap-3">
-              <div className="relative">
-                <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input placeholder="Chercher un client" value={search} onChange={e => setSearch(e.target.value)} className="pr-10 pl-9" />
-                {search && (
-                  <button type="button" aria-label="Effacer la recherche" onClick={() => setSearch('')} className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground">
-                    <X className="size-4" />
-                  </button>
-                )}
+              {/* Recherche, et « Nouveau » sur la même ligne */}
+              <div className="flex items-center gap-1">
+                <div className="relative min-w-0 flex-1">
+                  <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input placeholder="Chercher un client" value={search} onChange={e => setSearch(e.target.value)} className="h-[46px] pr-10 pl-9" />
+                  {search && (
+                    <button type="button" aria-label="Effacer la recherche" onClick={() => setSearch('')} className="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground">
+                      <X className="size-4" />
+                    </button>
+                  )}
+                </div>
+                <button type="button" aria-label="Nouveau client" onClick={() => openClient()} className="flex h-[46px] shrink-0 items-center gap-1.5 rounded-xl border-2 border-dashed border-kgold px-3 text-sm font-semibold text-muted-foreground hover:bg-kgold/5">
+                  <Plus className="size-[18px]" strokeWidth={2.4} /> Nouveau
+                </button>
               </div>
-              <button type="button" onClick={() => setAdding(true)} className="flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl border-2 border-dashed border-kgold text-[15px] font-semibold text-muted-foreground">
-                <Plus className="size-5" /> Nouveau client
-              </button>
               <div className="pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
                 <div className="flex flex-col divide-y rounded-lg border">
                   {visible.map(p => (
@@ -195,6 +213,62 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
             </div>
           )}
 
+          {/* Le client : sur la page, une seule fois (gardé dans sa fiche) */}
+          {step === 'client' && (
+            <form
+              className="flex flex-1 flex-col gap-4"
+              onSubmit={e => {
+                e.preventDefault()
+                saveClient()
+              }}
+            >
+              <label className="flex flex-col gap-2">
+                <span className="text-[13px] text-muted-foreground">Nom</span>
+                <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} aria-invalid={!!taken} className="h-12 rounded-xl border bg-background px-3.5 text-base outline-none focus-visible:border-ring" />
+                {taken && <span className="text-xs text-destructive">{taken}</span>}
+              </label>
+              <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Homme ou femme">
+                {(
+                  [
+                    ['h', 'Homme'],
+                    ['f', 'Femme'],
+                  ] as const
+                ).map(([v, label]) => (
+                  <button
+                    key={v}
+                    type="button"
+                    role="radio"
+                    aria-checked={form.sex === v}
+                    onClick={() => setForm(f => ({ ...f, sex: f.sex === v ? undefined : v }))}
+                    className={form.sex === v ? 'h-11 rounded-full border-[1.5px] border-kgold bg-kgold text-sm font-bold text-white dark:text-black' : 'h-11 rounded-full border text-sm font-semibold text-muted-foreground'}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <label className="flex flex-col gap-2">
+                <span className="text-[13px] text-muted-foreground">Numéro</span>
+                <input type="tel" inputMode="tel" placeholder="+242 06 …" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} className="h-12 rounded-xl border bg-background px-3.5 text-base outline-none focus-visible:border-ring" />
+              </label>
+              <label className="flex flex-col gap-2">
+                <span className="text-[13px] text-muted-foreground">Ses infos pour les factures (facultatif)</span>
+                <textarea
+                  rows={4}
+                  value={form.details}
+                  onChange={e => setForm(f => ({ ...f, details: e.target.value }))}
+                  placeholder={'Une info par ligne :\nAdresse, quartier\nRCCM, NIU…'}
+                  className="resize-none rounded-xl border bg-background px-3.5 py-3 text-base leading-snug outline-none focus-visible:border-ring"
+                />
+              </label>
+              <div className="flex-1" />
+              <div className="sticky bottom-0 -mx-4 border-t bg-background px-4 pt-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
+                <button type="submit" disabled={!formOk} className="h-[56px] w-full rounded-2xl bg-kgreen-solid text-lg font-bold text-white disabled:opacity-40">
+                  {form.id ? 'Enregistrer' : 'Suivant'}
+                </button>
+              </div>
+            </form>
+          )}
+
           {/* 2. Les produits : une ligne par produit */}
           {step === 'produits' && (
             <div className="flex flex-1 flex-col gap-3">
@@ -209,7 +283,7 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
                       <span className="text-xs text-muted-foreground">Pas d'adresse ni de RCCM pour la facture</span>
                     )}
                   </span>
-                  <button type="button" onClick={() => setEditingClient(true)} className="h-8 shrink-0 rounded-full px-2 text-sm font-semibold text-kgold">
+                  <button type="button" onClick={() => openClient(person.id)} className="h-8 shrink-0 rounded-full px-2 text-sm font-semibold text-kgold">
                     {(person.details ?? '').trim() ? 'Modifier' : 'Ajouter'}
                   </button>
                 </div>
@@ -302,18 +376,6 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
         </DialogContent>
       </Dialog>
 
-      {/* Nouveau client : la même fenêtre que sur l'accueil */}
-      <PersonFormDialog
-        type="partner"
-        side="lui"
-        open={adding}
-        onOpenChange={setAdding}
-        onCreated={id => {
-          setPersonId(id)
-          setStep('produits')
-        }}
-      />
-      <PersonFormDialog person={person} open={editingClient && !!person} onOpenChange={setEditingClient} />
       <UnitPicker open={unitOf !== null} onOpenChange={o => !o && setUnitOf(null)} value={unitOf !== null ? lines[unitOf]?.u : undefined} onPick={u => (unitOf !== null && setLine(unitOf, { u }), setUnitOf(null))} />
     </>
   )
