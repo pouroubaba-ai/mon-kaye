@@ -18,7 +18,9 @@ import { Banknotes } from '@/components/armed'
 // Le logo et les deux icônes (Statistiques, Réglages), puis « Clients et fournisseurs | Employés »
 export function HomeTop() {
   const { navigate, modules, activeTab, theme, toggleTheme } = useStore()
-  const group = activeTab === 'factures' ? 'factures' : activeTab === 'employes' || activeTab === 'salaires' ? 'employee' : 'partner'
+  // L'accueil montre le premier module allumé : l'onglet allumé est celui-là
+  const home = modules.personnes ? 'partner' : modules.employes ? 'employee' : 'factures'
+  const group = activeTab === 'factures' ? 'factures' : activeTab === 'employes' || activeTab === 'salaires' ? 'employee' : home
   // Les modules ouverts : 2 ou 3 onglets (noms courts quand il y en a 3)
   const tabs = (
     [
