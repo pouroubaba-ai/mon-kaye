@@ -46,7 +46,8 @@ export function rowSub(r: PayMonthRow, pr: Payroll, empId: string) {
   if (r.state === 'annule') return 'Annulée'
   if (r.state === 'en_cours') {
     const d = dueDateOf(r.period, empId)
-    return `À payer le ${shortDate(d)}${pr.plannedRetenue > 0 ? ` · ${pr.plannedRetenue.toLocaleString('fr-FR').replace(/\s/g, ' ')} retenus` : ''}`
+    // Toutes les retenues de cette paie (absence, retard… et celle de l'avance)
+    return `À payer le ${shortDate(d)}${r.retenues > 0 ? ` · ${r.retenues.toLocaleString('fr-FR').replace(/\s/g, ' ')} retenus` : ''}`
   }
   if (r.reste > 0) return r.verse > 0 ? `Versé ${fmt(r.verse)} sur ${fmt(r.aPayer)} · reste à payer` : 'Pas encore payé'
   const last = r.paymentParts.map(x => x.mov).sort((a, b) => toTime(b.date) - toTime(a.date))[0]

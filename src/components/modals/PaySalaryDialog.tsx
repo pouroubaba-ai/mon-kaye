@@ -197,8 +197,9 @@ function PayDetail({ empId, open, onOpenChange }: { empId: string; open: boolean
       key: m.id,
       label: m.type === 'retenue_salaire' ? 'Pour son avance' : m.label.includes(':') ? m.label.split(':').slice(1).join(':').trim() : 'Retenue',
       sub: ofP(r.period),
-      amount: m.amount,
-    }))
+      // Paie en cours : la retenue d'avance VRAIE (limitée à ce qui reste), pas celle prévue au départ
+      amount: m.type === 'retenue_salaire' && r.state === 'en_cours' ? L.pr.plannedRetenue : m.amount,
+    })).filter(x => x.amount > 0)
     // Retenue d'avance prévue sur la paie en cours (pas encore écrite)
     if (r.state === 'en_cours' && L.pr.plannedRetenue > 0 && !items.some(m => m.type === 'retenue_salaire'))
       out.push({ key: `plan-${r.period}`, label: 'Pour son avance', sub: ofP(r.period), amount: L.pr.plannedRetenue })

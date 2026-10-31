@@ -40,8 +40,12 @@ export function PeriodSheet({ empId, period, open, onOpenChange }: { empId: stri
   const base = live.filter(m => m.type === 'salaire_du').reduce((a, m) => a + m.amount, 0)
   const adds = live.filter(m => m.type === 'ajout_salaire')
   const cuts = live.filter(m => m.type === 'retenue_manuelle')
-  const advCut = live.filter(m => m.type === 'retenue_salaire').reduce((a, m) => a + m.amount, 0)
-  const planned = enCours && advCut === 0 ? pr.plannedRetenue : 0
+  // Retenue pour l'avance : sur la paie en cours, c'est la retenue VRAIE (limitée à ce qui reste de la paie,
+  // après les autres retenues) ; sur une paie passée, ce qui a été retenu.
+  const written = live.filter(m => m.type === 'retenue_salaire').reduce((a, m) => a + m.amount, 0)
+  const advCut = enCours ? pr.plannedRetenue : written
+  const wanted = enCours ? Math.max(written, emp.advanceDeductionPerPeriod || 0) : 0 // ce qui était prévu par mois
+  const capped = enCours && wanted > advCut
   const total = row.aPayer
   const pays = [...row.paymentParts].sort((a, b) => toTime(b.mov.date) - toTime(a.mov.date))
   const days = daysUntil(dueDateOf(p, empId))
@@ -87,7 +91,7 @@ export function PeriodSheet({ empId, period, open, onOpenChange }: { empId: stri
               {line('Salaire de base', '', <span className="tabular-nums">{amt(base)}</span>)}
               {adds.map(m => line('Prime', [motifOf(m), m.date ? `ajoutée le ${shortDay(m.date)}` : ''].filter(Boolean).join(' · '), <span className="text-kred tabular-nums">+ {amt(m.amount)}</span>, editable ? () => cancelMovement(m.id, 'Enlevée de la paie') : undefined))}
               {cuts.map(m => line('Retenue', motifOf(m), <span className="text-kgreen tabular-nums">− {amt(m.amount)}</span>, editable ? () => cancelMovement(m.id, 'Enlevée de la paie') : undefined))}
-              {(advCut > 0 || planned > 0) && line('Retenue pour son avance', enCours ? 'Chaque mois, toute seule' : '', <span className="text-kgreen tabular-nums">− {amt(advCut || planned)}</span>)}
+              {advCut > 0 && line('Retenue pour son avance', capped ? `${amt(wanted)} prévus · pas plus que la paie` : enCours ? 'Chaque mois, toute seule' : '', <span className="text-kgreen tabular-nums">− {amt(advCut)}</span>)}
               {editable && (
                 <button
                   type="button"
