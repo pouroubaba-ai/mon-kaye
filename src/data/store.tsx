@@ -124,9 +124,9 @@ interface StoreContextType {
   // Supprimer une personne ou un employé : sa fiche et tout son historique, pour toujours
   deletePerson: (id: string) => void
   // Modifier les informations d'une personne (nom, numéro, rôle, salaire…)
-  updatePerson: (id: string, changes: Partial<Pick<Person, 'name' | 'phone' | 'role' | 'salary' | 'dueDay' | 'sex' | 'archived'>>) => void
+  updatePerson: (id: string, changes: Partial<Pick<Person, 'name' | 'phone' | 'role' | 'salary' | 'dueDay' | 'sex' | 'archived' | 'details'>>) => void
   // Ajouter une personne ou un employé ; renvoie son identifiant
-  addPerson: (data: { type: 'partner' | 'employee'; sex?: 'h' | 'f' } & NewEmployee) => string
+  addPerson: (data: { type: 'partner' | 'employee'; sex?: 'h' | 'f'; details?: string } & NewEmployee) => string
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined)
@@ -384,7 +384,7 @@ export const StoreProvider: React.FC<{
   const addPerson: StoreContextType['addPerson'] = ({ type, ...data }) => {
     const id = newId(type === 'employee' ? 'emp' : 'part')
     if (type !== 'employee') {
-      setPersons(prev => [...prev, { id, type: 'partner', name: data.name, phone: data.phone, role: data.role, ...(data.sex ? { sex: data.sex } : {}), owesMe: 0, iOweHim: 0 }])
+      setPersons(prev => [...prev, { id, type: 'partner', name: data.name, phone: data.phone, role: data.role, ...(data.sex ? { sex: data.sex } : {}), ...(data.details ? { details: data.details } : {}), owesMe: 0, iOweHim: 0 }])
       return id
     }
     const plan = planNewEmployee(id, data, todayStr())

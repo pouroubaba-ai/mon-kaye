@@ -72,7 +72,7 @@ export function PersonFormDialog({
   onOpenChange: (o: boolean) => void
   onCreated?: (id: string) => void
 }) {
-  const { updatePerson, addPerson, persons } = useStore()
+  const { updatePerson, addPerson, persons, modules } = useStore()
   const kind = person?.type ?? type ?? 'partner'
   const isEmployee = kind === 'employee'
   const [name, setName] = React.useState('')
@@ -80,6 +80,9 @@ export function PersonFormDialog({
   const [role, setRole] = React.useState('')
   const [salary, setSalary] = React.useState('')
   const [sex, setSex] = React.useState<'h' | 'f' | undefined>()
+  const [details, setDetails] = React.useState('')
+  // Module Factures allumé : ses infos pour les factures (une fois pour toutes)
+  const withDetails = !isEmployee && modules.factures
 
   // À chaque ouverture : les valeurs actuelles (modifier) ou des champs vides (ajouter).
   React.useEffect(() => {
@@ -89,6 +92,7 @@ export function PersonFormDialog({
     setRole(person?.role ?? '')
     setSalary(person?.salary ? String(person.salary) : '')
     setSex(person?.sex)
+    setDetails(person?.details ?? '')
   }, [open, person])
 
   const dirty =
@@ -96,6 +100,7 @@ export function PersonFormDialog({
     phone !== (person?.phone ?? '') ||
     role !== (person?.role ?? '') ||
     sex !== person?.sex ||
+    details !== (person?.details ?? '') ||
     (isEmployee && salary !== (person?.salary ? String(person.salary) : ''))
   const taken = nameTaken(persons, name, person?.id)
   const valid = name.trim().length > 0 && !taken && (!isEmployee || parseInt(salary, 10) > 0)
@@ -107,6 +112,7 @@ export function PersonFormDialog({
       phone: formatPhone(phone),
       role: role.trim() || undefined,
       ...(sex ? { sex } : {}),
+      ...(withDetails ? { details: details.split('\n').map(l => l.trim()).filter(Boolean).join('\n') } : {}),
       ...(isEmployee ? { salary: parseInt(salary, 10) } : {}),
     }
     if (person) {
@@ -167,6 +173,19 @@ export function PersonFormDialog({
             <Label htmlFor="edit-phone" className="text-[13px] font-normal text-muted-foreground">Numéro</Label>
             <input id="edit-phone" type="tel" inputMode="tel" placeholder="+242 06 …" value={phone} onChange={e => setPhone(e.target.value)} className="h-12 rounded-xl border bg-background px-3.5 text-base outline-none focus-visible:border-ring" />
           </div>
+          {withDetails && (
+            <div className="grid gap-2">
+              <Label htmlFor="edit-details" className="text-[13px] font-normal text-muted-foreground">Ses infos pour les factures (facultatif)</Label>
+              <textarea
+                id="edit-details"
+                rows={3}
+                value={details}
+                onChange={e => setDetails(e.target.value)}
+                placeholder={'Une info par ligne :\nAdresse, quartier\nRCCM, NIU…'}
+                className="resize-none rounded-xl border bg-background px-3.5 py-3 text-base leading-snug outline-none focus-visible:border-ring"
+              />
+            </div>
+          )}
           {isEmployee && (
           <div className="grid gap-2">
             <Label htmlFor="edit-role" className="text-[13px] font-normal text-muted-foreground">Poste</Label>

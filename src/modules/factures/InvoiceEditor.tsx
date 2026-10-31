@@ -1,4 +1,4 @@
-// ——— Nouvelle facture (ou devis) : comme un crédit ———
+// ——— Nouvelle facture (ou devis) : une page, comme un crédit ———
 // 1. Pour qui ? La même liste que pour un crédit ; « Nouveau client » ouvre la même fenêtre que sur l'accueil.
 // 2. Les produits : une ligne par produit (nom, prix × quantité), comme le détail d'un crédit.
 // « Faire la facture » : elle est prête ; elle s'ouvre pour l'envoyer.
@@ -47,6 +47,7 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
   const [lines, setLines] = React.useState<Draft[]>([emptyLine()])
   const [tva, setTva] = React.useState(false)
   const [unitOf, setUnitOf] = React.useState<number | null>(null)
+  const [askLeave, setAskLeave] = React.useState(false)
   const linesRef = React.useRef<HTMLDivElement>(null)
 
   // À l'ouverture : vide, ou rempli à partir de la facture / du devis de départ
@@ -89,12 +90,13 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
 
   const done = () => {
     if (!ok || !person) return
-    // Les infos du client (adresse, RCCM…) : celles de sa dernière facture
+    // Les infos du client (adresse, RCCM…) : celles de sa fiche, données une seule fois
     const last = invoices.find(i => i.client.personId === person.id || key(i.client.name) === key(person.name))
-    const client: InvoiceClient = { personId: person.id, name: person.name, lines: last?.client.lines ?? [], ...(person.phone ? { phone: person.phone } : {}) }
+    const saved = (person.details ?? '').split('\n').map(l => l.trim()).filter(Boolean)
+    const client: InvoiceClient = { personId: person.id, name: person.name, lines: saved.length ? saved : (last?.client.lines ?? []), ...(person.phone ? { phone: person.phone } : {}) }
     let inv: Invoice
     if (start?.mode === 'edit' && base) {
-      inv = { ...base, client: { ...base.client, ...client, lines: base.client.lines }, lines: finalLines, tva }
+      inv = { ...base, client, lines: finalLines, tva }
       update(inv)
     } else {
       inv = create({
@@ -114,25 +116,47 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
 
   const title = start?.mode === 'edit' ? `Modifier ${devis ? 'le devis' : 'la facture'}` : start?.mode === 'convert' ? 'Facture du devis' : devis ? 'Nouveau devis' : 'Nouvelle facture'
 
+  // Retour : à l'étape d'avant, ou quitter (en demandant si quelque chose a été saisi)
+  const back = () => {
+    if (step === 'produits' && start?.mode === 'new') return setStep('qui')
+    if (dirty) setAskLeave(true)
+    else onClose()
+  }
+  // Le bouton retour du téléphone fait pareil : l'app envoie « Échap » à la fenêtre ouverte (cette page) ;
+  // une petite fenêtre ouverte par-dessus (nouveau client, unité…) se ferme d'abord, seule
+  const backRef = React.useRef(back)
+  backRef.current = back
+  React.useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || document.querySelectorAll('[role="dialog"]').length > 1) return
+      backRef.current()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open])
+  React.useEffect(() => {
+    if (open) window.scrollTo({ top: 0, behavior: 'instant' })
+  }, [open, step])
+
+  if (!open) return null
   return (
     <>
-      <Dialog open={open} onOpenChange={o => !o && onClose()} dirty={dirty} dirtyKind={start?.mode === 'edit' ? 'modification' : 'ajout'}>
-        <DialogContent fixedHeight>
-          <DialogHeader className="text-left">
-            <div className="flex items-center gap-1">
-              {step === 'produits' && start?.mode === 'new' && (
-                <button type="button" aria-label="Retour" onClick={() => setStep('qui')} className="-ml-2 flex size-9 items-center justify-center rounded-full hover:bg-muted">
-                  <ChevronLeft className="size-5" />
-                </button>
-              )}
-              <DialogTitle className="text-left text-xl">{step === 'qui' ? 'Pour qui ?' : title}</DialogTitle>
-            </div>
-            <DialogDescription className={step === 'qui' ? 'sr-only' : 'truncate text-left'}>{step === 'qui' ? title : person?.name}</DialogDescription>
-          </DialogHeader>
-
+      <div role="dialog" aria-label={title} className="fixed inset-0 z-40 overflow-y-auto bg-background">
+        <div className="mx-auto flex min-h-dvh w-full max-w-xl flex-col">
+          <header className="sticky top-0 z-10 flex h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0 items-center gap-1 border-b bg-background px-2 pt-[env(safe-area-inset-top)]">
+            <button type="button" aria-label="Retour" onClick={back} className="flex size-11 items-center justify-center rounded-full hover:bg-muted">
+              <ChevronLeft className="size-6" />
+            </button>
+            <span className="flex min-w-0 flex-col">
+              <h1 className="truncate text-lg leading-tight font-semibold">{step === 'qui' ? 'Pour qui ?' : title}</h1>
+              {step === 'produits' && <span className="truncate text-[13px] text-muted-foreground">{person?.name}</span>}
+            </span>
+          </header>
+          <div className="flex flex-1 flex-col px-4 pt-3">
           {/* 1. Pour qui ? */}
           {step === 'qui' && (
-            <div className="flex min-h-0 flex-1 flex-col gap-3">
+            <div className="flex flex-1 flex-col gap-3">
               <div className="relative">
                 <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input placeholder="Chercher un client" value={search} onChange={e => setSearch(e.target.value)} className="pr-10 pl-9" />
@@ -145,7 +169,7 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
               <button type="button" onClick={() => setAdding(true)} className="flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl border-2 border-dashed border-kgold text-[15px] font-semibold text-muted-foreground">
                 <Plus className="size-5" /> Nouveau client
               </button>
-              <div className="min-h-0 flex-1 overflow-y-auto">
+              <div className="pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
                 <div className="flex flex-col divide-y rounded-lg border">
                   {visible.map(p => (
                     <button
@@ -172,8 +196,8 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
 
           {/* 2. Les produits : une ligne par produit */}
           {step === 'produits' && (
-            <div className="flex min-h-0 flex-1 flex-col gap-3">
-              <div ref={linesRef} className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto">
+            <div className="flex flex-1 flex-col gap-3">
+              <div ref={linesRef} className="flex flex-1 flex-col gap-1.5">
                 {lines.map((l, i) => (
                   <div key={i} className="flex flex-col gap-1 rounded-lg border px-2 py-1.5">
                     <div className="flex items-center gap-1.5">
@@ -225,7 +249,7 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
                 </Button>
               </div>
 
-              <div className="flex shrink-0 flex-col gap-2 border-t pt-3">
+              <div className="sticky bottom-0 -mx-4 flex flex-col gap-2 border-t bg-background px-4 pt-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
                 <label className="flex items-center justify-between gap-3 text-sm">
                   <span>TVA 18 %</span>
                   <Switch checked={tva} onCheckedChange={setTva} aria-label="TVA 18 %" className="data-[state=checked]:bg-kgreen-solid" />
@@ -240,6 +264,24 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
               </div>
             </div>
           )}
+          </div>
+        </div>
+      </div>
+
+      <Dialog open={askLeave} onOpenChange={setAskLeave}>
+        <DialogContent>
+          <div className="flex flex-col gap-4">
+            <DialogHeader className="gap-1 p-0">
+              <DialogTitle className="text-left">Abandonner {devis ? 'ce devis' : 'cette facture'} ?</DialogTitle>
+              <DialogDescription className="text-left">Ce que vous avez saisi ne sera pas enregistré.</DialogDescription>
+            </DialogHeader>
+            <Button size="lg" className="h-12" onClick={() => setAskLeave(false)}>
+              Continuer
+            </Button>
+            <Button variant="outline" size="lg" className="h-12" onClick={() => (setAskLeave(false), onClose())}>
+              Abandonner
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 

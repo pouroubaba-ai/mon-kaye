@@ -8,6 +8,7 @@ export interface Person {
   avatarUrl?: string
   sex?: 'h' | 'f' // Homme ou Femme : « Il me doit » / « Elle me doit »
   archived?: boolean // Rangé : plus affiché dans les listes, ses comptes restent
+  details?: string // Ses infos pour les factures (adresse, RCCM…), une par ligne
   // For partners:
   owesMe?: number // Son compte : ce qu'il a pris chez moi
   iOweHim?: number // Mon compte : ce que j'ai pris chez lui
