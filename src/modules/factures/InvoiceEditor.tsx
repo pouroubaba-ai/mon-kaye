@@ -160,11 +160,8 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
           {/* 1. Pour qui ? */}
           {step === 'qui' && (
             <div className="flex flex-1 flex-col gap-3">
-              {/* « Nouveau » devant la recherche */}
+              {/* La recherche, et « Nouveau » à sa droite */}
               <div className="flex items-center gap-1">
-                <button type="button" aria-label="Nouveau client" onClick={() => openClient()} className="flex h-[46px] shrink-0 items-center gap-1.5 rounded-xl bg-kgold px-3 text-sm font-bold text-white active:scale-[0.98] dark:text-black">
-                  <Plus className="size-[18px]" strokeWidth={2.4} /> Nouveau
-                </button>
                 <div className="relative min-w-0 flex-1">
                   <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                   <Input placeholder="Chercher un client" value={search} onChange={e => setSearch(e.target.value)} className="h-[46px] pr-10 pl-9" />
@@ -174,6 +171,9 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
                     </button>
                   )}
                 </div>
+                <button type="button" aria-label="Nouveau client" onClick={() => openClient()} className="flex h-[46px] shrink-0 items-center gap-1.5 rounded-xl bg-kgold px-3 text-sm font-bold text-white active:scale-[0.98] dark:text-black">
+                  <Plus className="size-[18px]" strokeWidth={2.4} /> Nouveau
+                </button>
               </div>
               <div className="pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
                 <div className="flex flex-col divide-y rounded-lg border">

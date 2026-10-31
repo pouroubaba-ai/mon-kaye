@@ -198,13 +198,8 @@ export const EmployeesHome: React.FC = () => {
         </div>
       )}
 
-      {/* « Nouvel employé » devant la recherche */}
+      {/* La recherche, et « Nouvel employé » à sa droite */}
       <div className="mx-4 mt-3 flex items-center gap-1">
-        {salaires && (
-          <button type="button" onClick={() => setAdding(true)} aria-label="Nouvel employé" className="flex h-[46px] shrink-0 items-center gap-1.5 rounded-xl bg-kgold px-3 text-sm font-bold text-white transition-colors active:scale-[0.98] dark:text-black">
-          <Plus className="size-[18px]" strokeWidth={2.4} /> Nouvel
-        </button>
-        )}
         <label className="flex h-[46px] min-w-0 flex-1 items-center gap-2.5 rounded-xl bg-muted px-3.5 text-muted-foreground">
           <Search className="size-[18px] shrink-0" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Chercher un employé" aria-label="Chercher un employé" className="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-muted-foreground" />
@@ -214,6 +209,11 @@ export const EmployeesHome: React.FC = () => {
             </button>
           )}
         </label>
+        {salaires && (
+          <button type="button" onClick={() => setAdding(true)} aria-label="Nouvel employé" className="flex h-[46px] shrink-0 items-center gap-1.5 rounded-xl bg-kgold px-3 text-sm font-bold text-white transition-colors active:scale-[0.98] dark:text-black">
+          <Plus className="size-[18px]" strokeWidth={2.4} /> Nouvel
+        </button>
+        )}
       </div>
 
       <div className="flex flex-1 flex-col px-3 pt-1 pb-[calc(7rem+env(safe-area-inset-bottom))]">
