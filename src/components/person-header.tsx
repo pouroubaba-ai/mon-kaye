@@ -64,7 +64,9 @@ export function PersonFormDialog({
   onOpenChange,
   onCreated,
   side,
+  noSex,
 }: {
+  noSex?: boolean // ouvert depuis Factures : souvent une entreprise, pas d'« homme ou femme »
   side?: 'lui' | 'moi' // ajouté depuis « On me doit » (client) ou « Je dois » (fournisseur) : seulement le titre
   person?: Person
   type?: 'partner' | 'employee'
@@ -146,6 +148,7 @@ export function PersonFormDialog({
             {taken && <p className="text-xs text-destructive">{taken}</p>}
           </div>
           {/* Homme ou Femme : pour écrire « Il me doit » ou « Elle me doit » (rien n'est choisi d'avance) */}
+          {!noSex && (
           <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Homme ou femme">
             {(
               [
@@ -169,6 +172,7 @@ export function PersonFormDialog({
               </button>
             ))}
           </div>
+          )}
           <div className="grid gap-2">
             <Label htmlFor="edit-phone" className="text-[13px] font-normal text-muted-foreground">Numéro</Label>
             <input id="edit-phone" type="tel" inputMode="tel" placeholder="+242 06 …" value={phone} onChange={e => setPhone(e.target.value)} className="h-12 rounded-xl border bg-background px-3.5 text-base outline-none focus-visible:border-ring" />
