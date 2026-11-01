@@ -1,5 +1,6 @@
 // ——— Calculs des factures : totaux, numéros, montant en lettres, unités ———
 import type { Invoice, InvoiceLine, InvoiceProfile } from './types'
+import type { Billing } from '@/data/mockData'
 
 export const lineTotal = (l: InvoiceLine) => Math.round(l.q * l.p)
 export function totals(inv: Pick<Invoice, 'lines'>) {
@@ -88,4 +89,11 @@ export function defaultProfile(shopName: string, year = new Date().getFullYear()
     quoteNext: 1,
     mentions: 'Facture établie en deux exemplaires originaux.\nPrière de rappeler la référence {numero} lors du règlement.',
   }
+}
+
+// Les infos d'un client, une par ligne sur la facture (chacune vient de son champ)
+export function billingLines(p: { billing?: Billing; details?: string }): string[] {
+  const b = p.billing
+  if (!b) return (p.details ?? '').split('\n').map(l => l.trim()).filter(Boolean)
+  return [b.forme, b.rccm && `RCCM : ${b.rccm}`, b.niu && `NIU : ${b.niu}`, b.adresse, b.ville, b.email].filter((x): x is string => !!x && !!x.trim())
 }

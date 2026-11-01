@@ -82,7 +82,9 @@ export function PersonFormDialog({
   const [role, setRole] = React.useState('')
   const [salary, setSalary] = React.useState('')
   const [sex, setSex] = React.useState<'h' | 'f' | undefined>()
-  const [details, setDetails] = React.useState('')
+  // Ses infos pour les factures : chacune dans son champ
+  const emptyBilling = { forme: '', rccm: '', niu: '', adresse: '', ville: '', email: '' }
+  const [billing, setBilling] = React.useState(emptyBilling)
   // Module Factures allumé : ses infos pour les factures (une fois pour toutes)
   const withDetails = !isEmployee && modules.factures
 
@@ -94,7 +96,7 @@ export function PersonFormDialog({
     setRole(person?.role ?? '')
     setSalary(person?.salary ? String(person.salary) : '')
     setSex(person?.sex)
-    setDetails(person?.details ?? '')
+    setBilling({ ...emptyBilling, ...(person?.billing ?? {}) })
   }, [open, person])
 
   const dirty =
@@ -102,7 +104,7 @@ export function PersonFormDialog({
     phone !== (person?.phone ?? '') ||
     role !== (person?.role ?? '') ||
     sex !== person?.sex ||
-    details !== (person?.details ?? '') ||
+    (withDetails && JSON.stringify({ ...emptyBilling, ...(person?.billing ?? {}) }) !== JSON.stringify(billing)) ||
     (isEmployee && salary !== (person?.salary ? String(person.salary) : ''))
   const taken = nameTaken(persons, name, person?.id)
   const valid = name.trim().length > 0 && !taken && (!isEmployee || parseInt(salary, 10) > 0)
@@ -114,7 +116,7 @@ export function PersonFormDialog({
       phone: formatPhone(phone),
       role: role.trim() || undefined,
       ...(sex ? { sex } : {}),
-      ...(withDetails ? { details: details.split('\n').map(l => l.trim()).filter(Boolean).join('\n') } : {}),
+      ...(withDetails ? { billing: Object.fromEntries(Object.entries(billing).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v)) } : {}),
       ...(isEmployee ? { salary: parseInt(salary, 10) } : {}),
     }
     if (person) {
@@ -178,16 +180,32 @@ export function PersonFormDialog({
             <input id="edit-phone" type="tel" inputMode="tel" placeholder="+242 06 …" value={phone} onChange={e => setPhone(e.target.value)} className="h-12 rounded-xl border bg-background px-3.5 text-base outline-none focus-visible:border-ring" />
           </div>
           {withDetails && (
-            <div className="grid gap-2">
-              <Label htmlFor="edit-details" className="text-[13px] font-normal text-muted-foreground">Ses infos pour les factures (facultatif)</Label>
-              <textarea
-                id="edit-details"
-                rows={3}
-                value={details}
-                onChange={e => setDetails(e.target.value)}
-                placeholder={'Une info par ligne :\nAdresse, quartier\nRCCM, NIU…'}
-                className="resize-none rounded-xl border bg-background px-3.5 py-3 text-base leading-snug outline-none focus-visible:border-ring"
-              />
+            <div className="grid gap-3">
+              <span className="text-xs tracking-[0.08em] text-muted-foreground uppercase">Pour les factures (facultatif)</span>
+              {(
+                [
+                  ['forme', 'Forme juridique', 'Ex : SARL, Ets, SA'],
+                  ['rccm', 'RCCM', 'Ex : CG-BZV-01-2011-B13-00110'],
+                  ['niu', 'NIU', ''],
+                  ['adresse', 'Adresse', 'Avenue, quartier'],
+                  ['ville', 'Ville', 'Ex : Brazzaville'],
+                  ['email', 'E-mail', ''],
+                ] as const
+              ).map(([k, label, ph]) => (
+                <div key={k} className="grid gap-2">
+                  <Label htmlFor={`bill-${k}`} className="text-[13px] font-normal text-muted-foreground">
+                    {label}
+                  </Label>
+                  <input
+                    id={`bill-${k}`}
+                    type={k === 'email' ? 'email' : 'text'}
+                    value={billing[k]}
+                    placeholder={ph}
+                    onChange={e => setBilling(b => ({ ...b, [k]: e.target.value }))}
+                    className="h-12 rounded-xl border bg-background px-3.5 text-base outline-none focus-visible:border-ring"
+                  />
+                </div>
+              ))}
             </div>
           )}
           {isEmployee && (

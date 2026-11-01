@@ -1,3 +1,13 @@
+// Infos d'un client pour les factures
+export interface Billing {
+  forme?: string // SARL, Ets…
+  rccm?: string
+  niu?: string
+  adresse?: string // avenue, quartier
+  ville?: string
+  email?: string
+}
+
 export interface Person {
   id: string
   name: string
@@ -8,7 +18,8 @@ export interface Person {
   avatarUrl?: string
   sex?: 'h' | 'f' // Homme ou Femme : « Il me doit » / « Elle me doit »
   archived?: boolean // Rangé : plus affiché dans les listes, ses comptes restent
-  details?: string // Ses infos pour les factures (adresse, RCCM…), une par ligne
+  details?: string // (ancien) ses infos pour les factures, une par ligne
+  billing?: Billing // Ses infos pour les factures : chacune dans son champ
   // For partners:
   owesMe?: number // Son compte : ce qu'il a pris chez moi
   iOweHim?: number // Mon compte : ce que j'ai pris chez lui

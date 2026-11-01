@@ -12,7 +12,7 @@ import { InvoiceEditor, type EditorStart } from './InvoiceEditor'
 import { PaperPreview, downloadInvoice, shareInvoice } from './InvoicePaper'
 import { useInvoices } from './store'
 import type { Invoice, InvoiceStatus } from './types'
-import { money, shortNumber, totals } from './view'
+import { billingLines, money, shortNumber, totals } from './view'
 
 const MOIS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.']
 const dateShort = (s: string) => {
@@ -60,7 +60,7 @@ export function InvoicesHome() {
   // Vue par client : tous les clients, avec ce qu'ils doivent (ou leurs devis en cours)
   const clients = React.useMemo(() => {
     const m = new Map<string, ClientRow>()
-    for (const p of persons) if (p.type === 'partner' && !p.archived) m.set(p.id, { k: p.id, personId: p.id, name: p.name, details: p.details, list: [] })
+    for (const p of persons) if (p.type === 'partner' && !p.archived) m.set(p.id, { k: p.id, personId: p.id, name: p.name, details: billingLines(p).join('\n'), list: [] })
     for (const i of invoices) {
       const k = clientKey(i)
       if (!m.has(k)) m.set(k, { k, name: i.client.name, details: i.client.lines.join('\n'), list: [] })
