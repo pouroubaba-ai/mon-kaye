@@ -297,27 +297,39 @@ function ClientFiche({ client, onBack, onOpen, onNew }: { client: ClientRow; onB
             <span className="text-[13px] text-muted-foreground">{nonPayees.length === 0 ? 'Aucune facture non payée' : plural(nonPayees.length, 'facture non payée', 'factures non payées')}</span>
           </div>
 
-          {/* Ses infos pour les factures */}
+          {/* Ses infos : toutes les lignes, toujours là ; une ligne vide se remplit en la touchant */}
           <div className="rounded-[18px] border bg-card">
             <div className="flex items-center justify-between px-4 pt-3 pb-1">
-              <span className="text-xs tracking-[0.08em] text-muted-foreground uppercase">Ses infos de facture</span>
+              <span className="text-xs tracking-[0.08em] text-muted-foreground uppercase">Ses infos</span>
               {person && (
                 <button type="button" onClick={() => setEditing(true)} className="h-8 rounded-full px-2 text-sm font-semibold text-kgold">
-                  {infos.length ? 'Modifier' : 'Ajouter'}
+                  Modifier
                 </button>
               )}
             </div>
-            {infos.length === 0 ? (
-              <p className="px-4 pb-3.5 text-sm text-muted-foreground">Pas encore d'infos (forme juridique, RCCM, adresse…).</p>
-            ) : (
-              <div className="flex flex-col px-4 pb-1.5">
-                {infos.map(([label, value], i) => (
-                  <div key={i} className={cn('flex items-baseline justify-between gap-3 py-2.5', i < infos.length - 1 && 'border-b')}>
-                    {label && <span className="shrink-0 text-[13px] text-muted-foreground">{label}</span>}
+            <div className="flex flex-col px-4 pb-1.5">
+              {(person
+                ? ([['Numéro', person.phone ?? ''], ...BILLING_LABELS.map(([k, label]) => [label, person.billing?.[k]?.trim() ?? ''])] as [string, string][])
+                : infos
+              ).map(([label, value], i, all) => (
+                <button
+                  key={i}
+                  type="button"
+                  disabled={!person}
+                  onClick={() => setEditing(true)}
+                  className={cn('flex items-baseline justify-between gap-3 py-2.5 text-left', i < all.length - 1 && 'border-b')}
+                >
+                  {label && <span className="shrink-0 text-[13px] text-muted-foreground">{label}</span>}
+                  {value ? (
                     <span className={cn('min-w-0 text-[15px] font-semibold break-words', label ? 'text-right' : '')}>{value}</span>
-                  </div>
-                ))}
-              </div>
+                  ) : (
+                    <span className="text-[13px] text-muted-foreground/60">—</span>
+                  )}
+                </button>
+              ))}
+            </div>
+            {person && !person.billing && person.details && (
+              <p className="px-4 pb-3 text-xs text-muted-foreground">Anciennes infos : {person.details.split('\n').join(' · ')}</p>
             )}
           </div>
 
