@@ -1,6 +1,6 @@
 // ——— Factures : l'accueil du module, et une facture ouverte ———
 import React from 'react'
-import { ChevronLeft, Download, FileText, Plus, Search, X } from 'lucide-react'
+import { ChevronLeft, Download, FileText, Pencil, Plus, Search, X } from 'lucide-react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/responsive-dialog'
 import { Button } from '@/components/ui/button'
 import { HomeTop } from '@/components/screens/HomeScreen'
@@ -230,16 +230,34 @@ function InvoiceRow({ inv, last, onOpen }: { inv: Invoice; last: boolean; onOpen
   )
 }
 
-// ——— La fiche d'un client (Factures) : ses factures, ses devis en cours (et tous ses devis) ———
+// ——— La fiche d'un client (Factures) : comme la fiche d'un client dans Kayé ———
+// En haut : son nom, son numéro, et le stylo pour changer ses infos. Puis ses infos pour les factures,
+// la grande carte « À encaisser », ses factures / ses devis en cours (et tous ses devis), et en bas Facture / Devis.
+const BILLING_LABELS = [
+  ['forme', 'Forme juridique'],
+  ['rccm', 'RCCM'],
+  ['niu', 'NIU'],
+  ['adresse', 'Adresse'],
+  ['ville', 'Ville'],
+  ['email', 'E-mail'],
+] as const
 function ClientFiche({ client, onBack, onOpen, onNew }: { client: ClientRow; onBack: () => void; onOpen: (id: string) => void; onNew: (k: 'facture' | 'devis') => void }) {
+  const { persons } = useStore()
+  const person = client.personId ? persons.find(p => p.id === client.personId) : undefined
   const [tab, setTab] = React.useState<'factures' | 'devis'>('factures')
   const [allQuotes, setAllQuotes] = React.useState(false)
+  const [editing, setEditing] = React.useState(false)
   const byDate = (a: Invoice, b: Invoice) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt)
   const factures = client.list.filter(i => i.kind === 'facture').sort((a, b) => Number(unpaid(b)) - Number(unpaid(a)) || byDate(a, b))
   const devisAll = client.list.filter(i => i.kind === 'devis').sort(byDate)
   const devisEnCours = devisAll.filter(i => i.status === 'devis')
-  const due = factures.filter(unpaid).reduce((a, i) => a + totals(i).net, 0)
+  const nonPayees = factures.filter(unpaid)
+  const due = nonPayees.reduce((a, i) => a + totals(i).net, 0)
   const list = tab === 'factures' ? factures : allQuotes ? devisAll : devisEnCours
+  // Ses infos : chacune avec son nom (les anciennes, écrites d'un bloc, ligne par ligne)
+  const infos: [string, string][] = person?.billing
+    ? BILLING_LABELS.flatMap(([k, label]) => (person.billing?.[k]?.trim() ? [[label, person.billing[k]!.trim()] as [string, string]] : []))
+    : (client.details ?? '').split('\n').filter(l => l.trim()).map(l => ['', l.trim()] as [string, string])
   // Le retour du téléphone (Échap) ferme la fiche, sauf si une fenêtre est ouverte par-dessus
   const backRef = React.useRef(onBack)
   backRef.current = onBack
@@ -252,23 +270,59 @@ function ClientFiche({ client, onBack, onOpen, onNew }: { client: ClientRow; onB
   }, [])
   return (
     <div role="dialog" aria-label={client.name} className="fixed inset-0 z-40 overflow-y-auto bg-background">
-      <div className="mx-auto flex min-h-dvh w-full max-w-xl flex-col pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
-        <header className="sticky top-0 z-10 flex h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0 items-center gap-1 border-b bg-background px-2 pt-[env(safe-area-inset-top)]">
+      <div className="mx-auto flex min-h-dvh w-full max-w-xl flex-col">
+        {/* Le haut, comme la fiche d'un client : ←, le nom et le numéro, le stylo */}
+        <header className="flex items-center gap-2 px-3 pt-[calc(0.875rem+env(safe-area-inset-top))] pb-2">
           <button type="button" aria-label="Retour" onClick={onBack} className="flex size-11 items-center justify-center rounded-full hover:bg-muted">
             <ChevronLeft className="size-6" />
           </button>
-          <h1 className="truncate text-lg font-semibold">{client.name}</h1>
-        </header>
-        <div className="flex flex-col gap-3 px-4 pt-3">
-          <div className="flex items-center justify-between gap-3 rounded-[14px] border p-3.5">
-            <span className="flex min-w-0 flex-col">
-              <span className="text-[13px] text-muted-foreground">À encaisser</span>
-              <span className={cn('text-[26px] leading-tight font-extrabold tabular-nums', due > 0 ? 'text-kgreen' : '')}>{money(due)}</span>
-              {client.details && <span className="mt-1 text-xs leading-snug whitespace-pre-line text-muted-foreground">{client.details}</span>}
-            </span>
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate text-xl font-bold">{client.name}</span>
+            {person?.phone && <span className="truncate text-[13px] text-muted-foreground">{person.phone}</span>}
           </div>
-          {/* Ses factures / ses devis */}
-          <div role="tablist" aria-label="Factures ou devis" className="grid grid-cols-2 gap-1 rounded-xl bg-muted p-1">
+          {person && (
+            <button type="button" aria-label="Modifier ses infos" onClick={() => setEditing(true)} className="flex size-11 items-center justify-center rounded-full text-muted-foreground hover:bg-muted">
+              <Pencil className="size-5" />
+            </button>
+          )}
+        </header>
+
+        <div className="flex flex-1 flex-col gap-3 px-4 pt-2 pb-[calc(7rem+env(safe-area-inset-bottom))]">
+          {/* La grande carte : ce qu'il doit sur ses factures */}
+          <div className="flex flex-col gap-1.5 rounded-[18px] border border-kgreen/30 bg-gradient-to-br from-kgreen/20 to-card to-70% p-[18px]">
+            <span className="text-sm text-muted-foreground">À encaisser</span>
+            <span className="text-[34px] leading-tight font-bold tracking-tight text-kgreen tabular-nums">
+              {money(due)} <span className="text-base font-medium text-muted-foreground">FCFA</span>
+            </span>
+            <span className="text-[13px] text-muted-foreground">{nonPayees.length === 0 ? 'Aucune facture non payée' : plural(nonPayees.length, 'facture non payée', 'factures non payées')}</span>
+          </div>
+
+          {/* Ses infos pour les factures */}
+          <div className="rounded-[18px] border bg-card">
+            <div className="flex items-center justify-between px-4 pt-3 pb-1">
+              <span className="text-xs tracking-[0.08em] text-muted-foreground uppercase">Ses infos de facture</span>
+              {person && (
+                <button type="button" onClick={() => setEditing(true)} className="h-8 rounded-full px-2 text-sm font-semibold text-kgold">
+                  {infos.length ? 'Modifier' : 'Ajouter'}
+                </button>
+              )}
+            </div>
+            {infos.length === 0 ? (
+              <p className="px-4 pb-3.5 text-sm text-muted-foreground">Pas encore d'infos (forme juridique, RCCM, adresse…).</p>
+            ) : (
+              <div className="flex flex-col px-4 pb-1.5">
+                {infos.map(([label, value], i) => (
+                  <div key={i} className={cn('flex items-baseline justify-between gap-3 py-2.5', i < infos.length - 1 && 'border-b')}>
+                    {label && <span className="shrink-0 text-[13px] text-muted-foreground">{label}</span>}
+                    <span className={cn('min-w-0 text-[15px] font-semibold break-words', label ? 'text-right' : '')}>{value}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Ses factures / ses devis en cours */}
+          <div role="tablist" aria-label="Factures ou devis" className="mt-1 grid grid-cols-2 gap-1 rounded-xl bg-muted p-1">
             {(
               [
                 ['factures', `Factures (${factures.length})`],
@@ -280,20 +334,21 @@ function ClientFiche({ client, onBack, onOpen, onNew }: { client: ClientRow; onB
               </button>
             ))}
           </div>
+
+          <div className="flex flex-col">
+            {list.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">{tab === 'factures' ? 'Aucune facture pour ce client.' : allQuotes ? 'Aucun devis pour ce client.' : 'Aucun devis en cours.'}</p>}
+            {list.map((inv, i) => (
+              <DocLine key={inv.id} inv={inv} last={i === list.length - 1} onOpen={() => onOpen(inv.id)} />
+            ))}
+            {tab === 'devis' && devisAll.length > devisEnCours.length && (
+              <button type="button" onClick={() => setAllQuotes(a => !a)} className="mt-2 flex h-11 items-center justify-center rounded-xl border text-sm font-semibold text-muted-foreground">
+                {allQuotes ? 'Seulement les devis en cours' : `Voir tous ses devis (${devisAll.length})`}
+              </button>
+            )}
+          </div>
         </div>
-        <div className="px-3 pt-1">
-          {list.length === 0 ? (
-            <p className="px-4 py-8 text-center text-sm text-muted-foreground">{tab === 'factures' ? 'Aucune facture pour ce client.' : allQuotes ? 'Aucun devis pour ce client.' : 'Aucun devis en cours.'}</p>
-          ) : (
-            list.map((inv, i) => <InvoiceRow key={inv.id} inv={inv} last={i === list.length - 1} onOpen={() => onOpen(inv.id)} />)
-          )}
-          {tab === 'devis' && devisAll.length > devisEnCours.length && (
-            <button type="button" onClick={() => setAllQuotes(a => !a)} className="mt-2 flex h-11 w-full items-center justify-center rounded-xl border text-sm font-semibold text-muted-foreground">
-              {allQuotes ? 'Seulement les devis en cours' : `Voir tous ses devis (${devisAll.length})`}
-            </button>
-          )}
-        </div>
-        {client.personId && (
+
+        {person && (
           <div className="fixed inset-x-0 bottom-0 z-30 mx-auto grid w-full max-w-xl grid-cols-2 gap-3 border-t bg-background px-4 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
             <button type="button" onClick={() => onNew('facture')} className="flex h-[60px] items-center justify-center gap-2 rounded-2xl bg-kgreen-solid text-lg font-bold text-white active:scale-[0.98]">
               <Plus className="size-[22px]" strokeWidth={2.6} /> Facture
@@ -304,7 +359,35 @@ function ClientFiche({ client, onBack, onOpen, onNew }: { client: ClientRow; onB
           </div>
         )}
       </div>
+      {person && <PersonFormDialog person={person} noSex open={editing} onOpenChange={setEditing} />}
     </div>
+  )
+}
+
+// Une ligne de la fiche : comme une opération (icône, ce que c'est, quand, montant)
+function DocLine({ inv, last, onOpen }: { inv: Invoice; last: boolean; onOpen: () => void }) {
+  const devis = inv.kind === 'devis'
+  const open = unpaid(inv) || inv.status === 'devis'
+  const what = inv.objet || inv.lines.map(l => l.d).join(', ')
+  return (
+    <button type="button" onClick={onOpen} className={cn('flex items-center gap-3 px-1 py-3 text-left', !last && 'border-b border-border', inv.status === 'refuse' && 'opacity-50')}>
+      <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-[10px]', devis ? 'bg-kgold/15 text-kgold' : open ? 'bg-kgreen/15 text-kgreen' : 'bg-muted text-muted-foreground')}>
+        <FileText className="size-[18px]" />
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="flex items-center gap-1 text-[15px] font-semibold">
+          <span className="truncate">
+            {devis ? 'Devis' : 'Facture'} N° {shortNumber(inv.number)}
+          </span>
+          <Chip s={inv.status} />
+        </span>
+        <span className="truncate text-xs text-muted-foreground">
+          {dateShort(inv.date)}
+          {what ? ` · ${what}` : ''}
+        </span>
+      </span>
+      <span className={cn('shrink-0 text-[15px] font-bold tabular-nums', open ? (devis ? 'text-kgold' : 'text-kgreen') : 'text-muted-foreground', inv.status === 'refuse' && 'line-through')}>{money(totals(inv).net)}</span>
+    </button>
   )
 }
 
