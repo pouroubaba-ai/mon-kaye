@@ -54,19 +54,19 @@ const useLeft = () => {
 const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : one}`
 
 const clientKey = clientKeyOf
-type View = 'facture' | 'client'
 type ClientRow = { k: string; personId?: string; name: string; details?: string; list: Invoice[]; pays: InvoicePayment[]; archived?: boolean }
 
+// ——— L'écran Factures, comme l'écran Clients ———
+// Une bascule « À encaisser / Devis en attente » (et l'œil), la recherche, puis directement :
+// - À encaisser : les clients qui doivent (du plus gros au plus petit) ; à jour et rangés repliés en bas ;
+// - Devis en attente : les devis en cours.
+// Toutes les factures (historique, période, non soldées…) : le bouton à côté de la recherche.
 export function InvoicesHome() {
-  const { invoices, payments, profileSet } = useInvoices()
-  const { navigate, setSettingsView, persons } = useStore()
-  const { left, state, paidOf } = useLeft()
+  const { invoices, payments } = useInvoices()
+  const { persons } = useStore()
+  const { left, paidOf } = useLeft()
   const [tab, setTab] = React.useState<'factures' | 'devis'>('factures')
   const [detail, setDetail] = React.useState(false) // l'œil : facturé / versé / reste
-  const [view, setView] = React.useState<View>('facture')
-  // Vue par facture : ce qui reste à encaisser (ou les devis en attente), ou toutes, de la plus récente à la plus ancienne
-  const [scope, setScope] = React.useState<'open' | 'all'>('open')
-  const [range, setRange] = React.useState<DateRange>(ALL_TIME)
   const [search, setSearch] = React.useState('')
   const [editor, setEditor] = React.useState<EditorStart | null>(null)
   const [openId, setOpenId] = React.useState<string | null>(null)
@@ -74,21 +74,17 @@ export function InvoicesHome() {
   const [adding, setAdding] = React.useState(false)
   const [paying, setPaying] = React.useState<PayTarget | 'choose' | null>(null)
   const [payOpen, setPayOpen] = React.useState<string | null>(null)
+  const [all, setAll] = React.useState(false) // « Toutes les factures »
+  const [showZero, setShowZero] = React.useState(false)
+  const [showArchived, setShowArchived] = React.useState(false)
 
-  // La période (calendrier) compte aussi pour les deux cartes du haut et pour l'œil
-  const inPeriod = (i: Invoice) => inRange(i.date.split('-').reverse().join('/'), range)
-  const factures = invoices.filter(i => i.kind === 'facture' && !i.cancelled && inPeriod(i))
+  const factures = invoices.filter(i => i.kind === 'facture' && !i.cancelled)
   const toCash = factures.filter(i => left(i) > 0)
-  const pending = invoices.filter(i => i.kind === 'devis' && i.status === 'devis' && inPeriod(i))
+  const pending = invoices.filter(i => i.kind === 'devis' && i.status === 'devis')
   const sumLeft = (l: Invoice[]) => l.reduce((a, i) => a + left(i), 0)
-  const sumNet = (l: Invoice[]) => l.reduce((a, i) => a + totals(i).net, 0)
   const q = plain(search.trim())
-  // Vue par facture : les factures pas encore soldées (ou les devis en cours)
-  const base = scope === 'all' ? invoices.filter(i => i.kind === (tab === 'devis' ? 'devis' : 'facture')) : tab === 'devis' ? pending : toCash
-  const list = base
-    .filter(inPeriod)
-    .filter(i => !q || plain(`${i.client.name} ${i.number} ${i.objet ?? ''}`).includes(q))
-    .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt))
+  const searching = q !== ''
+
   // Les clients : ceux de Kayé, et ceux des factures (avec leurs factures et leurs versements)
   const clients = React.useMemo(() => {
     const m = new Map<string, ClientRow>()
@@ -101,28 +97,29 @@ export function InvoicesHome() {
     for (const pay of payments) m.get(pay.clientKey)?.pays.push(pay)
     return [...m.values()]
   }, [persons, invoices, payments])
-  const isShown = (i: Invoice) => inPeriod(i) && (tab === 'devis' ? i.kind === 'devis' && i.status === 'devis' : left(i) > 0)
-  const amountOf = (i: Invoice) => (tab === 'devis' ? totals(i).net : left(i))
   const rows = clients
-    .filter(c => !q || plain(c.name).includes(q))
     .map(c => {
-      const l = c.list.filter(isShown)
-      return { ...c, due: l.reduce((a, i) => a + amountOf(i), 0), n: l.length }
+      const open = c.list.filter(i => left(i) > 0)
+      return { ...c, due: open.reduce((a, i) => a + left(i), 0), n: open.length }
     })
     .sort((a, b) => b.due - a.due || a.name.localeCompare(b.name, 'fr'))
-  // Comme l'écran Clients : les rangés à part, repliés en bas (en cherchant, tout le monde)
-  const clientRows = q ? rows : rows.filter(c => !c.archived)
-  const archivedRows = q ? [] : rows.filter(c => c.archived)
-  const [showArchived, setShowArchived] = React.useState(false)
+  const found = searching ? rows.filter(c => plain(c.name).includes(q)) : []
+  const owing = rows.filter(c => !c.archived && c.due > 0)
+  const zero = rows.filter(c => !c.archived && c.due === 0)
+  const archived = rows.filter(c => c.archived)
+  const quotes = pending
+    .filter(i => !searching || plain(`${i.client.name} ${i.number} ${i.objet ?? ''}`).includes(q))
+    .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt))
   const opened = openId ? invoices.find(i => i.id === openId) ?? null : null
   const client = clientOpen ? clients.find(c => c.k === clientOpen) ?? null : null
-  // Pour l'œil : facturé, versé, reste (et combien de clients derrière)
-  const facturé = sumNet(factures)
+
+  // L'œil : facturé, versé, reste (et combien de clients derrière)
+  const facturé = factures.reduce((a, i) => a + totals(i).net, 0)
   const versé = factures.reduce((a, i) => a + paidOf(i), 0)
-  const nClientsDue = new Set(toCash.map(clientKey)).size
-  const nClientsPaid = new Set(factures.filter(i => paidOf(i) > 0).map(clientKey)).size
-  const nClientsAll = new Set(factures.map(clientKey)).size
   const who = (n: number) => plural(n, 'client', 'clients')
+  const nAll = new Set(factures.map(clientKey)).size
+  const nPaid = new Set(factures.filter(i => paidOf(i) > 0).map(clientKey)).size
+  const nDue = new Set(toCash.map(clientKey)).size
 
   const clientRow = (c: (typeof rows)[number], last: boolean) => (
     <button key={c.k} type="button" onClick={() => setClientOpen(c.k)} className={cn('flex w-full items-center gap-3 px-2 py-3 text-left transition-colors hover:bg-muted/40', !last && 'border-b')}>
@@ -131,28 +128,35 @@ export function InvoicesHome() {
         <span className="truncate text-base font-semibold">{c.name}</span>
         <span className="truncate text-[13px] text-muted-foreground">
           {c.archived && 'Rangé · '}
-          {c.n === 0 ? (tab === 'devis' ? 'Aucun devis en cours' : 'Rien à encaisser') : tab === 'devis' ? plural(c.n, 'devis en cours', 'devis en cours') : plural(c.n, 'facture non payée', 'factures non payées')}
+          {c.n === 0 ? 'À jour' : `${plural(c.n, 'facture', 'factures')}${c.list.some(i => left(i) > 0 && paidOf(i) > 0) ? ' · payée en partie' : ' non payée'}${c.n > 1 && !c.list.some(i => left(i) > 0 && paidOf(i) > 0) ? 's' : ''}`}
         </span>
       </span>
-      <span className={cn('shrink-0 text-base tabular-nums', c.due > 0 ? cn('font-bold', tab === 'devis' ? 'text-kgold' : 'text-kgreen') : 'font-semibold text-muted-foreground')}>{money(c.due)}</span>
+      {c.due > 0 ? <span className="shrink-0 text-base font-bold text-kgreen tabular-nums">{money(c.due)}</span> : <span className="shrink-0 text-sm text-muted-foreground">À jour</span>}
     </button>
   )
-
-  const goProfile = () => {
-    navigate('reglages')
-    setSettingsView('factures')
-  }
+  const quoteRow = (inv: Invoice, last: boolean) => (
+    <button key={inv.id} type="button" onClick={() => setOpenId(inv.id)} className={cn('flex w-full items-center gap-3 px-2 py-3 text-left transition-colors hover:bg-muted/40', !last && 'border-b')}>
+      <span className="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground">{initials(inv.client.name)}</span>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate text-base font-semibold">{inv.client.name}</span>
+        <span className="truncate text-[13px] text-muted-foreground">
+          Devis N° {shortNumber(inv.number)} · {dateShort(inv.date)}
+        </span>
+      </span>
+      <span className="shrink-0 text-base font-bold text-kgold tabular-nums">{money(totals(inv).net)}</span>
+    </button>
+  )
 
   return (
     <div className="flex min-h-dvh flex-col pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
       <HomeTop />
 
-      {/* Les deux onglets, comme « On me doit / Je dois » : le montant est dans l'onglet ; toucher encore : l'œil */}
+      {/* La bascule, comme « On me doit / Je dois » : le montant est dans l'onglet ; toucher encore : l'œil */}
       <nav aria-label="Factures ou devis" className={cn('grid grid-cols-2', !detail && 'border-b')}>
         {(
           [
-            ['factures', 'À encaisser', sumLeft(toCash), plural(toCash.length, 'facture non payée', 'factures non payées'), true],
-            ['devis', 'Devis en attente', sumNet(pending), plural(pending.length, 'devis', 'devis'), false],
+            ['factures', 'À encaisser', sumLeft(toCash), who(nDue), true],
+            ['devis', 'Devis en attente', pending.reduce((a, i) => a + totals(i).net, 0), plural(pending.length, 'devis', 'devis'), false],
           ] as const
         ).map(([t, label, v, c, green]) => {
           const on = tab === t
@@ -161,7 +165,7 @@ export function InvoicesHome() {
               key={t}
               type="button"
               aria-pressed={on}
-              onClick={() => (on ? green && setDetail(d => !d) : (setTab(t), setDetail(false)))}
+              onClick={() => (on ? green && setDetail(d => !d) : (setTab(t), setDetail(false), setSearch('')))}
               className={cn('flex flex-col items-center gap-0.5 border-b-[3px] px-2 py-3 transition-colors', on ? (green ? 'border-kgreen bg-kgreen/10' : 'border-kgold bg-kgold/10') : 'border-transparent opacity-75')}
             >
               <span className={cn('text-sm font-semibold', on ? (green ? 'text-kgreen' : 'text-kgold') : 'text-muted-foreground')}>{label}</span>
@@ -181,43 +185,29 @@ export function InvoicesHome() {
           <div className="flex flex-col items-center gap-0.5">
             <span className="text-xs text-muted-foreground">Facturé</span>
             <span className="text-base font-bold tabular-nums">{money(facturé)}</span>
-            <span className="text-[11px] text-muted-foreground">{who(nClientsAll)}</span>
+            <span className="text-[11px] text-muted-foreground">{who(nAll)}</span>
           </div>
           <div className="flex flex-col items-center gap-0.5 border-x">
             <span className="text-xs text-muted-foreground">Versé</span>
             <span className="text-base font-bold text-kblue tabular-nums">{money(versé)}</span>
-            <span className="text-[11px] text-muted-foreground">{who(nClientsPaid)}</span>
+            <span className="text-[11px] text-muted-foreground">{who(nPaid)}</span>
           </div>
           <div className="flex flex-col items-center gap-0.5">
             <span className="text-xs text-muted-foreground">Reste</span>
             <span className="text-base font-bold text-kgreen tabular-nums">{money(sumLeft(toCash))}</span>
-            <span className="text-[11px] text-muted-foreground">{who(nClientsDue)}</span>
+            <span className="text-[11px] text-muted-foreground">{who(nDue)}</span>
           </div>
         </div>
       )}
 
-      {/* Les deux vues : par facture, par client */}
-      <div role="tablist" aria-label="Vue" className="mx-4 mt-3 grid grid-cols-2 gap-1 rounded-xl bg-muted p-1">
-        {(
-          [
-            ['facture', tab === 'devis' ? 'Par devis' : 'Par facture'],
-            ['client', 'Par client'],
-          ] as const
-        ).map(([v, label]) => (
-          <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => setView(v)} className={cn('h-[38px] rounded-[9px] text-sm transition-colors', view === v ? 'bg-foreground font-bold text-background shadow-sm' : 'font-semibold text-muted-foreground')}>
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* La recherche, puis « Nouveau » (nouveau client) juste après */}
+      {/* La recherche, « Toutes les factures », et « Nouveau » (nouveau client) */}
       <div className="mx-4 mt-3 flex items-center gap-1">
         <label className="flex h-[46px] min-w-0 flex-1 items-center gap-2.5 rounded-xl bg-muted px-3.5 text-muted-foreground">
           <Search className="size-[18px] shrink-0" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder={view === 'client' ? 'Chercher un client' : 'Chercher'}
+            placeholder="Chercher"
             aria-label="Chercher"
             className="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-muted-foreground"
           />
@@ -227,85 +217,48 @@ export function InvoicesHome() {
             </button>
           )}
         </label>
-        {!isFiltered(range) && <DateFilter iconOnly value={range} onChange={setRange} align="end" />}
+        <button type="button" aria-label="Toutes les factures" onClick={() => setAll(true)} className="flex size-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted">
+          <FileText className="size-[22px]" />
+        </button>
         <button type="button" aria-label="Nouveau client" onClick={() => setAdding(true)} className="flex h-[46px] shrink-0 items-center gap-1.5 rounded-xl bg-kgold px-3 text-sm font-bold text-white active:scale-[0.98] dark:text-black">
           <Plus className="size-[18px]" strokeWidth={2.4} /> Nouveau
         </button>
       </div>
 
-      {/* Vue par facture : ce qui reste (ou en attente), ou tout, du plus récent au plus ancien ; et la période */}
-      {view === 'facture' && (
-        <div className="mx-4 mt-3 flex items-center justify-between gap-2">
-          <div role="tablist" aria-label="Quelles factures" className="flex gap-1.5">
-            {(
-              [
-                ['open', tab === 'devis' ? 'En attente' : 'À encaisser'],
-                ['all', tab === 'devis' ? 'Tous' : 'Toutes'],
-              ] as const
-            ).map(([v, label]) => (
-              <button key={v} type="button" role="tab" aria-selected={scope === v} onClick={() => setScope(v)} className={cn('h-9 rounded-full px-4 text-sm', scope === v ? 'bg-foreground font-bold text-background' : 'border font-semibold text-muted-foreground')}>
-                {label}
-              </button>
-            ))}
-          </div>
-          {isFiltered(range) && <DateFilter value={range} onChange={setRange} align="end" />}
-        </div>
-      )}
-      {view === 'client' && isFiltered(range) && (
-        <div className="mx-4 mt-3 flex justify-end">
-          <DateFilter value={range} onChange={setRange} align="end" />
-        </div>
-      )}
-      {view === 'facture' && (isFiltered(range) || scope === 'all') && list.length > 0 && (
-        <p className="mx-5 mt-2 text-[13px] text-muted-foreground">
-          {plural(list.length, tab === 'devis' ? 'devis' : 'facture', tab === 'devis' ? 'devis' : 'factures')} · {money(list.reduce((a, i) => a + totals(i).net, 0))} FCFA
-        </p>
-      )}
-
       <div className="px-3 pt-1">
-        {view === 'facture' ? (
-          list.length === 0 ? (
-            <p className="px-4 py-10 text-center text-sm text-muted-foreground">{q ? 'Rien trouvé.' : isFiltered(range) ? 'Rien sur cette période.' : scope === 'all' ? (tab === 'devis' ? 'Aucun devis.' : 'Aucune facture.') : tab === 'devis' ? 'Aucun devis en attente.' : 'Aucune facture à encaisser.'}</p>
+        {tab === 'devis' ? (
+          quotes.length === 0 ? (
+            <p className="px-4 py-10 text-center text-sm text-muted-foreground">{searching ? 'Rien trouvé.' : 'Aucun devis en attente.'}</p>
           ) : (
-            list.map((inv, i) => (
-              <button key={inv.id} type="button" onClick={() => setOpenId(inv.id)} className={cn('flex w-full items-center gap-3 px-2 py-3 text-left transition-colors hover:bg-muted/40', i < list.length - 1 && 'border-b')}>
-                <span className="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground">{initials(inv.client.name)}</span>
-                <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate text-base font-semibold">{inv.client.name}</span>
-                  <span className="truncate text-[13px] text-muted-foreground">
-                    N° {inv.kind === 'devis' ? 'D-' : ''}
-                    {shortNumber(inv.number)} · {dateShort(inv.date)}
-                    <Chip s={state(inv)} />
-                  </span>
-                </span>
-                {scope === 'open' ? (
-                  <span className={cn('shrink-0 text-base font-bold tabular-nums', inv.kind === 'devis' ? 'text-kgold' : 'text-kgreen')}>{money(amountOf(inv))}</span>
-                ) : (
-                  <span
-                    className={cn(
-                      'shrink-0 text-base tabular-nums',
-                      (inv.kind === 'devis' ? inv.status === 'devis' : left(inv) > 0) ? cn('font-bold', inv.kind === 'devis' ? 'text-kgold' : 'text-kgreen') : 'font-semibold text-muted-foreground',
-                      (inv.status === 'refuse' || inv.cancelled) && 'line-through'
-                    )}
-                  >
-                    {money(totals(inv).net)}
-                  </span>
-                )}
-              </button>
-            ))
+            quotes.map((inv, i) => quoteRow(inv, i === quotes.length - 1))
+          )
+        ) : searching ? (
+          found.length === 0 ? (
+            <p className="px-4 py-10 text-center text-sm text-muted-foreground">Personne ne s’appelle comme ça.</p>
+          ) : (
+            found.map((c, i) => clientRow(c, i === found.length - 1))
           )
         ) : (
           <>
-            {clientRows.length === 0 && <p className="px-4 py-10 text-center text-sm text-muted-foreground">{q ? 'Personne ne s’appelle comme ça.' : 'Pas encore de client : touchez « Nouveau ».'}</p>}
-            {clientRows.map((c, i) => clientRow(c, i === clientRows.length - 1))}
-            {/* Les clients rangés : repliés, comme sur l'écran Clients */}
-            {archivedRows.length > 0 && (
+            {owing.length === 0 && <p className="px-4 py-8 text-center text-sm text-muted-foreground">Personne ne doit rien sur ses factures.</p>}
+            {owing.map((c, i) => clientRow(c, i === owing.length - 1))}
+            {/* Ceux qui sont à jour, puis ceux qu'on a rangés : repliés, comme sur l'écran Clients */}
+            {zero.length > 0 && (
+              <div className="mt-2">
+                <button type="button" onClick={() => setShowZero(o => !o)} className="flex h-12 w-full items-center justify-between px-2 text-sm font-semibold text-muted-foreground">
+                  À jour ({zero.length})
+                  {showZero ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+                </button>
+                {showZero && <div className="animate-in fade-in duration-200">{zero.map((c, i) => clientRow(c, i === zero.length - 1))}</div>}
+              </div>
+            )}
+            {archived.length > 0 && (
               <div className="mt-2">
                 <button type="button" onClick={() => setShowArchived(o => !o)} className="flex h-12 w-full items-center justify-between px-2 text-sm font-semibold text-muted-foreground">
-                  Rangés ({archivedRows.length})
+                  Rangés ({archived.length})
                   {showArchived ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
                 </button>
-                {showArchived && <div className="animate-in fade-in duration-200">{archivedRows.map((c, i) => clientRow(c, i === archivedRows.length - 1))}</div>}
+                {showArchived && <div className="animate-in fade-in duration-200">{archived.map((c, i) => clientRow(c, i === archived.length - 1))}</div>}
               </div>
             )}
           </>
@@ -330,6 +283,7 @@ export function InvoicesHome() {
         )}
       </div>
 
+      {all && <AllInvoices onBack={() => setAll(false)} onOpen={id => setOpenId(id)} />}
       {client && (
         <ClientFiche
           client={client}
@@ -341,7 +295,7 @@ export function InvoicesHome() {
         />
       )}
 
-      <PersonFormDialog type="partner" side="lui" noSex open={adding} onOpenChange={setAdding} onCreated={id => (setView('client'), setClientOpen(id))} />
+      <PersonFormDialog type="partner" side="lui" noSex open={adding} onOpenChange={setAdding} onCreated={id => setClientOpen(id)} />
       <PaymentDialog target={paying} onClose={() => setPaying(null)} />
       <PaymentDetail id={payOpen} onClose={() => setPayOpen(null)} />
       <InvoiceSheet inv={opened} onClose={() => setOpenId(null)} onEdit={s => (setOpenId(null), setEditor(s))} />
@@ -353,6 +307,121 @@ export function InvoicesHome() {
           setOpenId(inv.id) // elle s'ouvre : l'envoyer, ou dire s'il a payé
         }}
       />
+    </div>
+  )
+}
+
+// ——— Toutes les factures : l'historique, de la plus récente à la plus ancienne ———
+// Factures ou devis ; toutes, non soldées ou soldées ; une période (calendrier) ; le total de ce qui est affiché.
+function AllInvoices({ onBack, onOpen }: { onBack: () => void; onOpen: (id: string) => void }) {
+  const { invoices } = useInvoices()
+  const { left, state } = useLeft()
+  const [kind, setKind] = React.useState<'facture' | 'devis'>('facture')
+  const [which, setWhich] = React.useState<'toutes' | 'ouvertes' | 'soldees'>('toutes')
+  const [range, setRange] = React.useState<DateRange>(ALL_TIME)
+  const [search, setSearch] = React.useState('')
+  const q = plain(search.trim())
+  const open = (i: Invoice) => (i.kind === 'devis' ? i.status === 'devis' : left(i) > 0)
+  const list = invoices
+    .filter(i => i.kind === kind)
+    .filter(i => (which === 'toutes' ? true : which === 'ouvertes' ? open(i) : !open(i) && !i.cancelled && i.status !== 'refuse'))
+    .filter(i => inRange(i.date.split('-').reverse().join('/'), range))
+    .filter(i => !q || plain(`${i.client.name} ${i.number} ${i.objet ?? ''}`).includes(q))
+    .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt))
+  const live = list.filter(i => !i.cancelled && i.status !== 'refuse')
+  const total = live.reduce((a, i) => a + (which === 'ouvertes' && kind === 'facture' ? left(i) : totals(i).net), 0)
+  const words = kind === 'devis' ? (['Tous', 'En attente', 'Acceptés / refusés'] as const) : (['Toutes', 'Non soldées', 'Soldées'] as const)
+
+  // Le retour du téléphone (Échap) ferme la page, sauf si une fenêtre est ouverte par-dessus
+  const backRef = React.useRef(onBack)
+  backRef.current = onBack
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && document.querySelectorAll('[role="dialog"]').length <= 1) backRef.current()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
+
+  return (
+    <div role="dialog" aria-label="Toutes les factures" className="fixed inset-0 z-40 overflow-y-auto bg-background">
+      <div className="mx-auto flex min-h-dvh w-full max-w-xl flex-col pb-[calc(2rem+env(safe-area-inset-bottom))]">
+        <header className="flex items-center gap-2 px-3 pt-[calc(0.875rem+env(safe-area-inset-top))] pb-2">
+          <button type="button" aria-label="Retour" onClick={onBack} className="flex size-11 items-center justify-center rounded-full hover:bg-muted">
+            <ChevronLeft className="size-6" />
+          </button>
+          <span className="min-w-0 flex-1 truncate text-xl font-bold">Toutes les factures</span>
+          {!isFiltered(range) && <DateFilter iconOnly value={range} onChange={setRange} align="end" />}
+        </header>
+
+        <div className="flex flex-col gap-3 px-4 pt-1">
+          {/* Factures ou devis, et lesquelles */}
+          <div className="flex items-center justify-between gap-2">
+            <div role="tablist" aria-label="Factures ou devis" className="flex gap-1.5">
+              {(
+                [
+                  ['facture', 'Factures'],
+                  ['devis', 'Devis'],
+                ] as const
+              ).map(([v, label]) => (
+                <button key={v} type="button" role="tab" aria-selected={kind === v} onClick={() => setKind(v)} className={cn('h-9 rounded-full px-4 text-sm', kind === v ? 'bg-foreground font-bold text-background' : 'border font-semibold text-muted-foreground')}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <Select value={which} onValueChange={v => setWhich(v as typeof which)}>
+              <SelectTrigger aria-label="Lesquelles" className="h-9 w-auto gap-1.5 rounded-[10px] px-3 text-[13px] font-semibold">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent align="end">
+                <SelectItem value="toutes">{words[0]}</SelectItem>
+                <SelectItem value="ouvertes">{words[1]}</SelectItem>
+                <SelectItem value="soldees">{words[2]}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {isFiltered(range) && <DateFilter value={range} onChange={setRange} />}
+
+          <label className="flex h-[46px] items-center gap-2.5 rounded-xl bg-muted px-3.5 text-muted-foreground">
+            <Search className="size-[18px] shrink-0" />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Chercher une facture, un client" aria-label="Chercher" className="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-muted-foreground" />
+            {search && (
+              <button type="button" aria-label="Effacer la recherche" onClick={() => setSearch('')} className="flex size-7 items-center justify-center rounded-full hover:bg-background">
+                <X className="size-4" />
+              </button>
+            )}
+          </label>
+
+          {list.length > 0 && (
+            <p className="px-1 text-[13px] text-muted-foreground">
+              {plural(list.length, kind === 'devis' ? 'devis' : 'facture', kind === 'devis' ? 'devis' : 'factures')} · {which === 'ouvertes' && kind === 'facture' ? 'reste ' : ''}
+              {money(total)} FCFA
+            </p>
+          )}
+        </div>
+
+        <div className="px-3 pt-1">
+          {list.length === 0 ? (
+            <p className="px-4 py-10 text-center text-sm text-muted-foreground">{q ? 'Rien trouvé.' : isFiltered(range) ? 'Rien sur cette période.' : kind === 'devis' ? 'Aucun devis.' : 'Aucune facture.'}</p>
+          ) : (
+            list.map((inv, i) => (
+              <button key={inv.id} type="button" onClick={() => onOpen(inv.id)} className={cn('flex w-full items-center gap-3 px-2 py-3 text-left transition-colors hover:bg-muted/40', i < list.length - 1 && 'border-b', (inv.cancelled || inv.status === 'refuse') && 'opacity-50')}>
+                <span className="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground">{initials(inv.client.name)}</span>
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-base font-semibold">{inv.client.name}</span>
+                  <span className="truncate text-[13px] text-muted-foreground">
+                    N° {shortNumber(inv.number)} · {dateShort(inv.date)}
+                    <Chip s={state(inv)} />
+                  </span>
+                </span>
+                <span className={cn('shrink-0 text-base tabular-nums', open(inv) ? cn('font-bold', kind === 'devis' ? 'text-kgold' : 'text-kgreen') : 'font-semibold text-muted-foreground', (inv.cancelled || inv.status === 'refuse') && 'line-through')}>
+                  {money(which === 'ouvertes' && kind === 'facture' ? left(inv) : totals(inv).net)}
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+      </div>
     </div>
   )
 }
