@@ -9,6 +9,8 @@ import { PersonMenu } from '@/components/person-menu'
 import { DetailBand } from '@/components/detail-band'
 import { Banknotes } from '@/components/armed'
 import { PaymentDialog, type PayTarget } from './PaymentDialog'
+import { DateFilter } from '@/components/date-filter'
+import { ALL_TIME, inRange, isFiltered, type DateRange } from '@/lib/date-range'
 import { useStore } from '@/data/store'
 import { cn, plain } from '@/lib/utils'
 import { initials } from '@/modules/personnes/view'
@@ -60,6 +62,9 @@ export function InvoicesHome() {
   const [tab, setTab] = React.useState<'factures' | 'devis'>('factures')
   const [detail, setDetail] = React.useState(false) // l'œil : facturé / versé / reste
   const [view, setView] = React.useState<View>('facture')
+  // Vue par facture : ce qui reste à encaisser (ou les devis en attente), ou toutes, de la plus récente à la plus ancienne
+  const [scope, setScope] = React.useState<'open' | 'all'>('open')
+  const [range, setRange] = React.useState<DateRange>(ALL_TIME)
   const [search, setSearch] = React.useState('')
   const [editor, setEditor] = React.useState<EditorStart | null>(null)
   const [openId, setOpenId] = React.useState<string | null>(null)
@@ -74,7 +79,10 @@ export function InvoicesHome() {
   const sumNet = (l: Invoice[]) => l.reduce((a, i) => a + totals(i).net, 0)
   const q = plain(search.trim())
   // Vue par facture : les factures pas encore soldées (ou les devis en cours)
-  const list = (tab === 'devis' ? pending : toCash)
+  const base = scope === 'all' ? invoices.filter(i => i.kind === (tab === 'devis' ? 'devis' : 'facture')) : tab === 'devis' ? pending : toCash
+  const inPeriod = (i: Invoice) => inRange(i.date.split('-').reverse().join('/'), range)
+  const list = base
+    .filter(inPeriod)
     .filter(i => !q || plain(`${i.client.name} ${i.number} ${i.objet ?? ''}`).includes(q))
     .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt))
   // Les clients : ceux de Kayé, et ceux des factures (avec leurs factures et leurs versements)
@@ -226,15 +234,40 @@ export function InvoicesHome() {
             </button>
           )}
         </label>
+        {view === 'facture' && !isFiltered(range) && <DateFilter iconOnly value={range} onChange={setRange} align="end" />}
         <button type="button" aria-label="Nouveau client" onClick={() => setAdding(true)} className="flex h-[46px] shrink-0 items-center gap-1.5 rounded-xl bg-kgold px-3 text-sm font-bold text-white active:scale-[0.98] dark:text-black">
           <Plus className="size-[18px]" strokeWidth={2.4} /> Nouveau
         </button>
       </div>
 
+      {/* Vue par facture : ce qui reste (ou en attente), ou tout, du plus récent au plus ancien ; et la période */}
+      {view === 'facture' && (
+        <div className="mx-4 mt-3 flex items-center justify-between gap-2">
+          <div role="tablist" aria-label="Quelles factures" className="flex gap-1.5">
+            {(
+              [
+                ['open', tab === 'devis' ? 'En attente' : 'À encaisser'],
+                ['all', tab === 'devis' ? 'Tous' : 'Toutes'],
+              ] as const
+            ).map(([v, label]) => (
+              <button key={v} type="button" role="tab" aria-selected={scope === v} onClick={() => setScope(v)} className={cn('h-9 rounded-full px-4 text-sm', scope === v ? 'bg-foreground font-bold text-background' : 'border font-semibold text-muted-foreground')}>
+                {label}
+              </button>
+            ))}
+          </div>
+          {isFiltered(range) && <DateFilter value={range} onChange={setRange} align="end" />}
+        </div>
+      )}
+      {view === 'facture' && (isFiltered(range) || scope === 'all') && list.length > 0 && (
+        <p className="mx-5 mt-2 text-[13px] text-muted-foreground">
+          {plural(list.length, tab === 'devis' ? 'devis' : 'facture', tab === 'devis' ? 'devis' : 'factures')} · {money(list.reduce((a, i) => a + totals(i).net, 0))} FCFA
+        </p>
+      )}
+
       <div className="px-3 pt-1">
         {view === 'facture' ? (
           list.length === 0 ? (
-            <p className="px-4 py-10 text-center text-sm text-muted-foreground">{q ? 'Rien trouvé.' : tab === 'devis' ? 'Aucun devis en attente.' : 'Aucune facture à encaisser.'}</p>
+            <p className="px-4 py-10 text-center text-sm text-muted-foreground">{q ? 'Rien trouvé.' : isFiltered(range) ? 'Rien sur cette période.' : scope === 'all' ? (tab === 'devis' ? 'Aucun devis.' : 'Aucune facture.') : tab === 'devis' ? 'Aucun devis en attente.' : 'Aucune facture à encaisser.'}</p>
           ) : (
             list.map((inv, i) => (
               <button key={inv.id} type="button" onClick={() => setOpenId(inv.id)} className={cn('flex w-full items-center gap-3 px-2 py-3 text-left transition-colors hover:bg-muted/40', i < list.length - 1 && 'border-b')}>
@@ -247,7 +280,19 @@ export function InvoicesHome() {
                     <Chip s={state(inv)} />
                   </span>
                 </span>
-                <span className={cn('shrink-0 text-base font-bold tabular-nums', inv.kind === 'devis' ? 'text-kgold' : 'text-kgreen')}>{money(amountOf(inv))}</span>
+                {scope === 'open' ? (
+                  <span className={cn('shrink-0 text-base font-bold tabular-nums', inv.kind === 'devis' ? 'text-kgold' : 'text-kgreen')}>{money(amountOf(inv))}</span>
+                ) : (
+                  <span
+                    className={cn(
+                      'shrink-0 text-base tabular-nums',
+                      (inv.kind === 'devis' ? inv.status === 'devis' : left(inv) > 0) ? cn('font-bold', inv.kind === 'devis' ? 'text-kgold' : 'text-kgreen') : 'font-semibold text-muted-foreground',
+                      inv.status === 'refuse' && 'line-through'
+                    )}
+                  >
+                    {money(totals(inv).net)}
+                  </span>
+                )}
               </button>
             ))
           )
