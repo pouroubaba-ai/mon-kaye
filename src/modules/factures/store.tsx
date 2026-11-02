@@ -3,7 +3,7 @@
 // Lien avec les comptes : « il paie plus tard » ajoute le montant au crédit du client (une opération Crédit).
 import React from 'react'
 import { useStore } from '@/data/store'
-import { deleteInvoiceDoc, loadInvoices, saveInvoiceDoc, saveInvoiceProfile, savePaymentDoc } from '@/lib/firebase'
+import { deleteInvoiceDoc, deletePaymentDoc, loadInvoices, saveInvoiceDoc, saveInvoiceProfile, savePaymentDoc } from '@/lib/firebase'
 import { newId } from '@/modules/mouvements'
 import { plain } from '@/lib/utils'
 import type { Invoice, InvoicePayment, InvoiceProfile, InvoiceStatus } from './types'
@@ -95,6 +95,29 @@ export function InvoicesProvider({ uid, children }: { uid: string | null; childr
       alive = false
     }
   }, [uid, demo])
+
+  // Une personne supprimée dans Kayé (ici) : ses factures, devis et versements partent avec elle
+  const prevIds = React.useRef<Set<string> | null>(null)
+  React.useEffect(() => {
+    const ids = new Set(persons.map(p => p.id))
+    const prev = prevIds.current
+    prevIds.current = ids
+    if (!prev) return
+    const g = new Set([...prev].filter(id => !ids.has(id)))
+    if (g.size === 0) return
+    setInvoices(list => {
+      for (const i of list) if (i.client.personId && g.has(i.client.personId) && !demo && uid) void deleteInvoiceDoc(uid, i.id)
+      return list.filter(i => !(i.client.personId && g.has(i.client.personId)))
+    })
+    setPayments(list => {
+      for (const p of list) if (p.personId && g.has(p.personId) && !demo && uid) void deletePaymentDoc(uid, p.id)
+      return list.filter(p => !(p.personId && g.has(p.personId)))
+    })
+  }, [persons, demo, uid])
+  // Celles d'une personne qui n'est plus dans Kayé (supprimée avant) : cachées, sans rien effacer
+  const known = new Set(persons.map(p => p.id))
+  const shownInvoices = invoices.filter(i => !i.client.personId || known.has(i.client.personId))
+  const shownPayments = payments.filter(p => !p.personId || known.has(p.personId))
 
   const prof = profile ?? defaultProfile(shop.name)
   const keep = (inv: Invoice) => {
@@ -191,5 +214,5 @@ export function InvoicesProvider({ uid, children }: { uid: string | null; childr
     if (!demo && uid) void deleteInvoiceDoc(uid, id)
   }
 
-  return <C.Provider value={{ invoices, profile: prof, profileSet: !!profile, saveProfile, create, update, setStatus, remove, payments, paid, addPayment, cancelPayment, cancelInvoice }}>{children}</C.Provider>
+  return <C.Provider value={{ invoices: shownInvoices, profile: prof, profileSet: !!profile, saveProfile, create, update, setStatus, remove, payments: shownPayments, paid, addPayment, cancelPayment, cancelInvoice }}>{children}</C.Provider>
 }

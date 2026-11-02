@@ -249,6 +249,7 @@ export const saveInvoiceDoc = (uid: string, inv: Invoice) => setDoc(doc(db, 'sho
 export const deleteInvoiceDoc = (uid: string, id: string) => deleteDoc(doc(db, 'shops', uid, 'invoices', id)).catch(e => console.error('[Kayé] Facture', e))
 // shops/{uid}/invoicePayments/{id}  versements sur les factures
 export const savePaymentDoc = (uid: string, p: InvoicePayment) => setDoc(doc(db, 'shops', uid, 'invoicePayments', p.id), clean(p)).catch(e => console.error('[Kayé] Versement', e))
+export const deletePaymentDoc = (uid: string, id: string) => deleteDoc(doc(db, 'shops', uid, 'invoicePayments', id)).catch(e => console.error('[Kayé] Versement', e))
 export const saveInvoiceProfile = (uid: string, p: InvoiceProfile) => setDoc(doc(db, 'shops', uid, 'meta', 'invoiceProfile'), clean(p)).catch(e => console.error('[Kayé] Infos de facture', e))
 
 export type { User }

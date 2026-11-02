@@ -10,7 +10,7 @@ import { formatFCFA } from '@/lib/utils'
 // Bas de fiche : supprimer la personne ou l'employé, avec tout son historique.
 // On demande toujours avant, et on rappelle l'argent encore en jeu pour éviter une erreur.
 export function DeletePerson({ personId, open, onOpenChange }: { personId: string; open?: boolean; onOpenChange?: (o: boolean) => void }) {
-  const { persons, movements, monthStates, deletePerson } = useStore()
+  const { persons, movements, monthStates, deletePerson, modules } = useStore()
   const [askOwn, setAskOwn] = React.useState(false)
   // Ouvert par un menu (open fourni) : pas de bouton ici
   const controlled = open !== undefined
@@ -29,7 +29,7 @@ export function DeletePerson({ personId, open, onOpenChange }: { personId: strin
     if ((person.owesMe || 0) > 0) pending.push(`Il vous doit encore ${formatFCFA(person.owesMe || 0)}.`)
     if ((person.iOweHim || 0) > 0) pending.push(`Vous lui devez encore ${formatFCFA(person.iOweHim || 0)}.`)
   }
-  const history = person.type === 'employee' ? 'opérations, salaires, avances et paiements' : 'crédits, versements et retours'
+  const history = person.type === 'employee' ? 'opérations, salaires, avances et paiements' : modules.factures ? 'crédits, versements, retours, et ses factures et devis' : 'crédits, versements et retours'
 
   return (
     <>
