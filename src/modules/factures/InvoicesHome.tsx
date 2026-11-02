@@ -1,6 +1,6 @@
 // ——— Factures : l'accueil du module, et une facture ouverte ———
 import React from 'react'
-import { Banknote, ChevronLeft, Download, Eye, EyeOff, FileText, MoreVertical, Plus, Search, X } from 'lucide-react'
+import { Banknote, ChevronDown, ChevronLeft, ChevronRight, Download, Eye, EyeOff, FileText, MoreVertical, Plus, Search, X } from 'lucide-react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/responsive-dialog'
 import { Button } from '@/components/ui/button'
 import { HomeTop } from '@/components/screens/HomeScreen'
@@ -51,7 +51,7 @@ const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : 
 
 const clientKey = clientKeyOf
 type View = 'facture' | 'client'
-type ClientRow = { k: string; personId?: string; name: string; details?: string; list: Invoice[]; pays: InvoicePayment[] }
+type ClientRow = { k: string; personId?: string; name: string; details?: string; list: Invoice[]; pays: InvoicePayment[]; archived?: boolean }
 
 export function InvoicesHome() {
   const { invoices, payments, profileSet } = useInvoices()
@@ -80,7 +80,7 @@ export function InvoicesHome() {
   // Les clients : ceux de Kayé, et ceux des factures (avec leurs factures et leurs versements)
   const clients = React.useMemo(() => {
     const m = new Map<string, ClientRow>()
-    for (const p of persons) if (p.type === 'partner' && !p.archived) m.set(p.id, { k: p.id, personId: p.id, name: p.name, details: billingLines(p).join(' · '), list: [], pays: [] })
+    for (const p of persons) if (p.type === 'partner') m.set(p.id, { k: p.id, personId: p.id, name: p.name, details: billingLines(p).join(' · '), list: [], pays: [], archived: p.archived })
     for (const i of invoices) {
       const k = clientKey(i)
       if (!m.has(k)) m.set(k, { k, name: i.client.name, details: i.client.lines.join(' · '), list: [], pays: [] })
@@ -91,13 +91,17 @@ export function InvoicesHome() {
   }, [persons, invoices, payments])
   const isShown = (i: Invoice) => (tab === 'devis' ? i.kind === 'devis' && i.status === 'devis' : left(i) > 0)
   const amountOf = (i: Invoice) => (tab === 'devis' ? totals(i).net : left(i))
-  const clientRows = clients
+  const rows = clients
     .filter(c => !q || plain(c.name).includes(q))
     .map(c => {
       const l = c.list.filter(isShown)
       return { ...c, due: l.reduce((a, i) => a + amountOf(i), 0), n: l.length }
     })
     .sort((a, b) => b.due - a.due || a.name.localeCompare(b.name, 'fr'))
+  // Comme l'écran Clients : les rangés à part, repliés en bas (en cherchant, tout le monde)
+  const clientRows = q ? rows : rows.filter(c => !c.archived)
+  const archivedRows = q ? [] : rows.filter(c => c.archived)
+  const [showArchived, setShowArchived] = React.useState(false)
   const opened = openId ? invoices.find(i => i.id === openId) ?? null : null
   const client = clientOpen ? clients.find(c => c.k === clientOpen) ?? null : null
   // Pour l'œil : facturé, versé, reste (et combien de clients derrière)
@@ -107,6 +111,20 @@ export function InvoicesHome() {
   const nClientsPaid = new Set(factures.filter(i => paidOf(i) > 0).map(clientKey)).size
   const nClientsAll = new Set(factures.map(clientKey)).size
   const who = (n: number) => plural(n, 'client', 'clients')
+
+  const clientRow = (c: (typeof rows)[number], last: boolean) => (
+    <button key={c.k} type="button" onClick={() => setClientOpen(c.k)} className={cn('flex w-full items-center gap-3 px-2 py-3 text-left transition-colors hover:bg-muted/40', !last && 'border-b')}>
+      <span className="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground">{initials(c.name)}</span>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate text-base font-semibold">{c.name}</span>
+        <span className="truncate text-[13px] text-muted-foreground">
+          {c.archived && 'Rangé · '}
+          {c.n === 0 ? (tab === 'devis' ? 'Aucun devis en cours' : 'Rien à encaisser') : tab === 'devis' ? plural(c.n, 'devis en cours', 'devis en cours') : plural(c.n, 'facture non payée', 'factures non payées')}
+        </span>
+      </span>
+      <span className={cn('shrink-0 text-base tabular-nums', c.due > 0 ? cn('font-bold', tab === 'devis' ? 'text-kgold' : 'text-kgreen') : 'font-semibold text-muted-foreground')}>{money(c.due)}</span>
+    </button>
+  )
 
   const goProfile = () => {
     navigate('reglages')
@@ -233,21 +251,21 @@ export function InvoicesHome() {
               </button>
             ))
           )
-        ) : clientRows.length === 0 ? (
-          <p className="px-4 py-10 text-center text-sm text-muted-foreground">{q ? 'Personne ne s’appelle comme ça.' : 'Pas encore de client : touchez « Nouveau ».'}</p>
         ) : (
-          clientRows.map((c, i) => (
-            <button key={c.k} type="button" onClick={() => setClientOpen(c.k)} className={cn('flex w-full items-center gap-3 px-2 py-3 text-left transition-colors hover:bg-muted/40', i < clientRows.length - 1 && 'border-b')}>
-              <span className="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground">{initials(c.name)}</span>
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate text-base font-semibold">{c.name}</span>
-                <span className="truncate text-[13px] text-muted-foreground">
-                  {c.n === 0 ? (tab === 'devis' ? 'Aucun devis en cours' : 'Rien à encaisser') : tab === 'devis' ? plural(c.n, 'devis en cours', 'devis en cours') : plural(c.n, 'facture non payée', 'factures non payées')}
-                </span>
-              </span>
-              <span className={cn('shrink-0 text-base tabular-nums', c.due > 0 ? cn('font-bold', tab === 'devis' ? 'text-kgold' : 'text-kgreen') : 'font-semibold text-muted-foreground')}>{money(c.due)}</span>
-            </button>
-          ))
+          <>
+            {clientRows.length === 0 && <p className="px-4 py-10 text-center text-sm text-muted-foreground">{q ? 'Personne ne s’appelle comme ça.' : 'Pas encore de client : touchez « Nouveau ».'}</p>}
+            {clientRows.map((c, i) => clientRow(c, i === clientRows.length - 1))}
+            {/* Les clients rangés : repliés, comme sur l'écran Clients */}
+            {archivedRows.length > 0 && (
+              <div className="mt-2">
+                <button type="button" onClick={() => setShowArchived(o => !o)} className="flex h-12 w-full items-center justify-between px-2 text-sm font-semibold text-muted-foreground">
+                  Rangés ({archivedRows.length})
+                  {showArchived ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+                </button>
+                {showArchived && <div className="animate-in fade-in duration-200">{archivedRows.map((c, i) => clientRow(c, i === archivedRows.length - 1))}</div>}
+              </div>
+            )}
+          </>
         )}
       </div>
 
