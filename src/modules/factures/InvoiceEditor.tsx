@@ -74,7 +74,8 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
   const ok = !!person && filled.length > 0 && filled.every(l => l.label.trim() && num(l.price) > 0 && dec(l.qty) > 0)
   const finalLines: InvoiceLine[] = filled.map(l => ({ d: l.label.trim(), ...(l.x ? { x: l.x } : {}), q: dec(l.qty), ...(l.u ? { u: l.u } : {}), p: num(l.price) }))
   const { net } = totals({ lines: finalLines })
-  const dirty = !!personId || filled.length > 0
+  // Quelque chose de saisi : des produits (ou, pour une modification, des produits changés)
+  const dirty = base && start?.mode === 'edit' ? JSON.stringify(finalLines) !== JSON.stringify(base.lines) : filled.length > 0
 
   // Entrée passe au champ suivant ; sur le dernier, une nouvelle ligne
   const nextOnEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -117,10 +118,12 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
   const title = start?.mode === 'edit' ? `Modifier ${devis ? 'le devis' : 'la facture'}` : start?.mode === 'convert' ? 'Facture du devis' : devis ? 'Nouveau devis' : 'Nouvelle facture'
 
   // Retour : à l'étape d'avant, ou quitter (en demandant si quelque chose a été saisi)
+  // Partout pareil : des produits saisis → « Abandonner ? » ; rien de saisi → on revient en arrière sans rien demander
+  // (au choix du client si on venait de là, sinon on ferme)
   const back = () => {
+    if (dirty) return setAskLeave(true)
     if (step === 'produits' && start?.mode === 'new' && !start.personId) return setStep('qui')
-    if (dirty) setAskLeave(true)
-    else onClose()
+    onClose()
   }
   // Le bouton retour du téléphone fait pareil : l'app envoie « Échap » à la fenêtre ouverte (cette page) ;
   // une petite fenêtre ouverte par-dessus (nouveau client, unité…) se ferme d'abord, seule

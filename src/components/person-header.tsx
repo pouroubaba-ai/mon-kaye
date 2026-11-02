@@ -184,12 +184,12 @@ export function PersonFormDialog({
               <span className="text-xs tracking-[0.08em] text-muted-foreground uppercase">Pour les factures (facultatif)</span>
               {(
                 [
-                  ['forme', 'Forme juridique', 'Ex : SARL, Ets, SA'],
-                  ['rccm', 'RCCM', 'Ex : CG-BZV-01-2011-B13-00110'],
-                  ['niu', 'NIU', ''],
                   ['adresse', 'Adresse', 'Avenue, quartier'],
                   ['ville', 'Ville', 'Ex : Brazzaville'],
                   ['email', 'E-mail', ''],
+                  ['forme', 'Forme juridique', 'Ex : SARL, Ets, SA'],
+                  ['rccm', 'RCCM', 'Ex : CG-BZV-01-2011-B13-00110'],
+                  ['niu', 'NIU', ''],
                 ] as const
               ).map(([k, label, ph]) => (
                 <div key={k} className="grid gap-2">

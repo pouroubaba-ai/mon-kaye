@@ -72,15 +72,16 @@ export function InvoicesHome() {
   const [adding, setAdding] = React.useState(false)
   const [paying, setPaying] = React.useState<PayTarget | 'choose' | null>(null)
 
-  const factures = invoices.filter(i => i.kind === 'facture')
+  // La période (calendrier) compte aussi pour les deux cartes du haut et pour l'œil
+  const inPeriod = (i: Invoice) => inRange(i.date.split('-').reverse().join('/'), range)
+  const factures = invoices.filter(i => i.kind === 'facture' && inPeriod(i))
   const toCash = factures.filter(i => left(i) > 0)
-  const pending = invoices.filter(i => i.kind === 'devis' && i.status === 'devis')
+  const pending = invoices.filter(i => i.kind === 'devis' && i.status === 'devis' && inPeriod(i))
   const sumLeft = (l: Invoice[]) => l.reduce((a, i) => a + left(i), 0)
   const sumNet = (l: Invoice[]) => l.reduce((a, i) => a + totals(i).net, 0)
   const q = plain(search.trim())
   // Vue par facture : les factures pas encore soldées (ou les devis en cours)
   const base = scope === 'all' ? invoices.filter(i => i.kind === (tab === 'devis' ? 'devis' : 'facture')) : tab === 'devis' ? pending : toCash
-  const inPeriod = (i: Invoice) => inRange(i.date.split('-').reverse().join('/'), range)
   const list = base
     .filter(inPeriod)
     .filter(i => !q || plain(`${i.client.name} ${i.number} ${i.objet ?? ''}`).includes(q))
@@ -97,7 +98,7 @@ export function InvoicesHome() {
     for (const pay of payments) m.get(pay.clientKey)?.pays.push(pay)
     return [...m.values()]
   }, [persons, invoices, payments])
-  const isShown = (i: Invoice) => (tab === 'devis' ? i.kind === 'devis' && i.status === 'devis' : left(i) > 0)
+  const isShown = (i: Invoice) => inPeriod(i) && (tab === 'devis' ? i.kind === 'devis' && i.status === 'devis' : left(i) > 0)
   const amountOf = (i: Invoice) => (tab === 'devis' ? totals(i).net : left(i))
   const rows = clients
     .filter(c => !q || plain(c.name).includes(q))
@@ -234,7 +235,7 @@ export function InvoicesHome() {
             </button>
           )}
         </label>
-        {view === 'facture' && !isFiltered(range) && <DateFilter iconOnly value={range} onChange={setRange} align="end" />}
+        {!isFiltered(range) && <DateFilter iconOnly value={range} onChange={setRange} align="end" />}
         <button type="button" aria-label="Nouveau client" onClick={() => setAdding(true)} className="flex h-[46px] shrink-0 items-center gap-1.5 rounded-xl bg-kgold px-3 text-sm font-bold text-white active:scale-[0.98] dark:text-black">
           <Plus className="size-[18px]" strokeWidth={2.4} /> Nouveau
         </button>
@@ -256,6 +257,11 @@ export function InvoicesHome() {
             ))}
           </div>
           {isFiltered(range) && <DateFilter value={range} onChange={setRange} align="end" />}
+        </div>
+      )}
+      {view === 'client' && isFiltered(range) && (
+        <div className="mx-4 mt-3 flex justify-end">
+          <DateFilter value={range} onChange={setRange} align="end" />
         </div>
       )}
       {view === 'facture' && (isFiltered(range) || scope === 'all') && list.length > 0 && (
