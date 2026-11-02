@@ -28,6 +28,8 @@ type Ctx = {
   // Annuler (jamais supprimer) : barré, avec son motif
   cancelPayment: (id: string, reason: string) => void
   cancelInvoice: (id: string, reason: string) => void
+  // Un client qui n'est pas dans Kayé (seulement sur des factures) : effacer ses factures, devis et versements
+  removeClient: (clientKey: string) => void
 }
 // « 2026-10-31 »
 export const todayIso = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -209,10 +211,20 @@ export function InvoicesProvider({ uid, children }: { uid: string | null; childr
     if (!inv || inv.cancelled) return
     update({ ...inv, cancelled: true, cancelReason: reason.trim(), cancelledAt: stamp() })
   }
+  const removeClient: Ctx['removeClient'] = key => {
+    setInvoices(list => {
+      for (const i of list) if (clientKeyOf(i) === key && !demo && uid) void deleteInvoiceDoc(uid, i.id)
+      return list.filter(i => clientKeyOf(i) !== key)
+    })
+    setPayments(list => {
+      for (const p of list) if (p.clientKey === key && !demo && uid) void deletePaymentDoc(uid, p.id)
+      return list.filter(p => p.clientKey !== key)
+    })
+  }
   const remove: Ctx['remove'] = id => {
     setInvoices(prev => prev.filter(x => x.id !== id))
     if (!demo && uid) void deleteInvoiceDoc(uid, id)
   }
 
-  return <C.Provider value={{ invoices: shownInvoices, profile: prof, profileSet: !!profile, saveProfile, create, update, setStatus, remove, payments: shownPayments, paid, addPayment, cancelPayment, cancelInvoice }}>{children}</C.Provider>
+  return <C.Provider value={{ invoices: shownInvoices, profile: prof, profileSet: !!profile, saveProfile, create, update, setStatus, remove, payments: shownPayments, paid, addPayment, cancelPayment, cancelInvoice, removeClient }}>{children}</C.Provider>
 }

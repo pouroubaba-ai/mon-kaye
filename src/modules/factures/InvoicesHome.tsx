@@ -365,6 +365,7 @@ export function InvoicesHome() {
 // En bas : Facture et Versement ; ou Devis.
 function ClientFiche({ client, onBack, onOpen, onOpenPay, onNew, onPay }: { client: ClientRow; onBack: () => void; onOpen: (id: string) => void; onOpenPay: (id: string) => void; onNew: (k: 'facture' | 'devis') => void; onPay: () => void }) {
   const { persons } = useStore()
+  const { removeClient } = useInvoices()
   const { left, state, paidOf } = useLeft()
   const person = client.personId ? persons.find(p => p.id === client.personId) : undefined
   const [side, setSide] = React.useState<'factures' | 'devis'>('factures')
@@ -441,7 +442,7 @@ function ClientFiche({ client, onBack, onOpen, onOpenPay, onNew, onPay }: { clie
             {person?.phone && <span className="truncate text-[13px] text-muted-foreground">{person.phone}</span>}
             {infos && <span className="line-clamp-2 text-xs text-muted-foreground">{infos}</span>}
           </div>
-          {person && (
+          {(
             <button type="button" aria-label="Plus d'options" onClick={() => setMenu(true)} className="flex size-11 items-center justify-center rounded-full text-muted-foreground hover:bg-muted">
               <MoreVertical className="size-5" />
             </button>
@@ -540,6 +541,37 @@ function ClientFiche({ client, onBack, onOpen, onOpenPay, onNew, onPay }: { clie
         </div>
       </div>
       {person && <PersonMenu person={person} open={menu} onOpenChange={setMenu} />}
+      {/* Un client seulement sur des factures (pas dans Kayé) : on peut le supprimer avec ses factures */}
+      {!person && (
+        <Dialog open={menu} onOpenChange={setMenu}>
+          <DialogContent>
+            <div className="flex flex-col gap-4">
+              <DialogHeader className="gap-1 p-0">
+                <DialogTitle className="text-left">Supprimer {client.name} ?</DialogTitle>
+                <DialogDescription className="text-left">
+                  {client.list.length === 1 ? 'Sa facture' : `Ses ${client.list.length} factures et devis`} et ses versements seront effacés pour toujours. On ne pourra pas revenir en arrière.
+                </DialogDescription>
+              </DialogHeader>
+              {reste > 0 && <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">Il doit encore {money(reste)} FCFA.</div>}
+              <Button
+                variant="destructive"
+                size="lg"
+                className="h-12"
+                onClick={() => {
+                  setMenu(false)
+                  removeClient(client.k)
+                  onBack()
+                }}
+              >
+                Supprimer définitivement
+              </Button>
+              <Button variant="outline" size="lg" className="h-12" onClick={() => setMenu(false)}>
+                Annuler
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }
