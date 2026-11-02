@@ -39,7 +39,7 @@ export function EmployeePayments({ onBack, personId }: { onBack: () => void; per
   }, [])
 
   return (
-    <div role="dialog" aria-label={title} className="fixed inset-0 z-40 overflow-y-auto bg-background">
+    <div role="dialog" aria-label={title} className="fixed inset-0 z-40 overflow-y-auto bg-background animate-in slide-in-from-right fade-in-50 duration-300 ease-out motion-reduce:animate-none">
       <div className="mx-auto flex min-h-dvh w-full max-w-xl flex-col">
         <header className="flex items-center gap-2 px-3 pt-[calc(0.875rem+env(safe-area-inset-top))] pb-2">
           <button type="button" aria-label="Retour" onClick={onBack} className="flex size-11 items-center justify-center rounded-full hover:bg-muted">

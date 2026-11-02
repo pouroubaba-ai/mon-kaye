@@ -52,6 +52,9 @@ const useLeft = () => {
   return { left, state, paidOf: (i: Invoice) => paid.get(i.id) ?? 0 }
 }
 const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : one}`
+// Les gros montants rapetissent pour rester dans leur case (jamais de débordement)
+const fitBig = (v: number) => { const l = money(v).length; return l <= 9 ? 'text-2xl' : l <= 11 ? 'text-xl' : l <= 13 ? 'text-lg' : 'text-base' }
+const fitSmall = (v: number) => { const l = money(v).length; return l <= 9 ? 'text-base' : l <= 11 ? 'text-sm' : 'text-xs' }
 
 const clientKey = clientKeyOf
 type ClientRow = { k: string; personId?: string; name: string; details?: string; list: Invoice[]; pays: InvoicePayment[]; archived?: boolean }
@@ -169,7 +172,7 @@ export function InvoicesHome() {
               className={cn('flex flex-col items-center gap-0.5 border-b-[3px] px-2 py-3 transition-colors', on ? (green ? 'border-kgreen bg-kgreen/10' : 'border-kgold bg-kgold/10') : 'border-transparent opacity-75')}
             >
               <span className={cn('text-sm font-semibold', on ? (green ? 'text-kgreen' : 'text-kgold') : 'text-muted-foreground')}>{label}</span>
-              <span className={cn('flex items-center gap-1.5 text-2xl font-bold tracking-tight tabular-nums', green ? 'text-kgreen' : 'text-kgold')}>
+              <span className={cn('flex items-center gap-1.5 font-bold tracking-tight tabular-nums', fitBig(v), green ? 'text-kgreen' : 'text-kgold')}>
                 {money(v)}
                 {on && green && (detail ? <EyeOff className="size-4 opacity-70" /> : <Eye className="size-4 opacity-70" />)}
               </span>
@@ -184,17 +187,17 @@ export function InvoicesHome() {
         <div className="grid grid-cols-3 border-b bg-kgreen/5 px-4 py-3 animate-in fade-in slide-in-from-top-1 duration-200">
           <div className="flex flex-col items-center gap-0.5">
             <span className="text-xs text-muted-foreground">Facturé</span>
-            <span className="text-base font-bold tabular-nums">{money(facturé)}</span>
+            <span className={cn('font-bold tabular-nums', fitSmall(facturé))}>{money(facturé)}</span>
             <span className="text-[11px] text-muted-foreground">{who(nAll)}</span>
           </div>
           <div className="flex flex-col items-center gap-0.5 border-x">
             <span className="text-xs text-muted-foreground">Versé</span>
-            <span className="text-base font-bold text-kblue tabular-nums">{money(versé)}</span>
+            <span className={cn('font-bold text-kblue tabular-nums', fitSmall(versé))}>{money(versé)}</span>
             <span className="text-[11px] text-muted-foreground">{who(nPaid)}</span>
           </div>
           <div className="flex flex-col items-center gap-0.5">
             <span className="text-xs text-muted-foreground">Reste</span>
-            <span className="text-base font-bold text-kgreen tabular-nums">{money(sumLeft(toCash))}</span>
+            <span className={cn('font-bold text-kgreen tabular-nums', fitSmall(sumLeft(toCash)))}>{money(sumLeft(toCash))}</span>
             <span className="text-[11px] text-muted-foreground">{who(nDue)}</span>
           </div>
         </div>
@@ -344,7 +347,7 @@ function AllInvoices({ onBack, onOpen }: { onBack: () => void; onOpen: (id: stri
   }, [])
 
   return (
-    <div role="dialog" aria-label="Toutes les factures" className="fixed inset-0 z-40 overflow-y-auto bg-background">
+    <div role="dialog" aria-label="Toutes les factures" className="fixed inset-0 z-40 overflow-y-auto bg-background animate-in slide-in-from-right fade-in-50 duration-300 ease-out motion-reduce:animate-none">
       <div className="mx-auto flex min-h-dvh w-full max-w-xl flex-col pb-[calc(2rem+env(safe-area-inset-bottom))]">
         <header className="flex items-center gap-2 px-3 pt-[calc(0.875rem+env(safe-area-inset-top))] pb-2">
           <button type="button" aria-label="Retour" onClick={onBack} className="flex size-11 items-center justify-center rounded-full hover:bg-muted">
@@ -488,7 +491,7 @@ function ClientFiche({ client, onBack, onOpen, onOpenPay, onNew, onPay }: { clie
         )}
       >
         <span className="text-[13px] text-muted-foreground">{g ? 'À encaisser' : 'Devis en cours'}</span>
-        <span className={cn('flex items-center gap-1.5 text-2xl font-bold tabular-nums', g ? 'text-kgreen' : 'text-kgold')}>
+        <span className={cn('flex items-center gap-1.5 font-bold tabular-nums', fitBig(g ? reste : devisEnCours.reduce((a, i) => a + totals(i).net, 0)), g ? 'text-kgreen' : 'text-kgold')}>
           {money(g ? reste : devisEnCours.reduce((a, i) => a + totals(i).net, 0))}
           {on && g && (detail ? <EyeOff className="size-4 opacity-70" /> : <Eye className="size-4 opacity-70" />)}
         </span>
@@ -500,7 +503,7 @@ function ClientFiche({ client, onBack, onOpen, onOpenPay, onNew, onPay }: { clie
   }
 
   return (
-    <div role="dialog" aria-label={client.name} className="fixed inset-0 z-40 overflow-y-auto bg-background">
+    <div role="dialog" aria-label={client.name} className="fixed inset-0 z-40 overflow-y-auto bg-background animate-in slide-in-from-right fade-in-50 duration-300 ease-out motion-reduce:animate-none">
       <div className="mx-auto flex min-h-dvh w-full max-w-xl flex-col">
         <header className="flex items-center gap-2 px-3 pt-[calc(0.875rem+env(safe-area-inset-top))] pb-2">
           <button type="button" aria-label="Retour" onClick={onBack} className="flex size-11 items-center justify-center rounded-full hover:bg-muted">

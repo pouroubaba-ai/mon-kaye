@@ -204,7 +204,7 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
       </Dialog>
 
       {step === 'produits' && (
-      <div role="dialog" aria-label={title} className="fixed inset-0 z-40 overflow-y-auto bg-background">
+      <div role="dialog" aria-label={title} className="fixed inset-0 z-40 overflow-y-auto bg-background animate-in slide-in-from-right fade-in-50 duration-300 ease-out motion-reduce:animate-none">
         <div className="mx-auto flex min-h-dvh w-full max-w-xl flex-col">
           <header className="sticky top-0 z-10 flex h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0 items-center gap-1 border-b bg-background px-2 pt-[env(safe-area-inset-top)]">
             <button type="button" aria-label="Retour" onClick={back} className="flex size-11 items-center justify-center rounded-full hover:bg-muted">
