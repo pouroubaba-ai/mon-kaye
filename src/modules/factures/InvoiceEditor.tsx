@@ -34,7 +34,7 @@ const toDraft = (l: InvoiceLine): Draft => ({ label: l.d, price: String(l.p), qt
 
 export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart | null; onClose: () => void; onSaved?: (inv: Invoice) => void }) {
   const { persons } = useStore()
-  const { invoices, create, update } = useInvoices()
+  const { invoices, create, update, addPayment } = useInvoices()
   const open = !!start
   const base = start && start.mode !== 'new' ? start.base : null
   const kind: InvoiceKind = !start ? 'facture' : start.mode === 'new' ? start.kind : start.mode === 'convert' ? 'facture' : start.base.kind
@@ -48,6 +48,9 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
   const [lines, setLines] = React.useState<Draft[]>([emptyLine()])
   const [unitOf, setUnitOf] = React.useState<number | null>(null)
   const [askLeave, setAskLeave] = React.useState(false)
+  // Le paiement en même temps que la facture : en totalité (d'office), une avance, ou rien pour l'instant
+  const [payMode, setPayMode] = React.useState<'tout' | 'avance' | 'rien'>('tout')
+  const [advance, setAdvance] = React.useState('')
   const linesRef = React.useRef<HTMLDivElement>(null)
 
   // À l'ouverture : vide, ou rempli à partir de la facture / du devis de départ
@@ -57,6 +60,8 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
     const pid = b ? (b.client.personId ?? persons.find(p => p.type === 'partner' && key(p.name) === key(b.client.name))?.id ?? null) : start.mode === 'new' ? (start.personId ?? null) : null
     setPersonId(pid)
     setStep(pid ? 'produits' : 'qui')
+    setPayMode('tout')
+    setAdvance('')
     setSearch('')
     setLines(b ? b.lines.map(toDraft) : [emptyLine()])
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -90,8 +95,12 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
     }
   }
 
+  // Le choix du paiement : seulement pour une nouvelle facture (pas un devis, pas une modification)
+  const withPay = !devis && start?.mode !== 'edit'
+  const advanceN = parseInt(advance, 10) || 0
+  const advanceBad = withPay && payMode === 'avance' && (advanceN <= 0 || advanceN > net)
   const done = () => {
-    if (!ok || !person) return
+    if (!ok || !person || advanceBad) return
     // Les infos du client (adresse, RCCM…) : celles de sa fiche, données une seule fois
     const last = invoices.find(i => i.client.personId === person.id || key(i.client.name) === key(person.name))
     const saved = billingLines(person)
@@ -110,6 +119,9 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
         ...(start?.mode === 'convert' && base ? { fromQuote: base.number } : {}),
         date: todayIso(),
       })
+      // Le versement fait en même temps que la facture
+      const paidNow = withPay ? (payMode === 'tout' ? net : payMode === 'avance' ? advanceN : 0) : 0
+      if (paidNow > 0) addPayment({ clientKey: person.id, personId: person.id, clientName: person.name, amount: paidNow, invoiceId: inv.id, note: payMode === 'tout' ? 'Payée à la facture' : 'Avance à la facture' })
     }
     onSaved?.(inv)
     onClose()
@@ -280,7 +292,39 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
                   <span className="text-sm text-muted-foreground">{devis ? 'Montant du devis' : 'Net à payer'}</span>
                   <span className="text-2xl font-bold tabular-nums">{money(net)} FCFA</span>
                 </div>
-                <button type="button" disabled={!ok} onClick={done} className="h-[56px] rounded-2xl bg-kgreen-solid text-lg font-bold text-white disabled:opacity-40">
+                {withPay && (
+                  <div className="flex flex-col gap-2">
+                    <div role="radiogroup" aria-label="Paiement" className="grid grid-cols-3 gap-1.5">
+                      {(
+                        [
+                          ['tout', 'Payée en totalité'],
+                          ['avance', 'Une avance'],
+                          ['rien', 'Rien pour l’instant'],
+                        ] as const
+                      ).map(([m, label]) => (
+                        <button key={m} type="button" role="radio" aria-checked={payMode === m} onClick={() => setPayMode(m)} className={cn('h-11 rounded-xl px-1 text-[13px] leading-tight', payMode === m ? 'bg-kgreen-solid font-bold text-white' : 'border font-semibold text-muted-foreground')}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    {payMode === 'avance' && (
+                      <label className={cn('flex h-12 items-center gap-2 rounded-xl border bg-background px-3.5 animate-in fade-in duration-200', advanceN > net && 'border-kred')}>
+                        <span className="shrink-0 text-sm text-muted-foreground">Avance</span>
+                        <input
+                          inputMode="numeric"
+                          value={thousands(advance)}
+                          onChange={e => setAdvance(digits(e.target.value))}
+                          placeholder="0"
+                          aria-label="Montant de l'avance"
+                          className="min-w-0 flex-1 bg-transparent text-right text-lg font-bold text-kblue tabular-nums outline-none placeholder:text-muted-foreground/40"
+                        />
+                        <span className="shrink-0 text-sm text-muted-foreground">FCFA</span>
+                      </label>
+                    )}
+                    {payMode === 'avance' && advanceN > net && <span className="text-xs text-kred">L'avance ne peut pas dépasser la facture ({money(net)}).</span>}
+                  </div>
+                )}
+                <button type="button" disabled={!ok || advanceBad} onClick={done} className="h-[56px] rounded-2xl bg-kgreen-solid text-lg font-bold text-white disabled:opacity-40">
                   {start?.mode === 'edit' ? 'Enregistrer' : devis ? 'Faire le devis' : 'Faire la facture'}
                 </button>
               </div>

@@ -25,6 +25,9 @@ type Ctx = {
   paid: Map<string, number> // payé sur chaque facture
   // Un versement : sur une facture précise (invoiceId), sinon sur ses factures les plus anciennes
   addPayment: (p: { clientKey: string; personId?: string; clientName: string; amount: number; invoiceId?: string; note?: string }) => void
+  // Annuler (jamais supprimer) : barré, avec son motif
+  cancelPayment: (id: string, reason: string) => void
+  cancelInvoice: (id: string, reason: string) => void
 }
 // « 2026-10-31 »
 export const todayIso = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -36,16 +39,7 @@ export const useInvoices = () => {
   return c
 }
 
-const DEMO_PROFILE = (): InvoiceProfile => ({
-  ...defaultProfile('Alimentation Générale La Grâce'),
-  activities: 'Alimentation générale · Boissons · Livraison',
-  address: 'Marché Total, Bacongo\nBrazzaville, République du Congo',
-  phone: '06 654 32 10',
-  prefix: 'LG/2026-',
-  next: 4,
-  quotePrefix: 'LG-D/2026-',
-  quoteNext: 2,
-})
+const DEMO_PROFILE = (): InvoiceProfile => defaultProfile()
 const DEMO_INVOICES: Invoice[] = [
   {
     id: 'inv-demo-1', kind: 'facture', number: 'LG/2026-003', date: '2026-10-21', status: 'credit',
@@ -171,10 +165,26 @@ export function InvoicesProvider({ uid, children }: { uid: string | null; childr
     if (onCredit > 0 && person)
       addMovement({ personId: person.id, personName: person.name, type: 'il_m_a_verse', label: 'Versement', amount: onCredit, paymentMethod: 'especes', note: 'Versement sur facture' })
   }
+  const stamp = () => new Date().toISOString()
+  const cancelPayment: Ctx['cancelPayment'] = (id, reason) => {
+    setPayments(prev =>
+      prev.map(p => {
+        if (p.id !== id || p.cancelled) return p
+        const y = { ...p, cancelled: true, cancelReason: reason.trim(), cancelledAt: stamp() }
+        if (!demo && uid) void savePaymentDoc(uid, y)
+        return y
+      })
+    )
+  }
+  const cancelInvoice: Ctx['cancelInvoice'] = (id, reason) => {
+    const inv = invoices.find(x => x.id === id)
+    if (!inv || inv.cancelled) return
+    update({ ...inv, cancelled: true, cancelReason: reason.trim(), cancelledAt: stamp() })
+  }
   const remove: Ctx['remove'] = id => {
     setInvoices(prev => prev.filter(x => x.id !== id))
     if (!demo && uid) void deleteInvoiceDoc(uid, id)
   }
 
-  return <C.Provider value={{ invoices, profile: prof, profileSet: !!profile, saveProfile, create, update, setStatus, remove, payments, paid, addPayment }}>{children}</C.Provider>
+  return <C.Provider value={{ invoices, profile: prof, profileSet: !!profile, saveProfile, create, update, setStatus, remove, payments, paid, addPayment, cancelPayment, cancelInvoice }}>{children}</C.Provider>
 }

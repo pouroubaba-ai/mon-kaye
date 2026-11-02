@@ -1,6 +1,7 @@
 // ——— Calculs des factures : totaux, numéros, montant en lettres, unités ———
 import type { Invoice, InvoiceLine, InvoicePayment, InvoiceProfile } from './types'
 import type { Billing } from '@/data/mockData'
+import SB_LOGO from './logo-sb.png?inline'
 
 export const lineTotal = (l: InvoiceLine) => Math.round(l.q * l.p)
 export function totals(inv: Pick<Invoice, 'lines'>) {
@@ -61,7 +62,7 @@ export const money = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3
 
 // ——— Unités : le clavier des unités ———
 export const UNIT_GROUPS: { label: string; units: string[] }[] = [
-  { label: 'Nombre', units: ['pièce', 'unité', 'lot', 'forfait', 'carton', 'sac', 'paquet', 'voyage'] },
+  { label: 'Nombre', units: ['pièce', 'unité', 'carton', 'sac'] },
   { label: 'Temps', units: ['heure', 'jour', 'semaine', 'mois'] },
   { label: 'Poids', units: ['g', 'kg', 'tonne'] },
   { label: 'Volume · Longueur · Surface', units: ['litre', 'm³', 'cm', 'm', 'km', 'm²', 'hectare'] },
@@ -77,15 +78,17 @@ export function unitFor(u: string | undefined, q: number) {
 export const qtyLabel = (l: InvoiceLine) => `${String(l.q).replace('.', ',')}${l.u ? ` ${unitFor(l.u, l.q)}` : ''}`
 
 // Infos de départ (avant que le commerçant ne les remplisse)
-export function defaultProfile(shopName: string, year = new Date().getFullYear()): InvoiceProfile {
+// Par défaut : les infos de Sté SACKO-BUILDING BTP (le module Factures est fait pour lui) ; modifiables dans « Mes infos de facture »
+export function defaultProfile(_shopName?: string, year = new Date().getFullYear()): InvoiceProfile {
   return {
-    name: shopName,
-    activities: '',
-    address: '',
-    phone: '',
-    prefix: `FAC-${year}-`,
+    logo: SB_LOGO,
+    name: 'Sté SACKO-BUILDING BTP',
+    activities: "Bâtiment · Travaux publics · Location d'engins",
+    address: 'Av. David NGOBALI — Quartier 604 Fleuve Congo\nBrazzaville, République du Congo',
+    phone: '06 662 71 71 / 05 551 51 76',
+    prefix: `SB-BTP/${year}-`,
     next: 1,
-    quotePrefix: `DEV-${year}-`,
+    quotePrefix: `SB-BTP/D-${year}-`,
     quoteNext: 1,
     mentions: 'Facture établie en deux exemplaires originaux.\nPrière de rappeler la référence {numero} lors du règlement.',
   }
@@ -105,10 +108,10 @@ export const clientKeyOf = (i: Pick<Invoice, 'client'>) => i.client.personId ?? 
 // Ensuite : les versements pour une facture précise, puis les autres sur les factures les plus anciennes d'abord.
 export function paidByInvoice(invoices: Invoice[], payments: InvoicePayment[]): Map<string, number> {
   const paid = new Map<string, number>()
-  const factures = invoices.filter(i => i.kind === 'facture').sort((a, b) => a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt))
+  const factures = invoices.filter(i => i.kind === 'facture' && !i.cancelled).sort((a, b) => a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt))
   for (const f of factures) paid.set(f.id, f.status === 'payee' ? totals(f).net : 0)
   const left = (f: Invoice) => totals(f).net - (paid.get(f.id) ?? 0)
-  const sorted = [...payments].sort((a, b) => a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt))
+  const sorted = payments.filter(p => !p.cancelled).sort((a, b) => a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt))
   for (const p of sorted) {
     let rest = p.amount
     const target = p.invoiceId ? factures.find(f => f.id === p.invoiceId) : undefined

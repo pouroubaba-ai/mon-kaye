@@ -34,6 +34,10 @@ export interface Invoice {
   status: InvoiceStatus
   movementId?: string // crédit ajouté au compte du client (« il paie plus tard »)
   fromQuote?: string // facture née d'un devis : le numéro du devis
+  // Annulée (jamais supprimée) : barrée, avec son motif
+  cancelled?: boolean
+  cancelReason?: string
+  cancelledAt?: string
   createdAt: string
 }
 
@@ -64,6 +68,10 @@ export interface InvoicePayment {
   amount: number
   date: string // « 2026-11-02 »
   invoiceId?: string
-  note?: string
+  note?: string // pourquoi il a versé (« avance sur chantier », « solde »…)
   createdAt: string
+  // Annulé (jamais supprimé) : barré, avec son motif
+  cancelled?: boolean
+  cancelReason?: string
+  cancelledAt?: string
 }

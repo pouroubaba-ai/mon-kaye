@@ -8,14 +8,14 @@ import { PersonFormDialog } from '@/components/person-header'
 import { PersonMenu } from '@/components/person-menu'
 import { DetailBand } from '@/components/detail-band'
 import { Banknotes } from '@/components/armed'
-import { PaymentDialog, type PayTarget } from './PaymentDialog'
+import { PaymentDetail, PaymentDialog, type PayTarget } from './PaymentDialog'
 import { DateFilter } from '@/components/date-filter'
 import { ALL_TIME, inRange, isFiltered, type DateRange } from '@/lib/date-range'
 import { useStore } from '@/data/store'
-import { cn, plain } from '@/lib/utils'
+import { cn, plain, waNumber } from '@/lib/utils'
 import { initials } from '@/modules/personnes/view'
 import { InvoiceEditor, type EditorStart } from './InvoiceEditor'
-import { PaperPreview, downloadInvoice, shareInvoice } from './InvoicePaper'
+import { PaperPreview, invoicePdf } from './InvoicePaper'
 import { useInvoices } from './store'
 import type { Invoice, InvoicePayment, InvoiceStatus } from './types'
 import { billingLines, clientKeyOf, money, shortNumber, totals } from './view'
@@ -33,14 +33,15 @@ const CHIP: Record<InvoiceStatus, [string, string]> = {
   accepte: ['Accepté', 'bg-kgreen/15 text-kgreen'],
   refuse: ['Refusé', 'bg-muted text-muted-foreground'],
 }
-type ChipKey = InvoiceStatus | 'partiel'
-const CHIP2: Record<ChipKey, [string, string]> = { ...CHIP, partiel: ['Payée en partie', 'bg-kblue/15 text-kblue'] }
+type ChipKey = InvoiceStatus | 'partiel' | 'annulee'
+const CHIP2: Record<ChipKey, [string, string]> = { ...CHIP, partiel: ['Payée en partie', 'bg-kblue/15 text-kblue'], annulee: ['Annulée', 'bg-muted text-muted-foreground'] }
 const Chip = ({ s, first }: { s: ChipKey; first?: boolean }) => <span className={cn(first ? '' : 'ml-1.5', 'inline-block shrink-0 rounded-full px-2 py-px align-[1px] text-[11px] font-bold', CHIP2[s][1])}>{CHIP2[s][0]}</span>
 // Ce qui reste à payer sur une facture, et son état (selon les versements)
 const useLeft = () => {
   const { paid } = useInvoices()
-  const left = (i: Invoice) => (i.kind === 'facture' ? Math.max(0, totals(i).net - (paid.get(i.id) ?? 0)) : 0)
+  const left = (i: Invoice) => (i.kind === 'facture' && !i.cancelled ? Math.max(0, totals(i).net - (paid.get(i.id) ?? 0)) : 0)
   const state = (i: Invoice): ChipKey => {
+    if (i.cancelled) return 'annulee'
     if (i.kind === 'devis') return i.status
     const l = left(i)
     if (l <= 0) return 'payee'
@@ -71,10 +72,11 @@ export function InvoicesHome() {
   const [clientOpen, setClientOpen] = React.useState<string | null>(null)
   const [adding, setAdding] = React.useState(false)
   const [paying, setPaying] = React.useState<PayTarget | 'choose' | null>(null)
+  const [payOpen, setPayOpen] = React.useState<string | null>(null)
 
   // La période (calendrier) compte aussi pour les deux cartes du haut et pour l'œil
   const inPeriod = (i: Invoice) => inRange(i.date.split('-').reverse().join('/'), range)
-  const factures = invoices.filter(i => i.kind === 'facture' && inPeriod(i))
+  const factures = invoices.filter(i => i.kind === 'facture' && !i.cancelled && inPeriod(i))
   const toCash = factures.filter(i => left(i) > 0)
   const pending = invoices.filter(i => i.kind === 'devis' && i.status === 'devis' && inPeriod(i))
   const sumLeft = (l: Invoice[]) => l.reduce((a, i) => a + left(i), 0)
@@ -193,17 +195,6 @@ export function InvoicesHome() {
         </div>
       )}
 
-      {/* Mes infos de facture pas encore remplies */}
-      {!profileSet && (
-        <button type="button" onClick={goProfile} className="mx-4 mt-3 flex items-center gap-3 rounded-[14px] border-2 border-dashed border-kgold bg-kgold/5 p-3.5 text-left">
-          <FileText className="size-6 shrink-0 text-kgold" />
-          <span className="flex min-w-0 flex-col">
-            <span className="text-[15px] font-bold">D'abord, mes infos de facture</span>
-            <span className="text-[13px] text-muted-foreground">Mon logo, mon adresse, mes numéros : une seule fois, puis sur chaque facture.</span>
-          </span>
-        </button>
-      )}
-
       {/* Les deux vues : par facture, par client */}
       <div role="tablist" aria-label="Vue" className="mx-4 mt-3 grid grid-cols-2 gap-1 rounded-xl bg-muted p-1">
         {(
@@ -293,7 +284,7 @@ export function InvoicesHome() {
                     className={cn(
                       'shrink-0 text-base tabular-nums',
                       (inv.kind === 'devis' ? inv.status === 'devis' : left(inv) > 0) ? cn('font-bold', inv.kind === 'devis' ? 'text-kgold' : 'text-kgreen') : 'font-semibold text-muted-foreground',
-                      inv.status === 'refuse' && 'line-through'
+                      (inv.status === 'refuse' || inv.cancelled) && 'line-through'
                     )}
                   >
                     {money(totals(inv).net)}
@@ -343,6 +334,7 @@ export function InvoicesHome() {
           client={client}
           onBack={() => setClientOpen(null)}
           onOpen={id => setOpenId(id)}
+          onOpenPay={id => setPayOpen(id)}
           onNew={kind => setEditor({ mode: 'new', kind, personId: client.personId })}
           onPay={() => setPaying({ clientKey: client.k, personId: client.personId, clientName: client.name })}
         />
@@ -350,6 +342,7 @@ export function InvoicesHome() {
 
       <PersonFormDialog type="partner" side="lui" noSex open={adding} onOpenChange={setAdding} onCreated={id => (setView('client'), setClientOpen(id))} />
       <PaymentDialog target={paying} onClose={() => setPaying(null)} />
+      <PaymentDetail id={payOpen} onClose={() => setPayOpen(null)} />
       <InvoiceSheet inv={opened} onClose={() => setOpenId(null)} onEdit={s => (setOpenId(null), setEditor(s))} />
       <InvoiceEditor
         start={editor}
@@ -369,7 +362,7 @@ export function InvoicesHome() {
 // On touche celle qu'on veut voir ; toucher encore « À encaisser » : Total facturé, Versé, Reste.
 // L'historique : ses factures (+) et ses versements (−) ; ou ses devis en cours (et tous ses devis).
 // En bas : Facture et Versement ; ou Devis.
-function ClientFiche({ client, onBack, onOpen, onNew, onPay }: { client: ClientRow; onBack: () => void; onOpen: (id: string) => void; onNew: (k: 'facture' | 'devis') => void; onPay: () => void }) {
+function ClientFiche({ client, onBack, onOpen, onOpenPay, onNew, onPay }: { client: ClientRow; onBack: () => void; onOpen: (id: string) => void; onOpenPay: (id: string) => void; onNew: (k: 'facture' | 'devis') => void; onPay: () => void }) {
   const { persons } = useStore()
   const { left, state, paidOf } = useLeft()
   const person = client.personId ? persons.find(p => p.id === client.personId) : undefined
@@ -378,16 +371,18 @@ function ClientFiche({ client, onBack, onOpen, onNew, onPay }: { client: ClientR
   const [allQuotes, setAllQuotes] = React.useState(false)
   const [menu, setMenu] = React.useState(false)
   const byDate = <T extends { date: string; createdAt: string }>(a: T, b: T) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt)
-  const factures = client.list.filter(i => i.kind === 'facture')
+  const allFactures = client.list.filter(i => i.kind === 'facture')
+  const factures = allFactures.filter(i => !i.cancelled)
+  const livePays = client.pays.filter(p => !p.cancelled)
   const devisAll = client.list.filter(i => i.kind === 'devis').sort(byDate)
   const devisEnCours = devisAll.filter(i => i.status === 'devis')
   const total = factures.reduce((a, i) => a + totals(i).net, 0)
   const versé = factures.reduce((a, i) => a + paidOf(i), 0)
   const reste = factures.reduce((a, i) => a + left(i), 0)
   const nDue = factures.filter(i => left(i) > 0).length
-  const lastPay = [...client.pays].sort(byDate)[0]
+  const lastPay = [...livePays].sort(byDate)[0]
   // L'historique : factures et versements mêlés, le plus récent en haut
-  const history = [...factures.map(f => ({ kind: 'f' as const, date: f.date, createdAt: f.createdAt, f })), ...client.pays.map(p => ({ kind: 'p' as const, date: p.date, createdAt: p.createdAt, p }))].sort(byDate)
+  const history = [...allFactures.map(f => ({ kind: 'f' as const, date: f.date, createdAt: f.createdAt, f })), ...client.pays.map(p => ({ kind: 'p' as const, date: p.date, createdAt: p.createdAt, p }))].sort(byDate)
   const quotes = allQuotes ? devisAll : devisEnCours
   const infos = person ? billingLines(person).join(' · ') : client.details
 
@@ -475,19 +470,22 @@ function ClientFiche({ client, onBack, onOpen, onNew, onPay }: { client: ClientR
                   h.kind === 'f' ? (
                     <DocLine key={h.f.id} inv={h.f} chip={state(h.f)} sign last={i === history.length - 1} onOpen={() => onOpen(h.f.id)} />
                   ) : (
-                    <div key={h.p.id} className={cn('flex items-center gap-3 px-1 py-3', i < history.length - 1 && 'border-b border-border')}>
+                    <button key={h.p.id} type="button" onClick={() => onOpenPay(h.p.id)} className={cn('flex items-center gap-3 px-1 py-3 text-left', i < history.length - 1 && 'border-b border-border', h.p.cancelled && 'opacity-50')}>
                       <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-kblue/10 text-kblue">
                         <Banknote className="size-[18px]" />
                       </span>
                       <span className="flex min-w-0 flex-1 flex-col">
-                        <span className="text-[15px] font-semibold">Versement</span>
+                        <span className="flex items-center gap-2 text-[15px] font-semibold">
+                          <span className={cn(h.p.cancelled && 'line-through')}>Versement</span>
+                          {h.p.cancelled && <span className="shrink-0 rounded-full bg-muted px-2 py-px text-[11px] font-semibold text-muted-foreground">Annulé</span>}
+                        </span>
                         <span className="truncate text-xs text-muted-foreground">
                           {dateShort(h.p.date)}
                           {h.p.note ? ` · ${h.p.note}` : ''}
                         </span>
                       </span>
-                      <span className="shrink-0 text-[15px] font-bold text-kblue tabular-nums">− {money(h.p.amount)}</span>
-                    </div>
+                      <span className={cn('shrink-0 text-[15px] font-bold text-kblue tabular-nums', h.p.cancelled && 'line-through')}>− {money(h.p.amount)}</span>
+                    </button>
                   )
                 )
               )
@@ -531,7 +529,7 @@ function DocLine({ inv, chip, sign, last, onOpen }: { inv: Invoice; chip: ChipKe
   const devis = inv.kind === 'devis'
   const what = inv.objet || inv.lines.map(l => l.d).join(', ')
   return (
-    <button type="button" onClick={onOpen} className={cn('flex items-center gap-3 px-1 py-3 text-left', !last && 'border-b border-border', inv.status === 'refuse' && 'opacity-50')}>
+    <button type="button" onClick={onOpen} className={cn('flex items-center gap-3 px-1 py-3 text-left', !last && 'border-b border-border', (inv.status === 'refuse' || inv.cancelled) && 'opacity-50')}>
       <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-[10px]', devis ? 'bg-kgold/15 text-kgold' : 'bg-kgreen/15 text-kgreen')}>
         <FileText className="size-[18px]" />
       </span>
@@ -547,7 +545,7 @@ function DocLine({ inv, chip, sign, last, onOpen }: { inv: Invoice; chip: ChipKe
           </span>
         </span>
       </span>
-      <span className={cn('shrink-0 text-[15px] font-bold tabular-nums', devis && 'text-kgold', inv.status === 'refuse' && 'line-through')}>
+      <span className={cn('shrink-0 text-[15px] font-bold tabular-nums', devis && 'text-kgold', (inv.status === 'refuse' || inv.cancelled) && 'line-through')}>
         {sign ? '+ ' : ''}
         {money(totals(inv).net)}
       </span>
@@ -557,37 +555,64 @@ function DocLine({ inv, chip, sign, last, onOpen }: { inv: Invoice; chip: ChipKe
 
 // ——— Une facture ouverte : l'aperçu, et ce qu'on peut en faire ———
 function InvoiceSheet({ inv, onClose, onEdit }: { inv: Invoice | null; onClose: () => void; onEdit: (s: EditorStart) => void }) {
-  const { profile, setStatus, remove, addPayment } = useInvoices()
+  const { profile, setStatus, remove, addPayment, cancelInvoice } = useInvoices()
   const { left, state, paidOf } = useLeft()
   const { modules, setSelectedPersonId, persons } = useStore()
-  const [busy, setBusy] = React.useState(false)
   const [askDelete, setAskDelete] = React.useState(false)
+  const [asking, setAsking] = React.useState(false) // annuler la facture : le motif
+  const [reason, setReason] = React.useState('')
+  // Le PDF est préparé dès que la facture s'ouvre : « WhatsApp » l'envoie tout de suite
+  const [pdf, setPdf] = React.useState<{ key: string; blob: Blob; name: string; save: () => void } | null>(null)
   // Garde la dernière facture pendant la fermeture (pas de fenêtre vide qui se referme)
   const kept = React.useRef(inv)
   if (inv) kept.current = inv
   const v = inv ?? kept.current
-  if (!v) return null
+  const rest = v ? left(v) : 0
+  const done = !!v && v.kind === 'facture' && !v.cancelled && rest <= 0
+  // Sur le papier : « PAYÉE » quand elle est soldée par les versements
+  const paper = v && done ? { ...v, status: 'payee' as const } : v
+  const pdfKey = paper ? JSON.stringify([paper, profile]) : ''
+  React.useEffect(() => {
+    setAsking(false)
+    setReason('')
+  }, [inv?.id])
+  React.useEffect(() => {
+    if (!inv || !paper) return
+    let alive = true
+    invoicePdf(paper, profile)
+      .then(r => alive && setPdf({ key: pdfKey, ...r }))
+      .catch(e => console.error('[Kayé] PDF', e))
+    return () => {
+      alive = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inv ? pdfKey : ''])
+  if (!v || !paper) return null
   const devis = v.kind === 'devis'
   const net = totals(v).net
-  const rest = left(v)
-  const done = !devis && rest <= 0
   const st = state(v)
-  // Sur le papier : « PAYÉE » quand elle est soldée par les versements
-  const paper = done ? { ...v, status: 'payee' as const } : v
   const person = v.client.personId ? persons.find(p => p.id === v.client.personId) : undefined
-  const run = async (f: () => Promise<void>) => {
-    setBusy(true)
-    try {
-      await f()
-    } finally {
-      setBusy(false)
+  const ready = pdf && pdf.key === pdfKey ? pdf : null
+  const phone = person?.phone ?? v.client.phone
+  const message = `Bonjour ${v.client.name}, voici ${devis ? 'votre devis' : 'votre facture'} N° ${v.number} d'un montant de ${money(net)} FCFA.\n${profile.name}`
+
+  // WhatsApp : le téléphone propose WhatsApp avec le PDF joint ; sinon le PDF est téléchargé et la discussion WhatsApp s'ouvre
+  const whatsapp = () => {
+    if (!ready) return
+    const file = new File([ready.blob], ready.name, { type: 'application/pdf' })
+    if (navigator.canShare?.({ files: [file] })) {
+      void navigator.share({ files: [file], text: message }).catch(() => {})
+      return
     }
+    ready.save()
+    const n = waNumber(phone)
+    window.open(`https://wa.me/${n}?text=${encodeURIComponent(message)}`, '_blank')
   }
   const previewW = Math.min(300, window.innerWidth - 72)
 
   return (
     <>
-      <Dialog open={!!inv} onOpenChange={o => !o && onClose()}>
+      <Dialog open={!!inv} onOpenChange={o => !o && onClose()} dirty={asking && reason.trim() !== ''} dirtyKind="modification">
         <DialogContent fixedHeight>
           <DialogHeader className="text-left">
             <DialogTitle className="text-left text-xl">
@@ -598,16 +623,17 @@ function InvoiceSheet({ inv, onClose, onEdit }: { inv: Invoice | null; onClose: 
             </DialogDescription>
           </DialogHeader>
           <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pt-1 pb-2 [&>*]:shrink-0">
-            <div className={cn('flex items-center justify-between rounded-[14px] border p-3.5', devis ? 'border-kgold/50 bg-kgold/5' : !done ? 'border-kgreen/40 bg-kgreen/5' : '')}>
+            <div className={cn('flex items-center justify-between rounded-[14px] border p-3.5', v.cancelled ? 'bg-muted/40' : devis ? 'border-kgold/50 bg-kgold/5' : !done ? 'border-kgreen/40 bg-kgreen/5' : '')}>
               <span className="flex flex-col">
-                <span className="text-[13px] text-muted-foreground">{devis ? 'Montant du devis' : done ? 'Payée' : 'Reste à encaisser'}</span>
-                <span className={cn('text-[28px] leading-tight font-extrabold tabular-nums', devis ? 'text-kgold' : !done ? 'text-kgreen' : '')}>{money(devis || done ? net : rest)}</span>
-                {!devis && paidOf(v) > 0 && !done && (
+                <span className="text-[13px] text-muted-foreground">{v.cancelled ? 'Annulée' : devis ? 'Montant du devis' : done ? 'Payée' : 'Reste à encaisser'}</span>
+                <span className={cn('text-[28px] leading-tight font-extrabold tabular-nums', v.cancelled ? 'line-through opacity-60' : devis ? 'text-kgold' : !done ? 'text-kgreen' : '')}>{money(devis || done || v.cancelled ? net : rest)}</span>
+                {!devis && !v.cancelled && paidOf(v) > 0 && !done && (
                   <span className="text-xs text-muted-foreground">
                     Déjà versé <span className="font-semibold text-kblue">{money(paidOf(v))}</span> sur {money(net)}
                   </span>
                 )}
-                {v.status === 'credit' && <span className="text-xs text-muted-foreground">Ajoutée au crédit de {v.client.name}</span>}
+                {v.cancelled && v.cancelReason && <span className="text-xs text-muted-foreground">Motif : {v.cancelReason}</span>}
+                {v.status === 'credit' && !v.cancelled && <span className="text-xs text-muted-foreground">Ajoutée au crédit de {v.client.name}</span>}
                 {v.fromQuote && <span className="text-xs text-muted-foreground">Faite à partir du devis {v.fromQuote}</span>}
               </span>
               <Chip s={st} />
@@ -626,10 +652,10 @@ function InvoiceSheet({ inv, onClose, onEdit }: { inv: Invoice | null; onClose: 
                 </button>
               </div>
             )}
-            {!devis && !done && (
+            {!devis && !done && !v.cancelled && (
               <div className={cn('grid gap-2', modules.personnes && v.status === 'non_payee' ? 'grid-cols-2' : 'grid-cols-1')}>
                 <button type="button" onClick={() => addPayment({ clientKey: clientKeyOf(v), personId: v.client.personId, clientName: v.client.name, amount: rest, invoiceId: v.id, note: `Facture N° ${shortNumber(v.number)}` })} className="h-[52px] rounded-2xl bg-kgreen-solid text-base font-bold text-white">
-                  {paidOf(v) > 0 ? `Il a payé le reste` : 'Il a payé'}
+                  {paidOf(v) > 0 ? 'Il a payé le reste' : 'Il a payé'}
                 </button>
                 {modules.personnes && v.status === 'non_payee' && (
                   <button type="button" onClick={() => setStatus(v.id, 'credit')} className="h-[52px] rounded-2xl border-2 border-kgreen-solid text-[15px] font-bold text-kgreen">
@@ -638,33 +664,70 @@ function InvoiceSheet({ inv, onClose, onEdit }: { inv: Invoice | null; onClose: 
                 )}
               </div>
             )}
-            {v.status === 'credit' && person && modules.personnes && (
+            {v.status === 'credit' && !v.cancelled && person && modules.personnes && (
               <button type="button" onClick={() => (onClose(), setSelectedPersonId(person.id))} className="h-[52px] rounded-2xl border-2 text-base font-bold">
                 Voir son compte
               </button>
             )}
 
-            <div className="grid grid-cols-3 gap-2 text-sm font-semibold">
-              {v.status !== 'credit' && v.status !== 'accepte' && (
-                <button type="button" onClick={() => onEdit({ mode: 'edit', base: v })} className="h-11 rounded-xl border">
-                  Modifier
+            {!v.cancelled && (
+              <div className="grid grid-cols-3 gap-2 text-sm font-semibold">
+                {v.status !== 'credit' && v.status !== 'accepte' && paidOf(v) === 0 && (
+                  <button type="button" onClick={() => onEdit({ mode: 'edit', base: v })} className="h-11 rounded-xl border">
+                    Modifier
+                  </button>
+                )}
+                <button type="button" onClick={() => onEdit({ mode: 'duplicate', base: v })} className="h-11 rounded-xl border">
+                  Copier
                 </button>
-              )}
-              <button type="button" onClick={() => onEdit({ mode: 'duplicate', base: v })} className="h-11 rounded-xl border">
-                Copier
-              </button>
-              <button type="button" onClick={() => setAskDelete(true)} className="h-11 rounded-xl border border-kred/40 text-kred">
-                Supprimer
-              </button>
-            </div>
+                {devis ? (
+                  <button type="button" onClick={() => setAskDelete(true)} className="h-11 rounded-xl border border-kred/40 text-kred">
+                    Supprimer
+                  </button>
+                ) : (
+                  <button type="button" onClick={() => setAsking(true)} className="h-11 rounded-xl border border-kred/40 text-kred">
+                    Annuler
+                  </button>
+                )}
+              </div>
+            )}
+            {/* Annuler la facture : jamais supprimée, barrée avec son motif */}
+            {asking && !v.cancelled && (
+              <form
+                className="flex flex-col gap-3 rounded-[14px] border border-kred/40 p-3.5 animate-in fade-in duration-200"
+                onSubmit={e => {
+                  e.preventDefault()
+                  if (!reason.trim()) return
+                  cancelInvoice(v.id, reason)
+                  setAsking(false)
+                }}
+              >
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[13px] text-muted-foreground">Motif de l'annulation</span>
+                  <textarea value={reason} onChange={e => setReason(e.target.value)} rows={2} placeholder="Ex : erreur sur la facture, commande annulée…" className="resize-none rounded-xl border bg-background px-3.5 py-3 text-base outline-none focus:border-kred" />
+                </label>
+                <span className="text-xs text-muted-foreground">
+                  Elle reste dans l'historique, barrée. {paidOf(v) > 0 ? 'Ce qui a été versé dessus passe sur ses autres factures. ' : ''}
+                  {v.status === 'credit' ? 'Le crédit ajouté à son compte Kayé reste : annulez-le là-bas aussi.' : ''}
+                </span>
+                <button type="submit" disabled={!reason.trim()} className="h-12 rounded-2xl bg-kred-solid text-base font-bold text-white disabled:opacity-40">
+                  Annuler la facture
+                </button>
+                <button type="button" onClick={() => setAsking(false)} className="h-10 text-sm font-semibold text-muted-foreground">
+                  Garder la facture
+                </button>
+              </form>
+            )}
           </div>
 
+          {/* Envoyer : WhatsApp (avec le PDF), ou télécharger */}
           <div className="mt-2 flex shrink-0 gap-2.5">
-            <button type="button" aria-label="Télécharger" disabled={busy} onClick={() => run(() => downloadInvoice(paper, profile))} className="flex h-[56px] w-[64px] items-center justify-center rounded-2xl border-2 disabled:opacity-40">
+            <button type="button" aria-label="Télécharger" disabled={!ready} onClick={() => ready?.save()} className="flex h-[56px] w-[64px] items-center justify-center rounded-2xl border-2 disabled:opacity-40">
               <Download className="size-6" />
             </button>
-            <button type="button" disabled={busy} onClick={() => run(() => shareInvoice(paper, profile))} className="h-[56px] flex-1 rounded-2xl text-lg font-bold text-white disabled:opacity-40" style={{ background: '#25d366' }}>
-              {busy ? 'Préparation…' : devis && v.status === 'devis' ? 'Renvoyer' : 'Envoyer'}
+            <button type="button" disabled={!ready} onClick={whatsapp} className="flex h-[56px] flex-1 items-center justify-center gap-2 rounded-2xl text-lg font-bold text-white disabled:opacity-60" style={{ background: '#25d366' }}>
+              <WhatsAppIcon />
+              {ready ? 'WhatsApp' : 'Préparation…'}
             </button>
           </div>
         </DialogContent>
@@ -674,10 +737,8 @@ function InvoiceSheet({ inv, onClose, onEdit }: { inv: Invoice | null; onClose: 
         <DialogContent>
           <div className="flex flex-col gap-4">
             <DialogHeader className="gap-1 p-0">
-              <DialogTitle className="text-left">Supprimer {devis ? 'ce devis' : 'cette facture'} ?</DialogTitle>
-              <DialogDescription className="text-left">
-                {v.number} · {v.client.name}. {v.status === 'credit' ? 'Le crédit ajouté à son compte reste : annulez-le dans son compte si besoin.' : 'Elle ne pourra pas être retrouvée.'}
-              </DialogDescription>
+              <DialogTitle className="text-left">Supprimer ce devis ?</DialogTitle>
+              <DialogDescription className="text-left">{v.number} · {v.client.name}. Il ne pourra pas être retrouvé.</DialogDescription>
             </DialogHeader>
             <Button
               variant="destructive"
@@ -692,11 +753,19 @@ function InvoiceSheet({ inv, onClose, onEdit }: { inv: Invoice | null; onClose: 
               Supprimer
             </Button>
             <Button variant="outline" size="lg" className="h-12" onClick={() => setAskDelete(false)}>
-              Annuler
+              Garder
             </Button>
           </div>
         </DialogContent>
       </Dialog>
     </>
+  )
+}
+
+function WhatsAppIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-6" fill="currentColor" aria-hidden="true">
+      <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21h.01c5.46 0 9.91-4.45 9.91-9.91A9.85 9.85 0 0 0 12.04 2Zm0 18.15h-.01a8.23 8.23 0 0 1-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.2 8.2 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.25-8.24a8.2 8.2 0 0 1 8.24 8.25c0 4.54-3.7 8.23-8.23 8.23Zm4.52-6.17c-.25-.12-1.47-.72-1.69-.81-.23-.08-.39-.12-.56.13-.16.24-.64.8-.78.97-.15.16-.29.18-.54.06-.25-.12-1.05-.39-1.99-1.23-.74-.66-1.23-1.47-1.38-1.72-.14-.25-.02-.38.11-.5.11-.11.25-.29.37-.43.13-.15.17-.25.25-.42.08-.16.04-.31-.02-.43-.06-.12-.56-1.34-.76-1.84-.2-.48-.4-.42-.56-.42h-.48a.92.92 0 0 0-.66.31c-.23.25-.87.85-.87 2.07s.89 2.4 1.01 2.57c.12.16 1.75 2.67 4.25 3.75.59.26 1.05.41 1.41.52.6.19 1.14.16 1.57.1.48-.07 1.47-.6 1.68-1.18.21-.58.21-1.08.14-1.18-.06-.1-.22-.16-.47-.28Z" />
+    </svg>
   )
 }

@@ -5,6 +5,8 @@ import { useStore } from '@/data/store'
 import { HomeTop } from '@/components/screens/HomeScreen'
 import { NewEmployeeDialog } from '@/components/modals/NewEmployeeDialog'
 import { PaySalaryDialog } from '@/components/modals/PaySalaryDialog'
+import { EmployeePayments } from '@/components/screens/EmployeePayments'
+import { Banknotes } from '@/components/armed'
 import { daysSince } from '@/data/payHistory'
 import { cn, matchesPerson } from '@/lib/utils'
 import { amt, initials } from '@/modules/personnes/view'
@@ -29,6 +31,7 @@ export const EmployeesHome: React.FC = () => {
   const [adding, setAdding] = React.useState(false)
   const [paying, setPaying] = React.useState(false)
   const [showOld, setShowOld] = React.useState(false)
+  const [history, setHistory] = React.useState(false) // « Mes versements »
 
   const lines = persons.filter(p => p.type === 'employee').map(p => empLine(p, movements, monthStates))
   const salaryDue = lines.reduce((a, l) => a + l.due, 0)
@@ -209,6 +212,10 @@ export const EmployeesHome: React.FC = () => {
             </button>
           )}
         </label>
+        {/* Mes versements : tous les salaires et avances versés */}
+        <button type="button" onClick={() => setHistory(true)} aria-label="Mes versements" className="flex size-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted">
+          <Banknotes className="size-[22px]" />
+        </button>
         {salaires && (
           <button type="button" onClick={() => setAdding(true)} aria-label="Nouvel employé" className="flex h-[46px] shrink-0 items-center gap-1.5 rounded-xl bg-kgold px-3 text-sm font-bold text-white transition-colors active:scale-[0.98] dark:text-black">
           <Plus className="size-[18px]" strokeWidth={2.4} /> Nouvel
@@ -256,6 +263,7 @@ export const EmployeesHome: React.FC = () => {
         )}
       </div>
 
+      {history && <EmployeePayments onBack={() => setHistory(false)} />}
       <NewEmployeeDialog open={adding} onOpenChange={setAdding} onCreated={id => (setShowCur(false), setSelectedPersonId(id))} />
       <PaySalaryDialog empId={null} open={paying} onOpenChange={setPaying} />
     </div>

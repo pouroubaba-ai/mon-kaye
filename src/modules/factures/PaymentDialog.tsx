@@ -2,12 +2,18 @@
 // 1. De qui ? (les clients qui doivent, avec leur reste)  2. Combien ? (« Il doit encore … »)
 // Le versement paie ses factures dans l'ordre, la plus ancienne d'abord.
 import React from 'react'
-import { ChevronLeft, ChevronRight, Search, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Eye, EyeOff, Search, X } from 'lucide-react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/responsive-dialog'
 import { Input } from '@/components/ui/input'
 import { cn, plain } from '@/lib/utils'
 import { useInvoices } from './store'
-import { clientKeyOf, money, totals } from './view'
+import { clientKeyOf, money, shortNumber, totals } from './view'
+
+const MOIS_C = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.']
+const dateShort = (s: string) => {
+  const [, m, d] = s.split('-').map(Number)
+  return `${d} ${MOIS_C[m - 1]}`
+}
 
 export type PayTarget = { clientKey: string; personId?: string; clientName: string }
 const thousands = (s: string) => (s ? Number(s).toLocaleString('fr-FR').replace(/\s/g, ' ') : '')
@@ -18,18 +24,22 @@ export function PaymentDialog({ target, onClose }: { target: PayTarget | 'choose
   const [who, setWho] = React.useState<PayTarget | null>(null)
   const [search, setSearch] = React.useState('')
   const [amount, setAmount] = React.useState('')
+  const [note, setNote] = React.useState('')
+  const [showOpen, setShowOpen] = React.useState(false) // l'œil : les factures sur lesquelles il doit encore
   React.useEffect(() => {
     if (!target) return
     setWho(target === 'choose' ? null : target)
     setSearch('')
     setAmount('')
+    setNote('')
+    setShowOpen(false)
   }, [target])
 
   // Ce que chaque client doit encore sur ses factures
   const dues = React.useMemo(() => {
     const m = new Map<string, PayTarget & { due: number }>()
     for (const i of invoices) {
-      if (i.kind !== 'facture') continue
+      if (i.kind !== 'facture' || i.cancelled) continue
       const l = totals(i).net - (paid.get(i.id) ?? 0)
       if (l <= 0) continue
       const k = clientKeyOf(i)
@@ -42,13 +52,19 @@ export function PaymentDialog({ target, onClose }: { target: PayTarget | 'choose
   const q = plain(search.trim())
   const shown = q ? dues.filter(d => plain(d.clientName).includes(q)) : dues
   const due = who ? dues.find(d => d.clientKey === who.clientKey)?.due ?? 0 : 0
+  // Ses factures pas encore soldées (la plus ancienne d'abord : c'est elle que le versement paie en premier)
+  const openInvoices = who
+    ? invoices
+        .filter(i => i.kind === 'facture' && !i.cancelled && clientKeyOf(i) === who.clientKey && totals(i).net - (paid.get(i.id) ?? 0) > 0)
+        .sort((a, b) => a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt))
+    : []
   const n = parseInt(amount, 10) || 0
   const tooMuch = n > due
   const ok = !!who && n > 0 && !tooMuch
 
   const save = () => {
     if (!ok || !who) return
-    addPayment({ ...who, amount: n })
+    addPayment({ ...who, amount: n, ...(note.trim() ? { note: note.trim() } : {}) })
     onClose()
   }
 
@@ -95,7 +111,7 @@ export function PaymentDialog({ target, onClose }: { target: PayTarget | 'choose
           </div>
         ) : (
           <form
-            className="flex min-h-0 flex-1 flex-col gap-4"
+            className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto"
             onSubmit={e => {
               e.preventDefault()
               save()
@@ -114,20 +130,133 @@ export function PaymentDialog({ target, onClose }: { target: PayTarget | 'choose
                 />
                 <span className="text-base text-muted-foreground">FCFA</span>
               </label>
-              <span className="text-sm text-muted-foreground">
+              <button type="button" onClick={() => setShowOpen(o => !o)} aria-expanded={showOpen} className="flex items-center gap-1.5 text-sm text-muted-foreground">
                 Il doit encore <span className="font-semibold text-kgreen">{money(due)}</span>
-              </span>
+                {showOpen ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </button>
+              {/* L'œil : les factures sur lesquelles il doit encore */}
+              {showOpen && (
+                <div className="mt-1 flex w-full flex-col rounded-xl border px-3.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                  {openInvoices.map((i, k) => {
+                    const p = paid.get(i.id) ?? 0
+                    return (
+                      <div key={i.id} className={cn('flex items-center justify-between gap-3 py-2.5', k < openInvoices.length - 1 && 'border-b')}>
+                        <span className="flex min-w-0 flex-col">
+                          <span className="truncate text-sm font-semibold">Facture N° {shortNumber(i.number)}</span>
+                          <span className="truncate text-xs text-muted-foreground">
+                            {dateShort(i.date)} · {money(totals(i).net)}
+                            {p > 0 ? ` · déjà versé ${money(p)}` : ''}
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-sm font-bold text-kgreen tabular-nums">{money(totals(i).net - p)}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
               {tooMuch && <span className="text-xs text-kred">C'est plus que ce qu'il doit sur ses factures.</span>}
               <button type="button" onClick={() => setAmount(String(due))} className="mt-2 h-9 rounded-full border px-4 text-sm font-semibold text-muted-foreground">
                 Tout ({money(due)})
               </button>
             </div>
+            {/* Pourquoi il verse : on le retrouve dans le détail du versement */}
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[13px] text-muted-foreground">Pourquoi ? (facultatif)</span>
+              <input value={note} onChange={e => setNote(e.target.value)} placeholder="Ex : avance sur chantier, solde…" className="h-12 rounded-xl border bg-background px-3.5 text-base outline-none focus:border-kgold" />
+            </label>
             <div className="flex-1" />
             <button type="submit" disabled={!ok} className="h-[56px] rounded-2xl bg-kgreen-solid text-lg font-bold text-white disabled:opacity-40">
               Enregistrer
             </button>
           </form>
         )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ——— Le détail d'un versement : montant, date, pourquoi ; l'annuler (avec un motif, jamais supprimé) ———
+const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
+const dateLong = (s: string) => {
+  const [y, m, d] = s.slice(0, 10).split('-').map(Number)
+  return `${d} ${MOIS[m - 1]} ${y}`
+}
+export function PaymentDetail({ id, onClose }: { id: string | null; onClose: () => void }) {
+  const { payments, invoices, cancelPayment } = useInvoices()
+  const [asking, setAsking] = React.useState(false)
+  const [reason, setReason] = React.useState('')
+  const kept = React.useRef<(typeof payments)[number] | null>(null)
+  const found = id ? payments.find(p => p.id === id) ?? null : null
+  if (found) kept.current = found
+  React.useEffect(() => {
+    setAsking(false)
+    setReason('')
+  }, [id])
+  const p = found ?? kept.current
+  if (!p) return null
+  const target = p.invoiceId ? invoices.find(i => i.id === p.invoiceId) : undefined
+  const onKaye = invoices.some(i => i.status === 'credit' && clientKeyOf(i) === p.clientKey)
+  const rows: [string, string][] = [
+    ['Client', p.clientName],
+    ['Date', dateLong(p.date)],
+    ['Pourquoi', p.note || '—'],
+    ...(target ? ([['Pour la facture', target.number]] as [string, string][]) : []),
+  ]
+  return (
+    <Dialog open={!!id} onOpenChange={o => !o && onClose()} dirty={asking && reason.trim() !== ''} dirtyKind="modification">
+      <DialogContent>
+        <DialogHeader className="text-left">
+          <DialogTitle className="text-left text-xl">Versement</DialogTitle>
+          <DialogDescription className="text-left">{p.clientName}</DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-3 pb-1">
+          <span className={cn('text-center text-[36px] font-bold text-kblue tabular-nums', p.cancelled && 'line-through opacity-60')}>
+            {money(p.amount)} <span className="text-base font-medium text-muted-foreground">FCFA</span>
+          </span>
+          {p.cancelled && (
+            <div className="rounded-xl border bg-muted/40 px-3.5 py-2.5 text-sm">
+              <span className="font-semibold">Annulé</span>
+              {p.cancelledAt && ` le ${dateLong(p.cancelledAt)}`}
+              {p.cancelReason && <span className="mt-0.5 block text-muted-foreground">Motif : {p.cancelReason}</span>}
+            </div>
+          )}
+          <div className="flex flex-col rounded-xl border px-3.5">
+            {rows.map(([k, v], i) => (
+              <div key={k} className={cn('flex items-baseline justify-between gap-3 py-2.5', i < rows.length - 1 && 'border-b')}>
+                <span className="shrink-0 text-[13px] text-muted-foreground">{k}</span>
+                <span className="min-w-0 text-right text-[15px] font-semibold break-words">{v}</span>
+              </div>
+            ))}
+          </div>
+          {!p.cancelled &&
+            (asking ? (
+              <form
+                className="flex flex-col gap-3 animate-in fade-in duration-200"
+                onSubmit={e => {
+                  e.preventDefault()
+                  if (!reason.trim()) return
+                  cancelPayment(p.id, reason)
+                  setAsking(false)
+                }}
+              >
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[13px] text-muted-foreground">Motif de l'annulation</span>
+                  <textarea value={reason} onChange={e => setReason(e.target.value)} rows={2} placeholder="Ex : erreur de montant, versement en double…" className="resize-none rounded-xl border bg-background px-3.5 py-3 text-base outline-none focus:border-kred" />
+                </label>
+                {onKaye && <span className="text-xs text-muted-foreground">S'il a aussi été noté sur son compte Kayé, annulez-le là-bas aussi.</span>}
+                <button type="submit" disabled={!reason.trim()} className="h-12 rounded-2xl bg-kred-solid text-base font-bold text-white disabled:opacity-40">
+                  Annuler le versement
+                </button>
+                <button type="button" onClick={() => setAsking(false)} className="h-10 text-sm font-semibold text-muted-foreground">
+                  Garder le versement
+                </button>
+              </form>
+            ) : (
+              <button type="button" onClick={() => setAsking(true)} className="h-12 rounded-2xl border border-kred/40 text-base font-semibold text-kred">
+                Annuler ce versement
+              </button>
+            ))}
+        </div>
       </DialogContent>
     </Dialog>
   )
