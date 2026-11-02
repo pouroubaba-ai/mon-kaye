@@ -82,7 +82,12 @@ export function InvoicesProvider({ uid, children }: { uid: string | null; childr
       if (!alive) return
       setInvoices(r.invoices)
       setPayments(r.payments)
-      if (r.profile) setProfile(r.profile)
+      if (r.profile && !r.profile.sb) {
+        // Une seule fois : les infos de Sté SACKO-BUILDING BTP remplacent celles déjà enregistrées
+        const sbp = defaultProfile()
+        setProfile(sbp)
+        void saveInvoiceProfile(uid, sbp)
+      } else if (r.profile) setProfile(r.profile)
     }
     loadInvoices(uid, 'cache').then(apply).catch(() => {})
     loadInvoices(uid).then(apply).catch(e => console.error('[Kayé] Factures', e))

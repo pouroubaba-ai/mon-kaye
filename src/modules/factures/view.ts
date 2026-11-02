@@ -87,9 +87,10 @@ export function defaultProfile(_shopName?: string, year = new Date().getFullYear
     address: 'Av. David NGOBALI — Quartier 604 Fleuve Congo\nBrazzaville, République du Congo',
     phone: '06 662 71 71 / 05 551 51 76',
     prefix: `SB-BTP/${year}-`,
-    next: 1,
+    next: 2, // la facture SB-BTP/2026-001 a déjà été faite
     quotePrefix: `SB-BTP/D-${year}-`,
     quoteNext: 1,
+    sb: true,
     mentions: 'Facture établie en deux exemplaires originaux.\nPrière de rappeler la référence {numero} lors du règlement.',
   }
 }

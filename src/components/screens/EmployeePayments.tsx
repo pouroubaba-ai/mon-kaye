@@ -12,10 +12,13 @@ import { amt } from '@/modules/personnes/view'
 
 const PAID = new Set(['je_lui_ai_verse', 'avance_salaire'])
 
-export function EmployeePayments({ onBack }: { onBack: () => void }) {
+// personId : seulement les versements faits à cet employé (depuis sa fiche)
+export function EmployeePayments({ onBack, personId }: { onBack: () => void; personId?: string }) {
   const { persons, movements, openMovementDetail } = useStore()
   const [range, setRange] = React.useState<DateRange>(ALL_TIME)
-  const emp = new Set(persons.filter(p => p.type === 'employee').map(p => p.id))
+  const emp = new Set(persons.filter(p => p.type === 'employee' && (!personId || p.id === personId)).map(p => p.id))
+  const who = personId ? persons.find(p => p.id === personId) : undefined
+  const title = who ? 'Ses versements' : 'Mes versements'
   const list = movements
     .filter(m => emp.has(m.personId) && PAID.has(m.type) && inRange(m.date, range))
     .sort((a, b) => opTime(b.date) - opTime(a.date) || (b.id > a.id ? 1 : -1))
@@ -36,20 +39,23 @@ export function EmployeePayments({ onBack }: { onBack: () => void }) {
   }, [])
 
   return (
-    <div role="dialog" aria-label="Mes versements" className="fixed inset-0 z-40 overflow-y-auto bg-background">
+    <div role="dialog" aria-label={title} className="fixed inset-0 z-40 overflow-y-auto bg-background">
       <div className="mx-auto flex min-h-dvh w-full max-w-xl flex-col">
         <header className="flex items-center gap-2 px-3 pt-[calc(0.875rem+env(safe-area-inset-top))] pb-2">
           <button type="button" aria-label="Retour" onClick={onBack} className="flex size-11 items-center justify-center rounded-full hover:bg-muted">
             <ChevronLeft className="size-6" />
           </button>
-          <span className="min-w-0 flex-1 truncate text-xl font-bold">Mes versements</span>
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate text-xl font-bold">{title}</span>
+            {who && <span className="truncate text-[13px] text-muted-foreground">{who.name}</span>}
+          </span>
           {!isFiltered(range) && <DateFilter iconOnly value={range} onChange={setRange} align="end" />}
         </header>
         <div className="flex flex-col gap-3 px-4 pt-2 pb-[calc(2rem+env(safe-area-inset-bottom))]">
           {isFiltered(range) && <DateFilter value={range} onChange={setRange} />}
           {/* Le total versé, comme la grande carte d'une fiche */}
           <div className="flex flex-col gap-1.5 rounded-[18px] border border-kred/30 bg-gradient-to-br from-kred/20 to-card to-70% p-[18px]">
-            <span className="text-sm text-muted-foreground">Versé aux employés</span>
+            <span className="text-sm text-muted-foreground">{who ? `Versé à ${who.name}` : 'Versé aux employés'}</span>
             <span className="text-[34px] leading-tight font-bold tracking-tight text-kred tabular-nums">
               {amt(total)} <span className="text-base font-medium text-muted-foreground">FCFA</span>
             </span>
@@ -70,11 +76,11 @@ export function EmployeePayments({ onBack }: { onBack: () => void }) {
                   </span>
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="flex items-center gap-2 text-[15px] font-semibold">
-                      <span className={cn('truncate', m.isCancelled && 'line-through')}>{m.personName}</span>
+                      <span className={cn('truncate', m.isCancelled && 'line-through')}>{who ? (avance ? 'Avance' : 'Salaire') : m.personName}</span>
                       {m.isCancelled && <span className="shrink-0 rounded-full bg-muted px-2 py-px text-[11px] font-semibold text-muted-foreground">Annulé</span>}
                     </span>
                     <span className="truncate text-xs text-muted-foreground">
-                      {avance ? 'Avance' : 'Salaire'} · {dayLabel(m.date)}
+                      {who ? dayLabel(m.date) : `${avance ? 'Avance' : 'Salaire'} · ${dayLabel(m.date)}`}
                       {m.note ? ` · ${m.note}` : ''}
                     </span>
                   </span>

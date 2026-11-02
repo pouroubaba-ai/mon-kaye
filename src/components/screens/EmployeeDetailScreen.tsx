@@ -12,6 +12,8 @@ import { ARMED_HINT, ARMED_ROW, useArmed } from '@/components/armed'
 import { PeriodSheet } from '@/components/modals/PeriodSheet'
 import { PaySalaryDialog } from '@/components/modals/PaySalaryDialog'
 import { PayslipDialog } from '@/components/modals/PayslipDialog'
+import { EmployeePayments } from '@/components/screens/EmployeePayments'
+import { Banknotes } from '@/components/armed'
 import { cn, formatFCFA, waNumber } from '@/lib/utils'
 import { amt } from '@/modules/personnes/view'
 import { Cap, empLine, inDays, monthName, rowSub, shortDate, shortDay } from '@/modules/employes/view'
@@ -29,6 +31,7 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
   const [period, setPeriod] = React.useState<string | null>(null)
   const [paying, setPaying] = React.useState(false)
   const [slip, setSlip] = React.useState(false)
+  const [paid, setPaid] = React.useState(false) // ses versements
   const [menu, setMenu] = React.useState(false)
   const [plan, setPlan] = React.useState(false)
   const [detail, setDetail] = React.useState(false) // carte touchée une deuxième fois : Total, Versé, Reste
@@ -136,11 +139,17 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
           ))}
 
         <div className="flex items-center justify-between">
-          <span className="text-[15px] font-semibold text-muted-foreground">{salaire ? 'Ses salaires' : 'Son avance'}</span>
+          <span className="shrink-0 text-[15px] font-semibold whitespace-nowrap text-muted-foreground">{salaire ? 'Ses salaires' : 'Son avance'}</span>
           {salaire ? (
-            <button type="button" onClick={() => setSlip(true)} className="flex h-9 items-center gap-1.5 rounded-[10px] border px-3 text-[13px] font-semibold text-muted-foreground hover:bg-muted">
-              <FileText className="size-4" /> Fiche de paie
-            </button>
+            <div className="flex items-center gap-1.5">
+              {/* Ses versements : tout ce qu'on lui a versé (salaires, avances) */}
+              <button type="button" onClick={() => setPaid(true)} className="flex h-9 items-center gap-1.5 rounded-[10px] border px-2.5 text-[13px] font-semibold whitespace-nowrap text-muted-foreground hover:bg-muted">
+                <Banknotes className="size-4" /> Versements
+              </button>
+              <button type="button" onClick={() => setSlip(true)} className="flex h-9 items-center gap-1.5 rounded-[10px] border px-2.5 text-[13px] font-semibold whitespace-nowrap text-muted-foreground hover:bg-muted">
+                <FileText className="size-4" /> Fiche de paie
+              </button>
+            </div>
           ) : (
             !gone && (
               <button type="button" onClick={() => setPlan(true)} className="flex h-9 items-center gap-1.5 rounded-[10px] border px-3 text-[13px] font-semibold text-muted-foreground hover:bg-muted">
@@ -216,6 +225,7 @@ export const EmployeeDetailScreen: React.FC<{ employeeId: string }> = ({ employe
 
       <PeriodSheet empId={emp.id} period={period} open={period !== null} onOpenChange={o => !o && setPeriod(null)} />
       <PaySalaryDialog empId={emp.id} open={paying} onOpenChange={setPaying} />
+      {paid && <EmployeePayments personId={emp.id} onBack={() => setPaid(false)} />}
       <PayslipDialog empId={emp.id} period={pr.months[0]?.period ?? pr.currentPeriod} open={slip} onOpenChange={setSlip} />
       <AdvancePlanDialog empId={emp.id} open={plan} onOpenChange={setPlan} />
       <EmployeeMenu empId={emp.id} open={menu} onOpenChange={setMenu} />

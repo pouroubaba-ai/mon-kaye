@@ -2,7 +2,7 @@
 // 1. De qui ? (les clients qui doivent, avec leur reste)  2. Combien ? (« Il doit encore … »)
 // Le versement paie ses factures dans l'ordre, la plus ancienne d'abord.
 import React from 'react'
-import { ChevronLeft, ChevronRight, Eye, EyeOff, Search, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Eye, Search, X } from 'lucide-react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/responsive-dialog'
 import { Input } from '@/components/ui/input'
 import { cn, plain } from '@/lib/utils'
@@ -69,6 +69,7 @@ export function PaymentDialog({ target, onClose }: { target: PayTarget | 'choose
   }
 
   return (
+    <>
     <Dialog open={!!target} onOpenChange={o => !o && onClose()} dirty={n > 0} dirtyKind="ajout">
       <DialogContent fixedHeight>
         <DialogHeader className="text-left">
@@ -130,30 +131,10 @@ export function PaymentDialog({ target, onClose }: { target: PayTarget | 'choose
                 />
                 <span className="text-base text-muted-foreground">FCFA</span>
               </label>
-              <button type="button" onClick={() => setShowOpen(o => !o)} aria-expanded={showOpen} className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <button type="button" onClick={() => setShowOpen(o => !o)} aria-label="Voir les factures sur lesquelles il doit encore" className="flex items-center gap-1.5 text-sm text-muted-foreground">
                 Il doit encore <span className="font-semibold text-kgreen">{money(due)}</span>
-                {showOpen ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                <Eye className="size-4" />
               </button>
-              {/* L'œil : les factures sur lesquelles il doit encore */}
-              {showOpen && (
-                <div className="mt-1 flex w-full flex-col rounded-xl border px-3.5 animate-in fade-in slide-in-from-top-1 duration-200">
-                  {openInvoices.map((i, k) => {
-                    const p = paid.get(i.id) ?? 0
-                    return (
-                      <div key={i.id} className={cn('flex items-center justify-between gap-3 py-2.5', k < openInvoices.length - 1 && 'border-b')}>
-                        <span className="flex min-w-0 flex-col">
-                          <span className="truncate text-sm font-semibold">Facture N° {shortNumber(i.number)}</span>
-                          <span className="truncate text-xs text-muted-foreground">
-                            {dateShort(i.date)} · {money(totals(i).net)}
-                            {p > 0 ? ` · déjà versé ${money(p)}` : ''}
-                          </span>
-                        </span>
-                        <span className="shrink-0 text-sm font-bold text-kgreen tabular-nums">{money(totals(i).net - p)}</span>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
               {tooMuch && <span className="text-xs text-kred">C'est plus que ce qu'il doit sur ses factures.</span>}
               <button type="button" onClick={() => setAmount(String(due))} className="mt-2 h-9 rounded-full border px-4 text-sm font-semibold text-muted-foreground">
                 Tout ({money(due)})
@@ -172,6 +153,36 @@ export function PaymentDialog({ target, onClose }: { target: PayTarget | 'choose
         )}
       </DialogContent>
     </Dialog>
+      {/* L'œil : les factures sur lesquelles il doit encore (la plus ancienne d'abord : le versement la paie en premier) */}
+      <Dialog open={showOpen} onOpenChange={setShowOpen}>
+        <DialogContent>
+          <DialogHeader className="text-left">
+            <DialogTitle className="text-left text-xl">Ce qu'il doit encore</DialogTitle>
+            <DialogDescription className="text-left">
+              {who?.clientName} · {money(due)} FCFA
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col pb-2">
+            {openInvoices.map((i, k) => {
+              const p = paid.get(i.id) ?? 0
+              return (
+                <div key={i.id} className={cn('flex items-center justify-between gap-3 py-3', k < openInvoices.length - 1 && 'border-b')}>
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate text-[15px] font-semibold">Facture N° {shortNumber(i.number)}</span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {dateShort(i.date)} · {money(totals(i).net)}
+                      {p > 0 ? ` · déjà versé ${money(p)}` : ''}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-[15px] font-bold text-kgreen tabular-nums">{money(totals(i).net - p)}</span>
+                </div>
+              )
+            })}
+            <span className="mt-2 text-xs text-muted-foreground">Le versement paie d'abord la facture la plus ancienne.</span>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
 

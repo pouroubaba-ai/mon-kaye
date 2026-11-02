@@ -56,6 +56,7 @@ export interface InvoiceProfile {
   quotePrefix: string // « D-2026- »
   quoteNext: number
   mentions: string // une mention par ligne ; {numero} = le numéro de la facture
+  sb?: boolean // les infos de Sté SACKO-BUILDING BTP ont été mises (une seule fois)
 }
 
 // Un versement d'un client sur ses factures.
