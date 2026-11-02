@@ -1,18 +1,22 @@
 // ——— Factures : l'accueil du module, et une facture ouverte ———
 import React from 'react'
-import { ChevronLeft, Download, FileText, Pencil, Plus, Search, X } from 'lucide-react'
+import { Banknote, ChevronLeft, Download, Eye, EyeOff, FileText, MoreVertical, Plus, Search, X } from 'lucide-react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/responsive-dialog'
 import { Button } from '@/components/ui/button'
 import { HomeTop } from '@/components/screens/HomeScreen'
 import { PersonFormDialog } from '@/components/person-header'
+import { PersonMenu } from '@/components/person-menu'
+import { DetailBand } from '@/components/detail-band'
+import { Banknotes } from '@/components/armed'
+import { PaymentDialog, type PayTarget } from './PaymentDialog'
 import { useStore } from '@/data/store'
 import { cn, plain } from '@/lib/utils'
 import { initials } from '@/modules/personnes/view'
 import { InvoiceEditor, type EditorStart } from './InvoiceEditor'
 import { PaperPreview, downloadInvoice, shareInvoice } from './InvoicePaper'
 import { useInvoices } from './store'
-import type { Invoice, InvoiceStatus } from './types'
-import { billingLines, money, shortNumber, totals } from './view'
+import type { Invoice, InvoicePayment, InvoiceStatus } from './types'
+import { billingLines, clientKeyOf, money, shortNumber, totals } from './view'
 
 const MOIS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.']
 const dateShort = (s: string) => {
@@ -27,54 +31,82 @@ const CHIP: Record<InvoiceStatus, [string, string]> = {
   accepte: ['Accepté', 'bg-kgreen/15 text-kgreen'],
   refuse: ['Refusé', 'bg-muted text-muted-foreground'],
 }
-const Chip = ({ s }: { s: InvoiceStatus }) => <span className={cn('ml-1.5 inline-block rounded-full px-2 py-px align-[1px] text-[11px] font-bold', CHIP[s][1])}>{CHIP[s][0]}</span>
-const unpaid = (i: Invoice) => i.kind === 'facture' && (i.status === 'non_payee' || i.status === 'credit')
+type ChipKey = InvoiceStatus | 'partiel'
+const CHIP2: Record<ChipKey, [string, string]> = { ...CHIP, partiel: ['Payée en partie', 'bg-kblue/15 text-kblue'] }
+const Chip = ({ s, first }: { s: ChipKey; first?: boolean }) => <span className={cn(first ? '' : 'ml-1.5', 'inline-block shrink-0 rounded-full px-2 py-px align-[1px] text-[11px] font-bold', CHIP2[s][1])}>{CHIP2[s][0]}</span>
+// Ce qui reste à payer sur une facture, et son état (selon les versements)
+const useLeft = () => {
+  const { paid } = useInvoices()
+  const left = (i: Invoice) => (i.kind === 'facture' ? Math.max(0, totals(i).net - (paid.get(i.id) ?? 0)) : 0)
+  const state = (i: Invoice): ChipKey => {
+    if (i.kind === 'devis') return i.status
+    const l = left(i)
+    if (l <= 0) return 'payee'
+    if ((paid.get(i.id) ?? 0) > 0) return 'partiel'
+    return i.status === 'credit' ? 'credit' : 'non_payee'
+  }
+  return { left, state, paidOf: (i: Invoice) => paid.get(i.id) ?? 0 }
+}
 const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : one}`
 
-const key = (s: string) => plain(s).replace(/\s+/g, ' ').trim()
-// Le client d'une facture : sa fiche dans Kayé, sinon son nom
-const clientKey = (i: Invoice) => i.client.personId ?? `nom:${key(i.client.name)}`
+const clientKey = clientKeyOf
 type View = 'facture' | 'client'
-type ClientRow = { k: string; personId?: string; name: string; details?: string; list: Invoice[] }
+type ClientRow = { k: string; personId?: string; name: string; details?: string; list: Invoice[]; pays: InvoicePayment[] }
 
 export function InvoicesHome() {
-  const { invoices, profileSet } = useInvoices()
+  const { invoices, payments, profileSet } = useInvoices()
   const { navigate, setSettingsView, persons } = useStore()
+  const { left, state, paidOf } = useLeft()
   const [tab, setTab] = React.useState<'factures' | 'devis'>('factures')
+  const [detail, setDetail] = React.useState(false) // l'œil : facturé / versé / reste
   const [view, setView] = React.useState<View>('facture')
   const [search, setSearch] = React.useState('')
   const [editor, setEditor] = React.useState<EditorStart | null>(null)
   const [openId, setOpenId] = React.useState<string | null>(null)
   const [clientOpen, setClientOpen] = React.useState<string | null>(null)
   const [adding, setAdding] = React.useState(false)
+  const [paying, setPaying] = React.useState<PayTarget | 'choose' | null>(null)
 
-  const toCash = invoices.filter(unpaid)
+  const factures = invoices.filter(i => i.kind === 'facture')
+  const toCash = factures.filter(i => left(i) > 0)
   const pending = invoices.filter(i => i.kind === 'devis' && i.status === 'devis')
-  const sum = (l: Invoice[]) => l.reduce((a, i) => a + totals(i).net, 0)
+  const sumLeft = (l: Invoice[]) => l.reduce((a, i) => a + left(i), 0)
+  const sumNet = (l: Invoice[]) => l.reduce((a, i) => a + totals(i).net, 0)
   const q = plain(search.trim())
-  const shown = tab === 'devis' ? pending : toCash
-  // Vue par facture : les factures non soldées (ou les devis en cours)
-  const list = shown
+  // Vue par facture : les factures pas encore soldées (ou les devis en cours)
+  const list = (tab === 'devis' ? pending : toCash)
     .filter(i => !q || plain(`${i.client.name} ${i.number} ${i.objet ?? ''}`).includes(q))
     .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt))
-  // Vue par client : tous les clients, avec ce qu'ils doivent (ou leurs devis en cours)
+  // Les clients : ceux de Kayé, et ceux des factures (avec leurs factures et leurs versements)
   const clients = React.useMemo(() => {
     const m = new Map<string, ClientRow>()
-    for (const p of persons) if (p.type === 'partner' && !p.archived) m.set(p.id, { k: p.id, personId: p.id, name: p.name, details: billingLines(p).join('\n'), list: [] })
+    for (const p of persons) if (p.type === 'partner' && !p.archived) m.set(p.id, { k: p.id, personId: p.id, name: p.name, details: billingLines(p).join(' · '), list: [], pays: [] })
     for (const i of invoices) {
       const k = clientKey(i)
-      if (!m.has(k)) m.set(k, { k, name: i.client.name, details: i.client.lines.join('\n'), list: [] })
+      if (!m.has(k)) m.set(k, { k, name: i.client.name, details: i.client.lines.join(' · '), list: [], pays: [] })
       m.get(k)!.list.push(i)
     }
+    for (const pay of payments) m.get(pay.clientKey)?.pays.push(pay)
     return [...m.values()]
-  }, [persons, invoices])
-  const isShown = (i: Invoice) => (tab === 'devis' ? i.kind === 'devis' && i.status === 'devis' : unpaid(i))
+  }, [persons, invoices, payments])
+  const isShown = (i: Invoice) => (tab === 'devis' ? i.kind === 'devis' && i.status === 'devis' : left(i) > 0)
+  const amountOf = (i: Invoice) => (tab === 'devis' ? totals(i).net : left(i))
   const clientRows = clients
     .filter(c => !q || plain(c.name).includes(q))
-    .map(c => ({ ...c, due: sum(c.list.filter(isShown)), n: c.list.filter(isShown).length }))
+    .map(c => {
+      const l = c.list.filter(isShown)
+      return { ...c, due: l.reduce((a, i) => a + amountOf(i), 0), n: l.length }
+    })
     .sort((a, b) => b.due - a.due || a.name.localeCompare(b.name, 'fr'))
   const opened = openId ? invoices.find(i => i.id === openId) ?? null : null
   const client = clientOpen ? clients.find(c => c.k === clientOpen) ?? null : null
+  // Pour l'œil : facturé, versé, reste (et combien de clients derrière)
+  const facturé = sumNet(factures)
+  const versé = factures.reduce((a, i) => a + paidOf(i), 0)
+  const nClientsDue = new Set(toCash.map(clientKey)).size
+  const nClientsPaid = new Set(factures.filter(i => paidOf(i) > 0).map(clientKey)).size
+  const nClientsAll = new Set(factures.map(clientKey)).size
+  const who = (n: number) => plural(n, 'client', 'clients')
 
   const goProfile = () => {
     navigate('reglages')
@@ -85,30 +117,54 @@ export function InvoicesHome() {
     <div className="flex min-h-dvh flex-col pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
       <HomeTop />
 
-      {/* Les deux onglets : le montant est dans l'onglet */}
-      <nav aria-label="Factures ou devis" className="grid grid-cols-2 border-b">
+      {/* Les deux onglets, comme « On me doit / Je dois » : le montant est dans l'onglet ; toucher encore : l'œil */}
+      <nav aria-label="Factures ou devis" className={cn('grid grid-cols-2', !detail && 'border-b')}>
         {(
           [
-            ['factures', 'À encaisser', sum(toCash), plural(toCash.length, 'facture non payée', 'factures non payées'), 'kgreen'],
-            ['devis', 'Devis en attente', sum(pending), plural(pending.length, 'devis', 'devis'), 'kgold'],
+            ['factures', 'À encaisser', sumLeft(toCash), plural(toCash.length, 'facture non payée', 'factures non payées'), true],
+            ['devis', 'Devis en attente', sumNet(pending), plural(pending.length, 'devis', 'devis'), false],
           ] as const
-        ).map(([t, label, v, c, color]) => {
+        ).map(([t, label, v, c, green]) => {
           const on = tab === t
           return (
             <button
               key={t}
               type="button"
               aria-pressed={on}
-              onClick={() => setTab(t)}
-              className={cn('flex flex-col items-center gap-0.5 border-b-[3px] px-2 py-3 transition-colors', on ? (color === 'kgreen' ? 'border-kgreen bg-kgreen/10' : 'border-kgold bg-kgold/10') : 'border-transparent opacity-75')}
+              onClick={() => (on ? green && setDetail(d => !d) : (setTab(t), setDetail(false)))}
+              className={cn('flex flex-col items-center gap-0.5 border-b-[3px] px-2 py-3 transition-colors', on ? (green ? 'border-kgreen bg-kgreen/10' : 'border-kgold bg-kgold/10') : 'border-transparent opacity-75')}
             >
-              <span className={cn('text-sm font-semibold', on ? (color === 'kgreen' ? 'text-kgreen' : 'text-kgold') : 'text-muted-foreground')}>{label}</span>
-              <span className={cn('text-2xl font-bold tracking-tight tabular-nums', color === 'kgreen' ? 'text-kgreen' : 'text-kgold')}>{money(v)}</span>
+              <span className={cn('text-sm font-semibold', on ? (green ? 'text-kgreen' : 'text-kgold') : 'text-muted-foreground')}>{label}</span>
+              <span className={cn('flex items-center gap-1.5 text-2xl font-bold tracking-tight tabular-nums', green ? 'text-kgreen' : 'text-kgold')}>
+                {money(v)}
+                {on && green && (detail ? <EyeOff className="size-4 opacity-70" /> : <Eye className="size-4 opacity-70" />)}
+              </span>
               <span className="text-xs text-muted-foreground">{c}</span>
             </button>
           )
         })}
       </nav>
+
+      {/* L'œil : facturé, versé, reste */}
+      {detail && tab === 'factures' && (
+        <div className="grid grid-cols-3 border-b bg-kgreen/5 px-4 py-3 animate-in fade-in slide-in-from-top-1 duration-200">
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="text-xs text-muted-foreground">Facturé</span>
+            <span className="text-base font-bold tabular-nums">{money(facturé)}</span>
+            <span className="text-[11px] text-muted-foreground">{who(nClientsAll)}</span>
+          </div>
+          <div className="flex flex-col items-center gap-0.5 border-x">
+            <span className="text-xs text-muted-foreground">Versé</span>
+            <span className="text-base font-bold text-kblue tabular-nums">{money(versé)}</span>
+            <span className="text-[11px] text-muted-foreground">{who(nClientsPaid)}</span>
+          </div>
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="text-xs text-muted-foreground">Reste</span>
+            <span className="text-base font-bold text-kgreen tabular-nums">{money(sumLeft(toCash))}</span>
+            <span className="text-[11px] text-muted-foreground">{who(nClientsDue)}</span>
+          </div>
+        </div>
+      )}
 
       {/* Mes infos de facture pas encore remplies */}
       {!profileSet && (
@@ -160,11 +216,22 @@ export function InvoicesHome() {
       <div className="px-3 pt-1">
         {view === 'facture' ? (
           list.length === 0 ? (
-            <p className="px-4 py-10 text-center text-sm text-muted-foreground">
-              {q ? 'Rien trouvé.' : tab === 'devis' ? 'Aucun devis en attente.' : 'Aucune facture à encaisser.'}
-            </p>
+            <p className="px-4 py-10 text-center text-sm text-muted-foreground">{q ? 'Rien trouvé.' : tab === 'devis' ? 'Aucun devis en attente.' : 'Aucune facture à encaisser.'}</p>
           ) : (
-            list.map((inv, i) => <InvoiceRow key={inv.id} inv={inv} last={i === list.length - 1} onOpen={() => setOpenId(inv.id)} />)
+            list.map((inv, i) => (
+              <button key={inv.id} type="button" onClick={() => setOpenId(inv.id)} className={cn('flex w-full items-center gap-3 px-2 py-3 text-left transition-colors hover:bg-muted/40', i < list.length - 1 && 'border-b')}>
+                <span className="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground">{initials(inv.client.name)}</span>
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-base font-semibold">{inv.client.name}</span>
+                  <span className="truncate text-[13px] text-muted-foreground">
+                    N° {inv.kind === 'devis' ? 'D-' : ''}
+                    {shortNumber(inv.number)} · {dateShort(inv.date)}
+                    <Chip s={state(inv)} />
+                  </span>
+                </span>
+                <span className={cn('shrink-0 text-base font-bold tabular-nums', inv.kind === 'devis' ? 'text-kgold' : 'text-kgreen')}>{money(amountOf(inv))}</span>
+              </button>
+            ))
           )
         ) : clientRows.length === 0 ? (
           <p className="px-4 py-10 text-center text-sm text-muted-foreground">{q ? 'Personne ne s’appelle comme ça.' : 'Pas encore de client : touchez « Nouveau ».'}</p>
@@ -178,25 +245,42 @@ export function InvoicesHome() {
                   {c.n === 0 ? (tab === 'devis' ? 'Aucun devis en cours' : 'Rien à encaisser') : tab === 'devis' ? plural(c.n, 'devis en cours', 'devis en cours') : plural(c.n, 'facture non payée', 'factures non payées')}
                 </span>
               </span>
-              <span className={cn('shrink-0 text-base font-bold tabular-nums', c.due > 0 ? (tab === 'devis' ? 'text-kgold' : 'text-kgreen') : 'font-semibold text-muted-foreground')}>{money(c.due)}</span>
+              <span className={cn('shrink-0 text-base tabular-nums', c.due > 0 ? cn('font-bold', tab === 'devis' ? 'text-kgold' : 'text-kgreen') : 'font-semibold text-muted-foreground')}>{money(c.due)}</span>
             </button>
           ))
         )}
       </div>
 
-      {/* Les deux gros boutons : nouvelle facture, nouveau devis */}
-      <div className="fixed inset-x-0 bottom-0 z-30 mx-auto grid w-full max-w-xl grid-cols-2 gap-3 border-t bg-background px-4 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
-        <button type="button" aria-label="Nouvelle facture" onClick={() => setEditor({ mode: 'new', kind: 'facture' })} className="flex h-[60px] items-center justify-center gap-2 rounded-2xl bg-kgreen-solid text-lg font-bold text-white active:scale-[0.98]">
-          <Plus className="size-[22px]" strokeWidth={2.6} /> Facture
-        </button>
-        <button type="button" aria-label="Nouveau devis" onClick={() => setEditor({ mode: 'new', kind: 'devis' })} className="flex h-[60px] items-center justify-center gap-2 rounded-2xl border-2 border-kgold text-lg font-bold text-kgold active:scale-[0.98]">
-          <Plus className="size-[22px]" strokeWidth={2.6} /> Devis
-        </button>
+      {/* En bas : À encaisser → Facture et Versement ; Devis → Devis */}
+      <div className={cn('fixed inset-x-0 bottom-0 z-30 mx-auto grid w-full max-w-xl gap-3 border-t bg-background px-4 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))]', tab === 'factures' ? 'grid-cols-2' : 'grid-cols-1')}>
+        {tab === 'factures' ? (
+          <>
+            <button type="button" aria-label="Nouvelle facture" onClick={() => setEditor({ mode: 'new', kind: 'facture' })} className="flex h-[60px] items-center justify-center gap-2 rounded-2xl bg-kgreen-solid text-lg font-bold text-white active:scale-[0.98]">
+              <Plus className="size-[22px]" strokeWidth={2.6} /> Facture
+            </button>
+            <button type="button" aria-label="Versement" onClick={() => setPaying('choose')} className="flex h-[60px] items-center justify-center gap-2 rounded-2xl border-2 border-kgreen-solid text-lg font-bold text-kgreen active:scale-[0.98]">
+              <Banknotes className="size-6" /> Versement
+            </button>
+          </>
+        ) : (
+          <button type="button" aria-label="Nouveau devis" onClick={() => setEditor({ mode: 'new', kind: 'devis' })} className="flex h-[60px] items-center justify-center gap-2 rounded-2xl border-2 border-kgold text-lg font-bold text-kgold active:scale-[0.98]">
+            <Plus className="size-[22px]" strokeWidth={2.6} /> Devis
+          </button>
+        )}
       </div>
 
-      {client && <ClientFiche client={client} onBack={() => setClientOpen(null)} onOpen={id => setOpenId(id)} onNew={kind => setEditor({ mode: 'new', kind, personId: client.personId })} />}
+      {client && (
+        <ClientFiche
+          client={client}
+          onBack={() => setClientOpen(null)}
+          onOpen={id => setOpenId(id)}
+          onNew={kind => setEditor({ mode: 'new', kind, personId: client.personId })}
+          onPay={() => setPaying({ clientKey: client.k, personId: client.personId, clientName: client.name })}
+        />
+      )}
 
       <PersonFormDialog type="partner" side="lui" noSex open={adding} onOpenChange={setAdding} onCreated={id => (setView('client'), setClientOpen(id))} />
+      <PaymentDialog target={paying} onClose={() => setPaying(null)} />
       <InvoiceSheet inv={opened} onClose={() => setOpenId(null)} onEdit={s => (setOpenId(null), setEditor(s))} />
       <InvoiceEditor
         start={editor}
@@ -210,54 +294,34 @@ export function InvoicesHome() {
   )
 }
 
-function InvoiceRow({ inv, last, onOpen }: { inv: Invoice; last: boolean; onOpen: () => void }) {
-  const open = unpaid(inv) || inv.status === 'devis'
-  return (
-    <button type="button" onClick={onOpen} className={cn('flex w-full items-center gap-3 px-2 py-3 text-left transition-colors hover:bg-muted/40', !last && 'border-b')}>
-      <span className="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground">{initials(inv.client.name)}</span>
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-base font-semibold">{inv.client.name}</span>
-        <span className="truncate text-[13px] text-muted-foreground">
-          N° {inv.kind === 'devis' ? 'D-' : ''}
-          {shortNumber(inv.number)} · {dateShort(inv.date)}
-          <Chip s={inv.status} />
-        </span>
-      </span>
-      <span className={cn('shrink-0 text-base tabular-nums', open ? (inv.kind === 'devis' ? 'font-bold text-kgold' : 'font-bold text-kgreen') : 'font-semibold text-muted-foreground', inv.status === 'refuse' && 'line-through')}>
-        {money(totals(inv).net)}
-      </span>
-    </button>
-  )
-}
-
-// ——— La fiche d'un client (Factures) : comme la fiche d'un client dans Kayé ———
-// En haut : son nom, son numéro, et le stylo pour changer ses infos. Puis ses infos pour les factures,
-// la grande carte « À encaisser », ses factures / ses devis en cours (et tous ses devis), et en bas Facture / Devis.
-const BILLING_LABELS = [
-  ['forme', 'Forme juridique'],
-  ['rccm', 'RCCM'],
-  ['niu', 'NIU'],
-  ['adresse', 'Adresse'],
-  ['ville', 'Ville'],
-  ['email', 'E-mail'],
-] as const
-function ClientFiche({ client, onBack, onOpen, onNew }: { client: ClientRow; onBack: () => void; onOpen: (id: string) => void; onNew: (k: 'facture' | 'devis') => void }) {
+// ——— La fiche d'un client (Factures), construite comme la fiche d'un client dans Kayé ———
+// En haut : ←, son nom, son numéro (et ses infos de facture en petit), ⋮.
+// Deux cartes, comme un client qui est aussi fournisseur : « À encaisser » et « Devis en cours ».
+// On touche celle qu'on veut voir ; toucher encore « À encaisser » : Total facturé, Versé, Reste.
+// L'historique : ses factures (+) et ses versements (−) ; ou ses devis en cours (et tous ses devis).
+// En bas : Facture et Versement ; ou Devis.
+function ClientFiche({ client, onBack, onOpen, onNew, onPay }: { client: ClientRow; onBack: () => void; onOpen: (id: string) => void; onNew: (k: 'facture' | 'devis') => void; onPay: () => void }) {
   const { persons } = useStore()
+  const { left, state, paidOf } = useLeft()
   const person = client.personId ? persons.find(p => p.id === client.personId) : undefined
-  const [tab, setTab] = React.useState<'factures' | 'devis'>('factures')
+  const [side, setSide] = React.useState<'factures' | 'devis'>('factures')
+  const [detail, setDetail] = React.useState(false)
   const [allQuotes, setAllQuotes] = React.useState(false)
-  const [editing, setEditing] = React.useState(false)
-  const byDate = (a: Invoice, b: Invoice) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt)
-  const factures = client.list.filter(i => i.kind === 'facture').sort((a, b) => Number(unpaid(b)) - Number(unpaid(a)) || byDate(a, b))
+  const [menu, setMenu] = React.useState(false)
+  const byDate = <T extends { date: string; createdAt: string }>(a: T, b: T) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt)
+  const factures = client.list.filter(i => i.kind === 'facture')
   const devisAll = client.list.filter(i => i.kind === 'devis').sort(byDate)
   const devisEnCours = devisAll.filter(i => i.status === 'devis')
-  const nonPayees = factures.filter(unpaid)
-  const due = nonPayees.reduce((a, i) => a + totals(i).net, 0)
-  const list = tab === 'factures' ? factures : allQuotes ? devisAll : devisEnCours
-  // Ses infos : chacune avec son nom (les anciennes, écrites d'un bloc, ligne par ligne)
-  const infos: [string, string][] = person?.billing
-    ? BILLING_LABELS.flatMap(([k, label]) => (person.billing?.[k]?.trim() ? [[label, person.billing[k]!.trim()] as [string, string]] : []))
-    : (client.details ?? '').split('\n').filter(l => l.trim()).map(l => ['', l.trim()] as [string, string])
+  const total = factures.reduce((a, i) => a + totals(i).net, 0)
+  const versé = factures.reduce((a, i) => a + paidOf(i), 0)
+  const reste = factures.reduce((a, i) => a + left(i), 0)
+  const nDue = factures.filter(i => left(i) > 0).length
+  const lastPay = [...client.pays].sort(byDate)[0]
+  // L'historique : factures et versements mêlés, le plus récent en haut
+  const history = [...factures.map(f => ({ kind: 'f' as const, date: f.date, createdAt: f.createdAt, f })), ...client.pays.map(p => ({ kind: 'p' as const, date: p.date, createdAt: p.createdAt, p }))].sort(byDate)
+  const quotes = allQuotes ? devisAll : devisEnCours
+  const infos = person ? billingLines(person).join(' · ') : client.details
+
   // Le retour du téléphone (Échap) ferme la fiche, sauf si une fenêtre est ouverte par-dessus
   const backRef = React.useRef(onBack)
   backRef.current = onBack
@@ -268,10 +332,36 @@ function ClientFiche({ client, onBack, onOpen, onNew }: { client: ClientRow; onB
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [])
+
+  const card = (s: 'factures' | 'devis') => {
+    const on = s === side
+    const g = s === 'factures'
+    return (
+      <button
+        key={s}
+        type="button"
+        onClick={() => (on ? g && setDetail(d => !d) : (setSide(s), setDetail(false)))}
+        aria-pressed={on}
+        className={cn(
+          'flex flex-col gap-1 rounded-2xl p-3.5 text-left transition-all',
+          on ? (g ? 'border-2 border-kgreen bg-gradient-to-br from-kgreen/20 to-card to-75%' : 'border-2 border-kgold bg-gradient-to-br from-kgold/20 to-card to-75%') : cn('border bg-card opacity-80', g ? 'border-kgreen/30' : 'border-kgold/30')
+        )}
+      >
+        <span className="text-[13px] text-muted-foreground">{g ? 'À encaisser' : 'Devis en cours'}</span>
+        <span className={cn('flex items-center gap-1.5 text-2xl font-bold tabular-nums', g ? 'text-kgreen' : 'text-kgold')}>
+          {money(g ? reste : devisEnCours.reduce((a, i) => a + totals(i).net, 0))}
+          {on && g && (detail ? <EyeOff className="size-4 opacity-70" /> : <Eye className="size-4 opacity-70" />)}
+        </span>
+        <span className="text-xs text-muted-foreground">
+          {g ? (nDue === 0 ? 'rien à encaisser' : plural(nDue, 'facture non payée', 'factures non payées')) : devisEnCours.length === 0 ? 'aucun devis' : plural(devisEnCours.length, 'devis', 'devis')}
+        </span>
+      </button>
+    )
+  }
+
   return (
     <div role="dialog" aria-label={client.name} className="fixed inset-0 z-40 overflow-y-auto bg-background">
       <div className="mx-auto flex min-h-dvh w-full max-w-xl flex-col">
-        {/* Le haut, comme la fiche d'un client : ←, le nom et le numéro, le stylo */}
         <header className="flex items-center gap-2 px-3 pt-[calc(0.875rem+env(safe-area-inset-top))] pb-2">
           <button type="button" aria-label="Retour" onClick={onBack} className="flex size-11 items-center justify-center rounded-full hover:bg-muted">
             <ChevronLeft className="size-6" />
@@ -279,133 +369,127 @@ function ClientFiche({ client, onBack, onOpen, onNew }: { client: ClientRow; onB
           <div className="flex min-w-0 flex-1 flex-col">
             <span className="truncate text-xl font-bold">{client.name}</span>
             {person?.phone && <span className="truncate text-[13px] text-muted-foreground">{person.phone}</span>}
+            {infos && <span className="line-clamp-2 text-xs text-muted-foreground">{infos}</span>}
           </div>
           {person && (
-            <button type="button" aria-label="Modifier ses infos" onClick={() => setEditing(true)} className="flex size-11 items-center justify-center rounded-full text-muted-foreground hover:bg-muted">
-              <Pencil className="size-5" />
+            <button type="button" aria-label="Plus d'options" onClick={() => setMenu(true)} className="flex size-11 items-center justify-center rounded-full text-muted-foreground hover:bg-muted">
+              <MoreVertical className="size-5" />
             </button>
           )}
         </header>
 
         <div className="flex flex-1 flex-col gap-3 px-4 pt-2 pb-[calc(7rem+env(safe-area-inset-bottom))]">
-          {/* La grande carte : ce qu'il doit sur ses factures */}
-          <div className="flex flex-col gap-1.5 rounded-[18px] border border-kgreen/30 bg-gradient-to-br from-kgreen/20 to-card to-70% p-[18px]">
-            <span className="text-sm text-muted-foreground">À encaisser</span>
-            <span className="text-[34px] leading-tight font-bold tracking-tight text-kgreen tabular-nums">
-              {money(due)} <span className="text-base font-medium text-muted-foreground">FCFA</span>
-            </span>
-            <span className="text-[13px] text-muted-foreground">{nonPayees.length === 0 ? 'Aucune facture non payée' : plural(nonPayees.length, 'facture non payée', 'factures non payées')}</span>
+          <div className="grid grid-cols-2 gap-2.5">
+            {card('factures')}
+            {card('devis')}
           </div>
+          {/* Toucher encore « À encaisser » : Total facturé, Versé, Reste */}
+          {detail && side === 'factures' && <DetailBand total={total} paid={versé} rest={reste} tone="green" />}
 
-          {/* Ses infos : toutes les lignes, toujours là ; une ligne vide se remplit en la touchant */}
-          <div className="rounded-[18px] border bg-card">
-            <div className="flex items-center justify-between px-4 pt-3 pb-1">
-              <span className="text-xs tracking-[0.08em] text-muted-foreground uppercase">Ses infos</span>
-              {person && (
-                <button type="button" onClick={() => setEditing(true)} className="h-8 rounded-full px-2 text-sm font-semibold text-kgold">
-                  Modifier
-                </button>
-              )}
-            </div>
-            <div className="flex flex-col px-4 pb-1.5">
-              {(person
-                ? ([['Numéro', person.phone ?? ''], ...BILLING_LABELS.map(([k, label]) => [label, person.billing?.[k]?.trim() ?? ''])] as [string, string][])
-                : infos
-              ).map(([label, value], i, all) => (
-                <button
-                  key={i}
-                  type="button"
-                  disabled={!person}
-                  onClick={() => setEditing(true)}
-                  className={cn('flex items-baseline justify-between gap-3 py-2.5 text-left', i < all.length - 1 && 'border-b')}
-                >
-                  {label && <span className="shrink-0 text-[13px] text-muted-foreground">{label}</span>}
-                  {value ? (
-                    <span className={cn('min-w-0 text-[15px] font-semibold break-words', label ? 'text-right' : '')}>{value}</span>
-                  ) : (
-                    <span className="text-[13px] text-muted-foreground/60">—</span>
-                  )}
-                </button>
-              ))}
-            </div>
-            {person && !person.billing && person.details && (
-              <p className="px-4 pb-3 text-xs text-muted-foreground">Anciennes infos : {person.details.split('\n').join(' · ')}</p>
-            )}
-          </div>
-
-          {/* Ses factures / ses devis en cours */}
-          <div role="tablist" aria-label="Factures ou devis" className="mt-1 grid grid-cols-2 gap-1 rounded-xl bg-muted p-1">
-            {(
-              [
-                ['factures', `Factures (${factures.length})`],
-                ['devis', `Devis en cours (${devisEnCours.length})`],
-              ] as const
-            ).map(([t, label]) => (
-              <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={cn('h-[38px] rounded-[9px] text-sm transition-colors', tab === t ? 'bg-foreground font-bold text-background shadow-sm' : 'font-semibold text-muted-foreground')}>
-                {label}
-              </button>
-            ))}
+          <div className="mt-1 flex items-center justify-between gap-2">
+            <span className="text-[15px] font-semibold text-muted-foreground">{side === 'factures' ? 'Historique' : allQuotes ? 'Tous ses devis' : 'Ses devis en cours'}</span>
+            {side === 'factures'
+              ? lastPay && <span className="text-[13px] text-muted-foreground">Dernier versement le {dateShort(lastPay.date)}</span>
+              : devisAll.length > devisEnCours.length && (
+                  <button type="button" onClick={() => setAllQuotes(a => !a)} className="flex h-9 items-center rounded-[10px] border px-3 text-[13px] font-semibold text-muted-foreground hover:bg-muted">
+                    {allQuotes ? 'En cours seulement' : `Tous ses devis (${devisAll.length})`}
+                  </button>
+                )}
           </div>
 
           <div className="flex flex-col">
-            {list.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">{tab === 'factures' ? 'Aucune facture pour ce client.' : allQuotes ? 'Aucun devis pour ce client.' : 'Aucun devis en cours.'}</p>}
-            {list.map((inv, i) => (
-              <DocLine key={inv.id} inv={inv} last={i === list.length - 1} onOpen={() => onOpen(inv.id)} />
-            ))}
-            {tab === 'devis' && devisAll.length > devisEnCours.length && (
-              <button type="button" onClick={() => setAllQuotes(a => !a)} className="mt-2 flex h-11 items-center justify-center rounded-xl border text-sm font-semibold text-muted-foreground">
-                {allQuotes ? 'Seulement les devis en cours' : `Voir tous ses devis (${devisAll.length})`}
-              </button>
+            {side === 'factures' ? (
+              history.length === 0 ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">Aucune facture pour l'instant.</p>
+              ) : (
+                history.map((h, i) =>
+                  h.kind === 'f' ? (
+                    <DocLine key={h.f.id} inv={h.f} chip={state(h.f)} sign last={i === history.length - 1} onOpen={() => onOpen(h.f.id)} />
+                  ) : (
+                    <div key={h.p.id} className={cn('flex items-center gap-3 px-1 py-3', i < history.length - 1 && 'border-b border-border')}>
+                      <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-kblue/10 text-kblue">
+                        <Banknote className="size-[18px]" />
+                      </span>
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        <span className="text-[15px] font-semibold">Versement</span>
+                        <span className="truncate text-xs text-muted-foreground">
+                          {dateShort(h.p.date)}
+                          {h.p.note ? ` · ${h.p.note}` : ''}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-[15px] font-bold text-kblue tabular-nums">− {money(h.p.amount)}</span>
+                    </div>
+                  )
+                )
+              )
+            ) : quotes.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">{allQuotes ? 'Aucun devis pour ce client.' : 'Aucun devis en cours.'}</p>
+            ) : (
+              quotes.map((inv, i) => <DocLine key={inv.id} inv={inv} chip={state(inv)} last={i === quotes.length - 1} onOpen={() => onOpen(inv.id)} />)
             )}
           </div>
         </div>
 
-        {person && (
-          <div className="fixed inset-x-0 bottom-0 z-30 mx-auto grid w-full max-w-xl grid-cols-2 gap-3 border-t bg-background px-4 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
-            <button type="button" onClick={() => onNew('facture')} className="flex h-[60px] items-center justify-center gap-2 rounded-2xl bg-kgreen-solid text-lg font-bold text-white active:scale-[0.98]">
-              <Plus className="size-[22px]" strokeWidth={2.6} /> Facture
-            </button>
-            <button type="button" onClick={() => onNew('devis')} className="flex h-[60px] items-center justify-center gap-2 rounded-2xl border-2 border-kgold text-lg font-bold text-kgold active:scale-[0.98]">
-              <Plus className="size-[22px]" strokeWidth={2.6} /> Devis
-            </button>
-          </div>
-        )}
+        {/* En bas : les deux gros boutons du côté choisi */}
+        <div className={cn('fixed inset-x-0 bottom-0 z-30 mx-auto grid w-full max-w-xl gap-3 border-t bg-background px-4 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))]', side === 'factures' && person ? 'grid-cols-2' : 'grid-cols-1')}>
+          {side === 'factures' ? (
+            <>
+              {person && (
+                <button type="button" onClick={() => onNew('facture')} className="flex h-[60px] items-center justify-center gap-2 rounded-2xl bg-kgreen-solid text-lg font-bold text-white active:scale-[0.98]">
+                  <Plus className="size-[22px]" strokeWidth={2.6} /> Facture
+                </button>
+              )}
+              <button type="button" disabled={reste <= 0} onClick={onPay} className="flex h-[60px] items-center justify-center gap-2 rounded-2xl border-2 border-kgreen-solid text-lg font-bold text-kgreen active:scale-[0.98] disabled:opacity-40">
+                <Banknotes className="size-6" /> Versement
+              </button>
+            </>
+          ) : (
+            person && (
+              <button type="button" onClick={() => onNew('devis')} className="flex h-[60px] items-center justify-center gap-2 rounded-2xl border-2 border-kgold text-lg font-bold text-kgold active:scale-[0.98]">
+                <Plus className="size-[22px]" strokeWidth={2.6} /> Devis
+              </button>
+            )
+          )}
+        </div>
       </div>
-      {person && <PersonFormDialog person={person} noSex open={editing} onOpenChange={setEditing} />}
+      {person && <PersonMenu person={person} open={menu} onOpenChange={setMenu} />}
     </div>
   )
 }
 
-// Une ligne de la fiche : comme une opération (icône, ce que c'est, quand, montant)
-function DocLine({ inv, last, onOpen }: { inv: Invoice; last: boolean; onOpen: () => void }) {
+// Une ligne de la fiche, comme une opération : icône, ce que c'est, quand, montant
+function DocLine({ inv, chip, sign, last, onOpen }: { inv: Invoice; chip: ChipKey; sign?: boolean; last: boolean; onOpen: () => void }) {
   const devis = inv.kind === 'devis'
-  const open = unpaid(inv) || inv.status === 'devis'
   const what = inv.objet || inv.lines.map(l => l.d).join(', ')
   return (
     <button type="button" onClick={onOpen} className={cn('flex items-center gap-3 px-1 py-3 text-left', !last && 'border-b border-border', inv.status === 'refuse' && 'opacity-50')}>
-      <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-[10px]', devis ? 'bg-kgold/15 text-kgold' : open ? 'bg-kgreen/15 text-kgreen' : 'bg-muted text-muted-foreground')}>
+      <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-[10px]', devis ? 'bg-kgold/15 text-kgold' : 'bg-kgreen/15 text-kgreen')}>
         <FileText className="size-[18px]" />
       </span>
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="flex items-center gap-1 text-[15px] font-semibold">
-          <span className="truncate">
-            {devis ? 'Devis' : 'Facture'} N° {shortNumber(inv.number)}
-          </span>
-          <Chip s={inv.status} />
+        <span className="truncate text-[15px] font-semibold">
+          {devis ? 'Devis' : 'Facture'} N° {shortNumber(inv.number)}
         </span>
-        <span className="truncate text-xs text-muted-foreground">
-          {dateShort(inv.date)}
-          {what ? ` · ${what}` : ''}
+        <span className="flex min-w-0 items-center text-xs text-muted-foreground">
+          <Chip s={chip} first />
+          <span className="ml-1.5 truncate">
+            {dateShort(inv.date)}
+            {what ? ` · ${what}` : ''}
+          </span>
         </span>
       </span>
-      <span className={cn('shrink-0 text-[15px] font-bold tabular-nums', open ? (devis ? 'text-kgold' : 'text-kgreen') : 'text-muted-foreground', inv.status === 'refuse' && 'line-through')}>{money(totals(inv).net)}</span>
+      <span className={cn('shrink-0 text-[15px] font-bold tabular-nums', devis && 'text-kgold', inv.status === 'refuse' && 'line-through')}>
+        {sign ? '+ ' : ''}
+        {money(totals(inv).net)}
+      </span>
     </button>
   )
 }
 
 // ——— Une facture ouverte : l'aperçu, et ce qu'on peut en faire ———
 function InvoiceSheet({ inv, onClose, onEdit }: { inv: Invoice | null; onClose: () => void; onEdit: (s: EditorStart) => void }) {
-  const { profile, setStatus, remove } = useInvoices()
+  const { profile, setStatus, remove, addPayment } = useInvoices()
+  const { left, state, paidOf } = useLeft()
   const { modules, setSelectedPersonId, persons } = useStore()
   const [busy, setBusy] = React.useState(false)
   const [askDelete, setAskDelete] = React.useState(false)
@@ -416,6 +500,11 @@ function InvoiceSheet({ inv, onClose, onEdit }: { inv: Invoice | null; onClose: 
   if (!v) return null
   const devis = v.kind === 'devis'
   const net = totals(v).net
+  const rest = left(v)
+  const done = !devis && rest <= 0
+  const st = state(v)
+  // Sur le papier : « PAYÉE » quand elle est soldée par les versements
+  const paper = done ? { ...v, status: 'payee' as const } : v
   const person = v.client.personId ? persons.find(p => p.id === v.client.personId) : undefined
   const run = async (f: () => Promise<void>) => {
     setBusy(true)
@@ -440,17 +529,22 @@ function InvoiceSheet({ inv, onClose, onEdit }: { inv: Invoice | null; onClose: 
             </DialogDescription>
           </DialogHeader>
           <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pt-1 pb-2 [&>*]:shrink-0">
-            <div className={cn('flex items-center justify-between rounded-[14px] border p-3.5', devis ? 'border-kgold/50 bg-kgold/5' : unpaid(v) ? 'border-kgreen/40 bg-kgreen/5' : '')}>
+            <div className={cn('flex items-center justify-between rounded-[14px] border p-3.5', devis ? 'border-kgold/50 bg-kgold/5' : !done ? 'border-kgreen/40 bg-kgreen/5' : '')}>
               <span className="flex flex-col">
-                <span className="text-[13px] text-muted-foreground">{devis ? 'Montant du devis' : v.status === 'payee' ? 'Payée' : 'À encaisser'}</span>
-                <span className={cn('text-[28px] leading-tight font-extrabold tabular-nums', devis ? 'text-kgold' : unpaid(v) ? 'text-kgreen' : '')}>{money(net)}</span>
+                <span className="text-[13px] text-muted-foreground">{devis ? 'Montant du devis' : done ? 'Payée' : 'Reste à encaisser'}</span>
+                <span className={cn('text-[28px] leading-tight font-extrabold tabular-nums', devis ? 'text-kgold' : !done ? 'text-kgreen' : '')}>{money(devis || done ? net : rest)}</span>
+                {!devis && paidOf(v) > 0 && !done && (
+                  <span className="text-xs text-muted-foreground">
+                    Déjà versé <span className="font-semibold text-kblue">{money(paidOf(v))}</span> sur {money(net)}
+                  </span>
+                )}
                 {v.status === 'credit' && <span className="text-xs text-muted-foreground">Ajoutée au crédit de {v.client.name}</span>}
                 {v.fromQuote && <span className="text-xs text-muted-foreground">Faite à partir du devis {v.fromQuote}</span>}
               </span>
-              <Chip s={v.status} />
+              <Chip s={st} />
             </div>
 
-            <PaperPreview inv={v} profile={profile} width={previewW} />
+            <PaperPreview inv={paper} profile={profile} width={previewW} />
 
             {/* Ce qu'on peut faire, selon l'état */}
             {devis && v.status === 'devis' && (
@@ -463,12 +557,12 @@ function InvoiceSheet({ inv, onClose, onEdit }: { inv: Invoice | null; onClose: 
                 </button>
               </div>
             )}
-            {v.status === 'non_payee' && (
-              <div className={cn('grid gap-2', modules.personnes ? 'grid-cols-2' : 'grid-cols-1')}>
-                <button type="button" onClick={() => setStatus(v.id, 'payee')} className="h-[52px] rounded-2xl bg-kgreen-solid text-base font-bold text-white">
-                  Il a payé
+            {!devis && !done && (
+              <div className={cn('grid gap-2', modules.personnes && v.status === 'non_payee' ? 'grid-cols-2' : 'grid-cols-1')}>
+                <button type="button" onClick={() => addPayment({ clientKey: clientKeyOf(v), personId: v.client.personId, clientName: v.client.name, amount: rest, invoiceId: v.id, note: `Facture N° ${shortNumber(v.number)}` })} className="h-[52px] rounded-2xl bg-kgreen-solid text-base font-bold text-white">
+                  {paidOf(v) > 0 ? `Il a payé le reste` : 'Il a payé'}
                 </button>
-                {modules.personnes && (
+                {modules.personnes && v.status === 'non_payee' && (
                   <button type="button" onClick={() => setStatus(v.id, 'credit')} className="h-[52px] rounded-2xl border-2 border-kgreen-solid text-[15px] font-bold text-kgreen">
                     Mettre à son crédit
                   </button>
@@ -497,10 +591,10 @@ function InvoiceSheet({ inv, onClose, onEdit }: { inv: Invoice | null; onClose: 
           </div>
 
           <div className="mt-2 flex shrink-0 gap-2.5">
-            <button type="button" aria-label="Télécharger" disabled={busy} onClick={() => run(() => downloadInvoice(v, profile))} className="flex h-[56px] w-[64px] items-center justify-center rounded-2xl border-2 disabled:opacity-40">
+            <button type="button" aria-label="Télécharger" disabled={busy} onClick={() => run(() => downloadInvoice(paper, profile))} className="flex h-[56px] w-[64px] items-center justify-center rounded-2xl border-2 disabled:opacity-40">
               <Download className="size-6" />
             </button>
-            <button type="button" disabled={busy} onClick={() => run(() => shareInvoice(v, profile))} className="h-[56px] flex-1 rounded-2xl text-lg font-bold text-white disabled:opacity-40" style={{ background: '#25d366' }}>
+            <button type="button" disabled={busy} onClick={() => run(() => shareInvoice(paper, profile))} className="h-[56px] flex-1 rounded-2xl text-lg font-bold text-white disabled:opacity-40" style={{ background: '#25d366' }}>
               {busy ? 'Préparation…' : devis && v.status === 'devis' ? 'Renvoyer' : 'Envoyer'}
             </button>
           </div>

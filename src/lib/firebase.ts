@@ -29,7 +29,7 @@ import {
 } from 'firebase/firestore'
 
 import type { Movement, Person } from '@/data/mockData'
-import type { Invoice, InvoiceProfile } from '@/modules/factures/types'
+import type { Invoice, InvoicePayment, InvoiceProfile } from '@/modules/factures/types'
 
 // Projet Firebase « kaye-8e8ca ». Ces identifiants ne sont pas secrets : ce qui protège les données,
 // ce sont les règles de sécurité (fichier firestore.rules) : chaque commerçant ne lit que son espace.
@@ -233,16 +233,22 @@ export function makePersister(uid: string, start: CloudData) {
 // ——— Factures ———
 // shops/{uid}/invoices/{id}        factures et devis
 // shops/{uid}/meta/invoiceProfile  mes infos de facture (logo, nom, numéros…)
-export async function loadInvoices(uid: string, source: 'cache' | 'default' = 'default'): Promise<{ invoices: Invoice[]; profile: InvoiceProfile | null }> {
+export async function loadInvoices(uid: string, source: 'cache' | 'default' = 'default'): Promise<{ invoices: Invoice[]; payments: InvoicePayment[]; profile: InvoiceProfile | null }> {
   const one = source === 'cache' ? getDocFromCache : getDoc
   const many = source === 'cache' ? getDocsFromCache : getDocs
-  const [list, prof] = await Promise.all([many(collection(db, 'shops', uid, 'invoices')), one(doc(db, 'shops', uid, 'meta', 'invoiceProfile')).catch(() => null)])
-  return { invoices: list.docs.map(d => d.data() as Invoice), profile: prof && prof.exists() ? (prof.data() as InvoiceProfile) : null }
+  const [list, pays, prof] = await Promise.all([
+    many(collection(db, 'shops', uid, 'invoices')),
+    many(collection(db, 'shops', uid, 'invoicePayments')).catch(() => null),
+    one(doc(db, 'shops', uid, 'meta', 'invoiceProfile')).catch(() => null),
+  ])
+  return { invoices: list.docs.map(d => d.data() as Invoice), payments: pays ? pays.docs.map(d => d.data() as InvoicePayment) : [], profile: prof && prof.exists() ? (prof.data() as InvoiceProfile) : null }
 }
 // Firestore n'accepte pas « undefined » : on enlève ces champs
 const clean = <T extends object>(o: T) => JSON.parse(JSON.stringify(o)) as T
 export const saveInvoiceDoc = (uid: string, inv: Invoice) => setDoc(doc(db, 'shops', uid, 'invoices', inv.id), clean(inv)).catch(e => console.error('[Kayé] Facture', e))
 export const deleteInvoiceDoc = (uid: string, id: string) => deleteDoc(doc(db, 'shops', uid, 'invoices', id)).catch(e => console.error('[Kayé] Facture', e))
+// shops/{uid}/invoicePayments/{id}  versements sur les factures
+export const savePaymentDoc = (uid: string, p: InvoicePayment) => setDoc(doc(db, 'shops', uid, 'invoicePayments', p.id), clean(p)).catch(e => console.error('[Kayé] Versement', e))
 export const saveInvoiceProfile = (uid: string, p: InvoiceProfile) => setDoc(doc(db, 'shops', uid, 'meta', 'invoiceProfile'), clean(p)).catch(e => console.error('[Kayé] Infos de facture', e))
 
 export type { User }

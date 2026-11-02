@@ -1,5 +1,5 @@
 // ——— Calculs des factures : totaux, numéros, montant en lettres, unités ———
-import type { Invoice, InvoiceLine, InvoiceProfile } from './types'
+import type { Invoice, InvoiceLine, InvoicePayment, InvoiceProfile } from './types'
 import type { Billing } from '@/data/mockData'
 
 export const lineTotal = (l: InvoiceLine) => Math.round(l.q * l.p)
@@ -96,4 +96,34 @@ export function billingLines(p: { billing?: Billing; details?: string }): string
   const b = p.billing
   if (!b) return (p.details ?? '').split('\n').map(l => l.trim()).filter(Boolean)
   return [b.forme, b.rccm && `RCCM : ${b.rccm}`, b.niu && `NIU : ${b.niu}`, b.adresse, b.ville, b.email].filter((x): x is string => !!x && !!x.trim())
+}
+
+// ——— Versements : combien est payé sur chaque facture ———
+const nameKey = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim()
+export const clientKeyOf = (i: Pick<Invoice, 'client'>) => i.client.personId ?? `nom:${nameKey(i.client.name)}`
+// Une facture marquée « payée » avant les versements compte comme payée en entier.
+// Ensuite : les versements pour une facture précise, puis les autres sur les factures les plus anciennes d'abord.
+export function paidByInvoice(invoices: Invoice[], payments: InvoicePayment[]): Map<string, number> {
+  const paid = new Map<string, number>()
+  const factures = invoices.filter(i => i.kind === 'facture').sort((a, b) => a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt))
+  for (const f of factures) paid.set(f.id, f.status === 'payee' ? totals(f).net : 0)
+  const left = (f: Invoice) => totals(f).net - (paid.get(f.id) ?? 0)
+  const sorted = [...payments].sort((a, b) => a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt))
+  for (const p of sorted) {
+    let rest = p.amount
+    const target = p.invoiceId ? factures.find(f => f.id === p.invoiceId) : undefined
+    if (target) {
+      const take = Math.min(rest, Math.max(0, left(target)))
+      paid.set(target.id, (paid.get(target.id) ?? 0) + take)
+      rest -= take
+    }
+    for (const f of factures) {
+      if (rest <= 0) break
+      if (clientKeyOf(f) !== p.clientKey || left(f) <= 0) continue
+      const take = Math.min(rest, left(f))
+      paid.set(f.id, (paid.get(f.id) ?? 0) + take)
+      rest -= take
+    }
+  }
+  return paid
 }

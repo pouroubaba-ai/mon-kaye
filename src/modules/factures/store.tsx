@@ -3,11 +3,11 @@
 // Lien avec les comptes : « il paie plus tard » ajoute le montant au crédit du client (une opération Crédit).
 import React from 'react'
 import { useStore } from '@/data/store'
-import { deleteInvoiceDoc, loadInvoices, saveInvoiceDoc, saveInvoiceProfile } from '@/lib/firebase'
+import { deleteInvoiceDoc, loadInvoices, saveInvoiceDoc, saveInvoiceProfile, savePaymentDoc } from '@/lib/firebase'
 import { newId } from '@/modules/mouvements'
 import { plain } from '@/lib/utils'
-import type { Invoice, InvoiceProfile, InvoiceStatus } from './types'
-import { defaultProfile, lineTotal, numberOf, totals } from './view'
+import type { Invoice, InvoicePayment, InvoiceProfile, InvoiceStatus } from './types'
+import { clientKeyOf, defaultProfile, lineTotal, numberOf, paidByInvoice, totals } from './view'
 
 // Ce qu'on donne pour créer : tout sauf ce que l'app met elle-même
 export type InvoiceDraft = Omit<Invoice, 'id' | 'number' | 'createdAt' | 'date'> & { date?: string }
@@ -21,6 +21,10 @@ type Ctx = {
   update: (inv: Invoice) => void
   setStatus: (id: string, status: InvoiceStatus) => void
   remove: (id: string) => void
+  payments: InvoicePayment[]
+  paid: Map<string, number> // payé sur chaque facture
+  // Un versement : sur une facture précise (invoiceId), sinon sur ses factures les plus anciennes
+  addPayment: (p: { clientKey: string; personId?: string; clientName: string; amount: number; invoiceId?: string; note?: string }) => void
 }
 // « 2026-10-31 »
 export const todayIso = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -63,12 +67,18 @@ const DEMO_INVOICES: Invoice[] = [
   },
 ]
 
+const DEMO_PAYMENTS: InvoicePayment[] = [
+  { id: 'pay-demo-1', clientKey: 'part-1', personId: 'part-1', clientName: 'Maman Sylvie (Épicerie du Marché)', amount: 50000, date: '2026-10-25', createdAt: '2026-10-25T10:00:00' },
+]
+
 export function InvoicesProvider({ uid, children }: { uid: string | null; children: React.ReactNode }) {
   const { shop, addMovement, addPerson, persons, isDemo } = useStore()
   // Sans compte (démonstration) : rien n'est enregistré ; les exemples seulement dans la vraie démonstration
   const demo = isDemo || !uid
   const [invoices, setInvoices] = React.useState<Invoice[]>(() => (isDemo ? DEMO_INVOICES : []))
   const [profile, setProfile] = React.useState<InvoiceProfile | null>(() => (isDemo ? DEMO_PROFILE() : null))
+  const [payments, setPayments] = React.useState<InvoicePayment[]>(() => (isDemo ? DEMO_PAYMENTS : []))
+  const paid = React.useMemo(() => paidByInvoice(invoices, payments), [invoices, payments])
 
   // Chargement : d'abord ce qui est sur le téléphone, puis la version en ligne
   React.useEffect(() => {
@@ -77,6 +87,7 @@ export function InvoicesProvider({ uid, children }: { uid: string | null; childr
     const apply = (r: Awaited<ReturnType<typeof loadInvoices>>) => {
       if (!alive) return
       setInvoices(r.invoices)
+      setPayments(r.payments)
       if (r.profile) setProfile(r.profile)
     }
     loadInvoices(uid, 'cache').then(apply).catch(() => {})
@@ -145,10 +156,25 @@ export function InvoicesProvider({ uid, children }: { uid: string | null; childr
     if (inv.kind === 'facture' && status === 'credit' && inv.status !== 'credit') next = { ...next, client: { ...next.client, personId: addCredit(next) } }
     update(next)
   }
+  // Un versement. Sur une facture déjà mise au crédit dans Kayé, la même somme est notée « versé » sur son compte.
+  const addPayment: Ctx['addPayment'] = p => {
+    if (!(p.amount > 0)) return
+    const pay: InvoicePayment = { ...p, id: newId('pay'), date: todayIso(), createdAt: new Date().toISOString() }
+    const after = paidByInvoice(invoices, [...payments, pay])
+    const onCredit = invoices
+      .filter(i => i.kind === 'facture' && i.status === 'credit' && clientKeyOf(i) === p.clientKey)
+      .reduce((a, i) => a + (after.get(i.id) ?? 0) - (paid.get(i.id) ?? 0), 0)
+    setPayments(prev => [...prev, pay])
+    if (!demo && uid) void savePaymentDoc(uid, pay)
+    const personId = p.personId ?? invoices.find(i => i.status === 'credit' && clientKeyOf(i) === p.clientKey)?.client.personId
+    const person = personId ? persons.find(x => x.id === personId) : undefined
+    if (onCredit > 0 && person)
+      addMovement({ personId: person.id, personName: person.name, type: 'il_m_a_verse', label: 'Versement', amount: onCredit, paymentMethod: 'especes', note: 'Versement sur facture' })
+  }
   const remove: Ctx['remove'] = id => {
     setInvoices(prev => prev.filter(x => x.id !== id))
     if (!demo && uid) void deleteInvoiceDoc(uid, id)
   }
 
-  return <C.Provider value={{ invoices, profile: prof, profileSet: !!profile, saveProfile, create, update, setStatus, remove }}>{children}</C.Provider>
+  return <C.Provider value={{ invoices, profile: prof, profileSet: !!profile, saveProfile, create, update, setStatus, remove, payments, paid, addPayment }}>{children}</C.Provider>
 }

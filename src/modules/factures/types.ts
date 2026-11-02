@@ -53,3 +53,17 @@ export interface InvoiceProfile {
   quoteNext: number
   mentions: string // une mention par ligne ; {numero} = le numéro de la facture
 }
+
+// Un versement d'un client sur ses factures.
+// invoiceId : versé pour une facture précise ; sinon il paie ses factures dans l'ordre (la plus ancienne d'abord).
+export interface InvoicePayment {
+  id: string
+  clientKey: string // sa fiche dans Kayé (personId), sinon « nom:… »
+  personId?: string
+  clientName: string
+  amount: number
+  date: string // « 2026-11-02 »
+  invoiceId?: string
+  note?: string
+  createdAt: string
+}

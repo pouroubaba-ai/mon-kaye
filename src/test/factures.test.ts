@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { inWords, numberOf, totals, unitFor, defaultProfile } from '@/modules/factures/view'
+import { inWords, numberOf, totals, unitFor, defaultProfile, paidByInvoice } from '@/modules/factures/view'
 
 describe('Montant en lettres', () => {
   it.each([
@@ -33,5 +33,26 @@ describe('Numéros et unités', () => {
     expect(unitFor('kg', 3)).toBe('kg')
     expect(unitFor('mois', 3)).toBe('mois')
     expect(unitFor('forfait', 1)).toBe('forfait')
+  })
+})
+
+describe('Versements sur les factures', () => {
+  const f = (id: string, date: string, p: number, extra: object = {}) =>
+    ({ id, kind: 'facture', number: id, date, createdAt: date, status: 'non_payee', client: { personId: 'c1', name: 'C', lines: [] }, lines: [{ d: 'x', q: 1, p }], ...extra }) as never
+  const pay = (amount: number, date: string, invoiceId?: string) => ({ id: date + amount, clientKey: 'c1', personId: 'c1', clientName: 'C', amount, date, createdAt: date, invoiceId })
+  it('la plus ancienne d’abord', () => {
+    const m = paidByInvoice([f('a', '2026-10-01', 100000), f('b', '2026-10-05', 50000)], [pay(120000, '2026-10-10')])
+    expect(m.get('a')).toBe(100000)
+    expect(m.get('b')).toBe(20000)
+  })
+  it('un versement pour une facture précise', () => {
+    const m = paidByInvoice([f('a', '2026-10-01', 100000), f('b', '2026-10-05', 50000)], [pay(50000, '2026-10-10', 'b')])
+    expect(m.get('a')).toBe(0)
+    expect(m.get('b')).toBe(50000)
+  })
+  it('une facture déjà marquée payée', () => {
+    const m = paidByInvoice([f('a', '2026-10-01', 100000, { status: 'payee' }), f('b', '2026-10-05', 50000)], [pay(30000, '2026-10-10')])
+    expect(m.get('a')).toBe(100000)
+    expect(m.get('b')).toBe(30000)
   })
 })
