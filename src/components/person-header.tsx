@@ -87,6 +87,8 @@ export function PersonFormDialog({
   const [billing, setBilling] = React.useState(emptyBilling)
   // Module Factures allumé : ses infos pour les factures (une fois pour toutes)
   const withDetails = !isEmployee && modules.factures
+  // Les infos de facture restent rangées derrière un bouton tant qu'on ne les ouvre pas
+  const [showBill, setShowBill] = React.useState(false)
 
   // À chaque ouverture : les valeurs actuelles (modifier) ou des champs vides (ajouter).
   React.useEffect(() => {
@@ -97,6 +99,7 @@ export function PersonFormDialog({
     setSalary(person?.salary ? String(person.salary) : '')
     setSex(person?.sex)
     setBilling({ ...emptyBilling, ...(person?.billing ?? {}) })
+    setShowBill(false)
   }, [open, person])
 
   const dirty =
@@ -179,35 +182,59 @@ export function PersonFormDialog({
             <Label htmlFor="edit-phone" className="text-[13px] font-normal text-muted-foreground">Numéro</Label>
             <input id="edit-phone" type="tel" inputMode="tel" placeholder="+242 06 …" value={phone} onChange={e => setPhone(e.target.value)} className="h-12 rounded-xl border bg-background px-3.5 text-base outline-none focus-visible:border-ring" />
           </div>
-          {withDetails && (
-            <div className="grid gap-3">
-              <span className="text-xs tracking-[0.08em] text-muted-foreground uppercase">Pour les factures (facultatif)</span>
-              {(
-                [
-                  ['adresse', 'Adresse', 'Avenue, quartier'],
-                  ['ville', 'Ville', 'Ex : Brazzaville'],
-                  ['email', 'E-mail', ''],
-                  ['forme', 'Forme juridique', 'Ex : SARL, Ets, SA'],
-                  ['rccm', 'RCCM', 'Ex : CG-BZV-01-2011-B13-00110'],
-                  ['niu', 'NIU', ''],
-                ] as const
-              ).map(([k, label, ph]) => (
-                <div key={k} className="grid gap-2">
-                  <Label htmlFor={`bill-${k}`} className="text-[13px] font-normal text-muted-foreground">
-                    {label}
-                  </Label>
-                  <input
-                    id={`bill-${k}`}
-                    type={k === 'email' ? 'email' : 'text'}
-                    value={billing[k]}
-                    placeholder={ph}
-                    onChange={e => setBilling(b => ({ ...b, [k]: e.target.value }))}
-                    className="h-12 rounded-xl border bg-background px-3.5 text-base outline-none focus-visible:border-ring"
-                  />
+          {withDetails &&
+            (() => {
+              const filled = Object.values(billing).some(v => v.trim())
+              const field = (k: keyof typeof billing, label: string, ph: string) => (
+                <input
+                  key={k}
+                  id={`bill-${k}`}
+                  aria-label={label}
+                  type={k === 'email' ? 'email' : 'text'}
+                  value={billing[k]}
+                  placeholder={ph ? `${label} — ${ph}` : label}
+                  onChange={e => setBilling(b => ({ ...b, [k]: e.target.value }))}
+                  className="h-11 rounded-xl border bg-background px-3.5 text-[15px] outline-none focus-visible:border-ring"
+                />
+              )
+              const card = (title: string, children: React.ReactNode) => (
+                <div className="grid gap-2.5 rounded-2xl border bg-muted/30 p-3">
+                  <div className="flex items-center justify-between px-0.5">
+                    <span className="text-xs font-bold tracking-[0.06em] text-muted-foreground uppercase">{title}</span>
+                    <span className="text-xs font-semibold text-muted-foreground">facultatif</span>
+                  </div>
+                  {children}
                 </div>
-              ))}
-            </div>
-          )}
+              )
+              if (showBill)
+                return (
+                  <div className="grid gap-3 animate-in fade-in duration-200">
+                    {card('Où le trouver', [field('adresse', 'Adresse', 'avenue, quartier'), field('ville', 'Ville', 'ex : Brazzaville'), field('email', 'E-mail', '')])}
+                    {card('Son entreprise', [field('forme', 'Forme', 'ex : SARL, Ets, SA'), field('rccm', 'RCCM', 'ex : CG-BZV-01-…'), field('niu', 'NIU', '')])}
+                  </div>
+                )
+              // Déjà rempli : un résumé ; sinon : un seul bouton
+              const line1 = [billing.adresse, billing.ville].map(v => v.trim()).filter(Boolean).join(' · ')
+              const line2 = [billing.forme, billing.rccm && `RCCM ${billing.rccm}`, billing.niu && `NIU ${billing.niu}`, billing.email].map(v => (v || '').trim()).filter(Boolean).join(' · ')
+              return filled ? (
+                <button type="button" onClick={() => setShowBill(true)} className="flex items-center gap-3 rounded-2xl border bg-muted/30 p-3.5 text-left">
+                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span className="text-[15px] font-bold">Infos pour la facture</span>
+                    {line1 && <span className="truncate text-[13px] text-muted-foreground">{line1}</span>}
+                    {line2 && <span className="truncate text-[13px] text-muted-foreground">{line2}</span>}
+                  </span>
+                  <span className="shrink-0 text-sm font-bold text-kgold">Modifier</span>
+                </button>
+              ) : (
+                <button type="button" onClick={() => setShowBill(true)} className="flex items-center gap-3 rounded-2xl border-[1.5px] border-dashed border-kgold/60 p-3.5 text-left">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-kgold/15 text-lg font-extrabold text-kgold">+</span>
+                  <span className="flex min-w-0 flex-col gap-0.5">
+                    <span className="text-[15px] font-bold">Infos pour la facture</span>
+                    <span className="truncate text-[13px] text-muted-foreground">Adresse, ville, e-mail, RCCM, NIU</span>
+                  </span>
+                </button>
+              )
+            })()}
           {isEmployee && (
           <div className="grid gap-2">
             <Label htmlFor="edit-role" className="text-[13px] font-normal text-muted-foreground">Poste</Label>
@@ -228,9 +255,12 @@ export function PersonFormDialog({
               {person && <p className="text-xs text-muted-foreground">Un nouveau salaire compte à partir de la prochaine paie.</p>}
             </div>
           )}
-          <button type="submit" disabled={!valid} className="h-[58px] rounded-2xl bg-kgreen-solid text-lg font-bold text-white disabled:opacity-40">
-            Enregistrer
-          </button>
+          {/* Les infos de facture ouvertes : « Enregistrer » reste visible en bas pendant qu'on fait défiler */}
+          <div className={withDetails && showBill ? 'sticky -bottom-6 -mx-4 bg-background px-4 pt-2 pb-6 dark:bg-card' : 'contents'}>
+            <button type="submit" disabled={!valid} className="h-[58px] w-full rounded-2xl bg-kgreen-solid text-lg font-bold text-white disabled:opacity-40">
+              Enregistrer
+            </button>
+          </div>
         </form>
       </DialogContent>
     </Dialog>
