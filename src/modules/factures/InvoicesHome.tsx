@@ -802,7 +802,7 @@ function InvoiceSheet({ inv, onClose, onEdit }: { inv: Invoice | null; onClose: 
                   </button>
                 )}
                 <button type="button" onClick={() => onEdit({ mode: 'duplicate', base: v })} className="h-11 rounded-xl border">
-                  Copier
+                  Refaire
                 </button>
                 {devis ? (
                   <button type="button" onClick={() => setAskDelete(true)} className="h-11 rounded-xl border border-kred/40 text-kred">
