@@ -10,6 +10,7 @@ import { DetailBand } from '@/components/detail-band'
 import { Banknotes } from '@/components/armed'
 import { PaymentDetail, PaymentDialog, type PayTarget } from './PaymentDialog'
 import { DateFilter } from '@/components/date-filter'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ALL_TIME, inRange, isFiltered, type DateRange } from '@/lib/date-range'
 import { useStore } from '@/data/store'
 import { cn, plain, waNumber } from '@/lib/utils'
@@ -370,6 +371,8 @@ function ClientFiche({ client, onBack, onOpen, onOpenPay, onNew, onPay }: { clie
   const [detail, setDetail] = React.useState(false)
   const [allQuotes, setAllQuotes] = React.useState(false)
   const [menu, setMenu] = React.useState(false)
+  // L'historique : les factures d'abord ; le menu montre aussi les versements, ou tout
+  const [show, setShow] = React.useState<'factures' | 'versements' | 'tout'>('factures')
   const byDate = <T extends { date: string; createdAt: string }>(a: T, b: T) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt)
   const allFactures = client.list.filter(i => i.kind === 'facture')
   const factures = allFactures.filter(i => !i.cancelled)
@@ -382,7 +385,10 @@ function ClientFiche({ client, onBack, onOpen, onOpenPay, onNew, onPay }: { clie
   const nDue = factures.filter(i => left(i) > 0).length
   const lastPay = [...livePays].sort(byDate)[0]
   // L'historique : factures et versements mêlés, le plus récent en haut
-  const history = [...allFactures.map(f => ({ kind: 'f' as const, date: f.date, createdAt: f.createdAt, f })), ...client.pays.map(p => ({ kind: 'p' as const, date: p.date, createdAt: p.createdAt, p }))].sort(byDate)
+  const history = [
+    ...(show !== 'versements' ? allFactures.map(f => ({ kind: 'f' as const, date: f.date, createdAt: f.createdAt, f })) : []),
+    ...(show !== 'factures' ? client.pays.map(p => ({ kind: 'p' as const, date: p.date, createdAt: p.createdAt, p })) : []),
+  ].sort(byDate)
   const quotes = allQuotes ? devisAll : devisEnCours
   const infos = person ? billingLines(person).join(' · ') : client.details
 
@@ -451,9 +457,23 @@ function ClientFiche({ client, onBack, onOpen, onOpenPay, onNew, onPay }: { clie
           {detail && side === 'factures' && <DetailBand total={total} paid={versé} rest={reste} tone="green" />}
 
           <div className="mt-1 flex items-center justify-between gap-2">
-            <span className="text-[15px] font-semibold text-muted-foreground">{side === 'factures' ? 'Historique' : allQuotes ? 'Tous ses devis' : 'Ses devis en cours'}</span>
+            <span className="flex min-w-0 flex-col">
+              <span className="text-[15px] font-semibold text-muted-foreground">{side === 'factures' ? 'Historique' : allQuotes ? 'Tous ses devis' : 'Ses devis en cours'}</span>
+              {side === 'factures' && lastPay && <span className="truncate text-xs text-muted-foreground">Dernier versement le {dateShort(lastPay.date)}</span>}
+            </span>
             {side === 'factures'
-              ? lastPay && <span className="text-[13px] text-muted-foreground">Dernier versement le {dateShort(lastPay.date)}</span>
+              ? (
+                  <Select value={show} onValueChange={v => setShow(v as typeof show)}>
+                    <SelectTrigger aria-label="Voir" className="h-9 w-auto gap-1.5 rounded-[10px] px-3 text-[13px] font-semibold">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent align="end">
+                      <SelectItem value="factures">Factures</SelectItem>
+                      <SelectItem value="versements">Versements</SelectItem>
+                      <SelectItem value="tout">Tout</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )
               : devisAll.length > devisEnCours.length && (
                   <button type="button" onClick={() => setAllQuotes(a => !a)} className="flex h-9 items-center rounded-[10px] border px-3 text-[13px] font-semibold text-muted-foreground hover:bg-muted">
                     {allQuotes ? 'En cours seulement' : `Tous ses devis (${devisAll.length})`}
@@ -464,7 +484,7 @@ function ClientFiche({ client, onBack, onOpen, onOpenPay, onNew, onPay }: { clie
           <div className="flex flex-col">
             {side === 'factures' ? (
               history.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">Aucune facture pour l'instant.</p>
+                <p className="py-8 text-center text-sm text-muted-foreground">{show === 'versements' ? 'Aucun versement pour l’instant.' : 'Aucune facture pour l’instant.'}</p>
               ) : (
                 history.map((h, i) =>
                   h.kind === 'f' ? (
