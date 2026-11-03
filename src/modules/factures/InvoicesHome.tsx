@@ -16,6 +16,7 @@ import { useStore } from '@/data/store'
 import { cn, plain, waNumber } from '@/lib/utils'
 import { initials } from '@/modules/personnes/view'
 import { InvoiceEditor, PassagerBadge, type EditorStart } from './InvoiceEditor'
+import { ClientInfos, type ClientInfo } from './ClientInfos'
 import { PaperPreview, invoicePdf } from './InvoicePaper'
 import { useInvoices } from './store'
 import type { Invoice, InvoicePayment, InvoiceStatus } from './types'
@@ -479,7 +480,12 @@ function ClientFiche({ client, onBack, onOpen, onOpenPay, onNew, onPay, onRegist
     ...(show !== 'factures' ? client.pays.map(p => ({ kind: 'p' as const, date: p.date, createdAt: p.createdAt, p })) : []),
   ].sort(byDate)
   const quotes = allQuotes ? devisAll : devisEnCours
-  const infos = person ? billingLines(person).join(' · ') : client.details
+  // Ses infos de facture : celles de sa fiche, sinon celles de sa dernière facture
+  const lastClient = [...client.list].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]?.client
+  const info: ClientInfo = person
+    ? { name: person.name, phone: person.phone, billing: person.billing, lines: billingLines(person) }
+    : { name: client.name, phone: client.phone ?? lastClient?.phone, billing: lastClient?.billing, lines: lastClient?.lines }
+  const [editInfo, setEditInfo] = React.useState(false)
 
   // Le retour du téléphone (Échap) ferme la fiche, sauf si une fenêtre est ouverte par-dessus
   const backRef = React.useRef(onBack)
@@ -531,7 +537,7 @@ function ClientFiche({ client, onBack, onOpen, onOpenPay, onNew, onPay, onRegist
               {client.passager && <PassagerBadge />}
             </span>
             {(person?.phone || client.phone) && <span className="truncate text-[13px] text-muted-foreground">{person?.phone || client.phone}</span>}
-            {infos && <span className="line-clamp-2 text-xs text-muted-foreground">{infos}</span>}
+            <ClientInfos client={info} onEdit={person ? () => setEditInfo(true) : undefined} className="mt-1.5" />
           </div>
           {(
             <button type="button" aria-label="Plus d'options" onClick={() => setMenu(true)} className="flex size-11 items-center justify-center rounded-full text-muted-foreground hover:bg-muted">
@@ -638,6 +644,7 @@ function ClientFiche({ client, onBack, onOpen, onOpenPay, onNew, onPay, onRegist
         </div>
       </div>
       {person && <PersonMenu person={person} open={menu} onOpenChange={setMenu} />}
+      {person && <PersonFormDialog person={person} noSex open={editInfo} onOpenChange={setEditInfo} />}
       {/* Un client seulement sur des factures (pas dans Kayé) : on peut le supprimer avec ses factures */}
       {!person && (
         <Dialog open={menu} onOpenChange={setMenu}>

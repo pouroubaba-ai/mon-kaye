@@ -12,6 +12,7 @@ import { useStore } from '@/data/store'
 import { cn, matchesPerson, plain } from '@/lib/utils'
 import { PersonFormDialog, type WalkIn } from '@/components/person-header'
 import { UnitPicker } from './LineDialog'
+import { ClientInfos } from './ClientInfos'
 import { todayIso, useInvoices } from './store'
 import type { Invoice, InvoiceClient, InvoiceKind, InvoiceLine } from './types'
 import { billingLines, clientKeyOf, money, totals, unitFor } from './view'
@@ -241,35 +242,22 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
           {step === 'produits' && (
             <div className="flex flex-1 flex-col gap-3">
               {/* Le client : ses infos, gardées dans sa fiche (données une seule fois) */}
-              {person && (
+              {/* Le client : son nom, son numéro, et « Ses infos » (rangées dans un petit modal) */}
+              {who && (
                 <div className="flex items-start justify-between gap-3 rounded-lg border px-3 py-2.5">
-                  <span className="flex min-w-0 flex-col">
-                    <span className="truncate text-sm font-semibold">{person.name}</span>
-                    {billingLines(person).length ? (
-                      <span className="text-xs leading-snug whitespace-pre-line text-muted-foreground">{billingLines(person).join('\n')}</span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Pas d'adresse ni de RCCM pour la facture</span>
-                    )}
-                  </span>
-                  <button type="button" onClick={() => openClient(person.id)} className="h-8 shrink-0 rounded-full px-2 text-sm font-semibold text-kgold">
-                    {billingLines(person).length ? 'Modifier' : 'Ajouter'}
-                  </button>
-                </div>
-              )}
-              {!person && walkIn && (
-                <div className="flex items-start justify-between gap-3 rounded-lg border px-3 py-2.5">
-                  <span className="flex min-w-0 flex-col">
+                  <span className="flex min-w-0 flex-col gap-0.5">
                     <span className="flex min-w-0 items-center gap-1.5">
-                      <span className="truncate text-sm font-semibold">{walkIn.name}</span>
-                      <PassagerBadge />
+                      <span className="truncate text-sm font-semibold">{who.name}</span>
+                      {!person && <PassagerBadge />}
                     </span>
-                    {billingLines(walkIn).length ? (
-                      <span className="text-xs leading-snug whitespace-pre-line text-muted-foreground">{billingLines(walkIn).join('\n')}</span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Pas d'adresse ni de RCCM pour la facture</span>
-                    )}
+                    {(person ? person.phone : walkIn?.phone) && <span className="truncate text-xs text-muted-foreground">{person ? person.phone : walkIn?.phone}</span>}
+                    <ClientInfos
+                      className="mt-1"
+                      client={person ? { name: person.name, phone: person.phone, billing: person.billing, lines: billingLines(person) } : { name: walkIn!.name, phone: walkIn!.phone, billing: walkIn!.billing }}
+                      onEdit={() => (person ? openClient(person.id) : setWalkInForm(true))}
+                    />
                   </span>
-                  <button type="button" onClick={() => setWalkInForm(true)} className="h-8 shrink-0 rounded-full px-2 text-sm font-semibold text-kgold">
+                  <button type="button" onClick={() => (person ? openClient(person.id) : setWalkInForm(true))} className="h-8 shrink-0 rounded-full px-2 text-sm font-semibold text-kgold">
                     Modifier
                   </button>
                 </div>
