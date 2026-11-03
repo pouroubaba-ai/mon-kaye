@@ -3,7 +3,7 @@ import { formatPhone, nameTaken } from '@/lib/utils'
 import { Pencil, Phone } from 'lucide-react'
 
 import { useStore } from '@/data/store'
-import type { Person } from '@/data/mockData'
+import type { Billing, Person } from '@/data/mockData'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -56,6 +56,9 @@ export function PersonHeader({ person, badge }: { person: Person; badge?: React.
   )
 }
 
+// Client de passage : les mêmes champs, mais il n'est pas ajouté à mes clients
+export type WalkIn = { name: string; phone: string; billing: Billing }
+
 // Fenêtre « Modifier » (person fourni) ou « Ajouter » (type fourni, champs vides).
 export function PersonFormDialog({
   person,
@@ -65,7 +68,9 @@ export function PersonFormDialog({
   onCreated,
   side,
   noSex,
+  walkIn,
 }: {
+  walkIn?: { initial?: WalkIn; onContinue: (d: WalkIn) => void } // « Client de passage » : rien n'est enregistré
   noSex?: boolean // ouvert depuis Factures : souvent une entreprise, pas d'« homme ou femme »
   side?: 'lui' | 'moi' // ajouté depuis « On me doit » (client) ou « Je dois » (fournisseur) : seulement le titre
   person?: Person
@@ -86,34 +91,41 @@ export function PersonFormDialog({
   const emptyBilling = { forme: '', rccm: '', niu: '', adresse: '', ville: '', email: '' }
   const [billing, setBilling] = React.useState(emptyBilling)
   // Module Factures allumé : ses infos pour les factures (une fois pour toutes)
-  const withDetails = !isEmployee && modules.factures
+  const withDetails = !!walkIn || (!isEmployee && modules.factures)
   // Les infos de facture restent rangées derrière un bouton tant qu'on ne les ouvre pas
   const [showBill, setShowBill] = React.useState(false)
 
   // À chaque ouverture : les valeurs actuelles (modifier) ou des champs vides (ajouter).
   React.useEffect(() => {
     if (!open) return
-    setName(person?.name ?? '')
-    setPhone(person?.phone ?? '')
+    setName(walkIn ? (walkIn.initial?.name ?? '') : (person?.name ?? ''))
+    setPhone(walkIn ? (walkIn.initial?.phone ?? '') : (person?.phone ?? ''))
     setRole(person?.role ?? '')
     setSalary(person?.salary ? String(person.salary) : '')
     setSex(person?.sex)
-    setBilling({ ...emptyBilling, ...(person?.billing ?? {}) })
+    setBilling({ ...emptyBilling, ...((walkIn ? walkIn.initial?.billing : person?.billing) ?? {}) })
     setShowBill(false)
   }, [open, person])
 
-  const dirty =
-    name !== (person?.name ?? '') ||
+  const dirty = walkIn
+    ? name !== (walkIn.initial?.name ?? '') || phone !== (walkIn.initial?.phone ?? '') || JSON.stringify({ ...emptyBilling, ...(walkIn.initial?.billing ?? {}) }) !== JSON.stringify(billing)
+    : name !== (person?.name ?? '') ||
     phone !== (person?.phone ?? '') ||
     role !== (person?.role ?? '') ||
     sex !== person?.sex ||
     (withDetails && JSON.stringify({ ...emptyBilling, ...(person?.billing ?? {}) }) !== JSON.stringify(billing)) ||
     (isEmployee && salary !== (person?.salary ? String(person.salary) : ''))
-  const taken = nameTaken(persons, name, person?.id)
+  const taken = walkIn ? (nameTaken(persons, name) ? `« ${name.trim()} » est déjà dans tes clients : choisis-le dans la liste.` : '') : nameTaken(persons, name, person?.id)
   const valid = name.trim().length > 0 && !taken && (!isEmployee || parseInt(salary, 10) > 0)
 
   const save = () => {
     if (!valid) return
+    if (walkIn) {
+      const b = Object.fromEntries(Object.entries(billing).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v)) as Billing
+      walkIn.onContinue({ name: name.trim(), phone: phone.trim() ? formatPhone(phone) : '', billing: b })
+      onOpenChange(false)
+      return
+    }
     const data = {
       name: name.trim(),
       phone: formatPhone(phone),
@@ -131,7 +143,7 @@ export function PersonFormDialog({
     onOpenChange(false)
   }
 
-  const title = person ? 'Modifier ses infos' : isEmployee ? 'Nouvel employé' : side === 'moi' ? 'Nouveau fournisseur' : side === 'lui' ? 'Nouveau client' : 'Nouveau partenaire'
+  const title = walkIn ? 'Client de passage' : person ? 'Modifier ses infos' : isEmployee ? 'Nouvel employé' : side === 'moi' ? 'Nouveau fournisseur' : side === 'lui' ? 'Nouveau client' : 'Nouveau partenaire'
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange} dirty={dirty} dirtyKind={person ? 'modification' : 'ajout'}>
@@ -153,7 +165,7 @@ export function PersonFormDialog({
             {taken && <p className="text-xs text-destructive">{taken}</p>}
           </div>
           {/* Homme ou Femme : pour écrire « Il me doit » ou « Elle me doit » (rien n'est choisi d'avance) */}
-          {!noSex && (
+          {!noSex && !walkIn && (
           <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Homme ou femme">
             {(
               [
@@ -258,7 +270,7 @@ export function PersonFormDialog({
           {/* Les infos de facture ouvertes : « Enregistrer » reste visible en bas pendant qu'on fait défiler */}
           <div className={withDetails && showBill ? 'sticky -bottom-6 -mx-4 bg-background px-4 pt-2 pb-6 dark:bg-card' : 'contents'}>
             <button type="submit" disabled={!valid} className="h-[58px] w-full rounded-2xl bg-kgreen-solid text-lg font-bold text-white disabled:opacity-40">
-              Enregistrer
+              {walkIn ? 'Continuer' : 'Enregistrer'}
             </button>
           </div>
         </form>

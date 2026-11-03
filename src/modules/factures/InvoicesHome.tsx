@@ -15,7 +15,7 @@ import { ALL_TIME, inRange, isFiltered, type DateRange } from '@/lib/date-range'
 import { useStore } from '@/data/store'
 import { cn, plain, waNumber } from '@/lib/utils'
 import { initials } from '@/modules/personnes/view'
-import { InvoiceEditor, type EditorStart } from './InvoiceEditor'
+import { InvoiceEditor, PassagerBadge, type EditorStart } from './InvoiceEditor'
 import { PaperPreview, invoicePdf } from './InvoicePaper'
 import { useInvoices } from './store'
 import type { Invoice, InvoicePayment, InvoiceStatus } from './types'
@@ -57,7 +57,7 @@ const fitBig = (v: number) => { const l = money(v).length; return l <= 9 ? 'text
 const fitSmall = (v: number) => { const l = money(v).length; return l <= 9 ? 'text-base' : l <= 11 ? 'text-sm' : 'text-xs' }
 
 const clientKey = clientKeyOf
-type ClientRow = { k: string; personId?: string; name: string; details?: string; list: Invoice[]; pays: InvoicePayment[]; archived?: boolean }
+type ClientRow = { k: string; personId?: string; name: string; details?: string; list: Invoice[]; pays: InvoicePayment[]; archived?: boolean; passager?: boolean; phone?: string }
 
 // ——— L'écran Factures, comme l'écran Clients ———
 // Une bascule « À encaisser / Devis en attente » (et l'œil), la recherche, puis directement :
@@ -65,7 +65,7 @@ type ClientRow = { k: string; personId?: string; name: string; details?: string;
 // - Devis en attente : les devis en cours.
 // Toutes les factures (historique, période, non soldées…) : le bouton à côté de la recherche.
 export function InvoicesHome() {
-  const { invoices, payments } = useInvoices()
+  const { invoices, payments, adoptClient } = useInvoices()
   const { persons } = useStore()
   const { left, paidOf } = useLeft()
   const [tab, setTab] = React.useState<'factures' | 'devis'>('factures')
@@ -98,6 +98,12 @@ export function InvoicesHome() {
       m.get(k)!.list.push(i)
     }
     for (const pay of payments) m.get(pay.clientKey)?.pays.push(pay)
+    // Client de passage : toutes ses factures sont « de passage » (il n'est pas dans mes clients)
+    for (const c of m.values())
+      if (!c.personId && c.list.length && c.list.every(i => i.client.passager)) {
+        c.passager = true
+        c.phone = c.list.find(i => i.client.phone)?.client.phone
+      }
     return [...m.values()]
   }, [persons, invoices, payments])
   const rows = clients
@@ -108,7 +114,7 @@ export function InvoicesHome() {
     .sort((a, b) => b.due - a.due || a.name.localeCompare(b.name, 'fr'))
   const found = searching ? rows.filter(c => plain(c.name).includes(q)) : []
   const owing = rows.filter(c => !c.archived && c.due > 0)
-  const zero = rows.filter(c => !c.archived && c.due === 0)
+  const zero = rows.filter(c => !c.archived && c.due === 0 && !c.passager) // un client de passage qui a tout payé : seulement dans « Toutes les factures »
   const archived = rows.filter(c => c.archived)
   const quotes = pending
     .filter(i => !searching || plain(`${i.client.name} ${i.number} ${i.objet ?? ''}`).includes(q))
@@ -128,7 +134,10 @@ export function InvoicesHome() {
     <button key={c.k} type="button" onClick={() => setClientOpen(c.k)} className={cn('flex w-full items-center gap-3 px-2 py-3 text-left transition-colors hover:bg-muted/40', !last && 'border-b')}>
       <span className="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground">{initials(c.name)}</span>
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-base font-semibold">{c.name}</span>
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="truncate text-base font-semibold">{c.name}</span>
+          {c.passager && <PassagerBadge />}
+        </span>
         <span className="truncate text-[13px] text-muted-foreground">
           {c.archived && 'Rangé · '}
           {c.n === 0 ? 'À jour' : `${plural(c.n, 'facture', 'factures')}${c.list.some(i => left(i) > 0 && paidOf(i) > 0) ? ' · payée en partie' : ' non payée'}${c.n > 1 && !c.list.some(i => left(i) > 0 && paidOf(i) > 0) ? 's' : ''}`}
@@ -295,6 +304,10 @@ export function InvoicesHome() {
           onOpenPay={id => setPayOpen(id)}
           onNew={kind => setEditor({ mode: 'new', kind, personId: client.personId })}
           onPay={() => setPaying({ clientKey: client.k, personId: client.personId, clientName: client.name })}
+          onRegister={() => {
+            const id = adoptClient(client.k)
+            if (id) setClientOpen(id)
+          }}
         />
       )}
 
@@ -411,7 +424,10 @@ function AllInvoices({ onBack, onOpen }: { onBack: () => void; onOpen: (id: stri
               <button key={inv.id} type="button" onClick={() => onOpen(inv.id)} className={cn('flex w-full items-center gap-3 px-2 py-3 text-left transition-colors hover:bg-muted/40', i < list.length - 1 && 'border-b', (inv.cancelled || inv.status === 'refuse') && 'opacity-50')}>
                 <span className="flex size-[42px] shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground">{initials(inv.client.name)}</span>
                 <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate text-base font-semibold">{inv.client.name}</span>
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span className="truncate text-base font-semibold">{inv.client.name}</span>
+                    {inv.client.passager && !inv.client.personId && <PassagerBadge />}
+                  </span>
                   <span className="truncate text-[13px] text-muted-foreground">
                     N° {shortNumber(inv.number)} · {dateShort(inv.date)}
                     <Chip s={state(inv)} />
@@ -435,7 +451,7 @@ function AllInvoices({ onBack, onOpen }: { onBack: () => void; onOpen: (id: stri
 // On touche celle qu'on veut voir ; toucher encore « À encaisser » : Total facturé, Versé, Reste.
 // L'historique : ses factures (+) et ses versements (−) ; ou ses devis en cours (et tous ses devis).
 // En bas : Facture et Versement ; ou Devis.
-function ClientFiche({ client, onBack, onOpen, onOpenPay, onNew, onPay }: { client: ClientRow; onBack: () => void; onOpen: (id: string) => void; onOpenPay: (id: string) => void; onNew: (k: 'facture' | 'devis') => void; onPay: () => void }) {
+function ClientFiche({ client, onBack, onOpen, onOpenPay, onNew, onPay, onRegister }: { client: ClientRow; onBack: () => void; onOpen: (id: string) => void; onOpenPay: (id: string) => void; onNew: (k: 'facture' | 'devis') => void; onPay: () => void; onRegister: () => void }) {
   const { persons } = useStore()
   const { removeClient } = useInvoices()
   const { left, state, paidOf } = useLeft()
@@ -510,8 +526,11 @@ function ClientFiche({ client, onBack, onOpen, onOpenPay, onNew, onPay }: { clie
             <ChevronLeft className="size-6" />
           </button>
           <div className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate text-xl font-bold">{client.name}</span>
-            {person?.phone && <span className="truncate text-[13px] text-muted-foreground">{person.phone}</span>}
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="truncate text-xl font-bold">{client.name}</span>
+              {client.passager && <PassagerBadge />}
+            </span>
+            {(person?.phone || client.phone) && <span className="truncate text-[13px] text-muted-foreground">{person?.phone || client.phone}</span>}
             {infos && <span className="line-clamp-2 text-xs text-muted-foreground">{infos}</span>}
           </div>
           {(
@@ -522,6 +541,12 @@ function ClientFiche({ client, onBack, onOpen, onOpenPay, onNew, onPay }: { clie
         </header>
 
         <div className="flex flex-1 flex-col gap-3 px-4 pt-2 pb-[calc(7rem+env(safe-area-inset-bottom))]">
+          {/* Client de passage : l'ajouter à mes clients, avec ses factures */}
+          {client.passager && (
+            <button type="button" onClick={onRegister} className="flex h-12 items-center justify-center gap-1.5 rounded-2xl border-[1.5px] border-violet-500/60 text-[15px] font-bold text-violet-600 dark:text-violet-300">
+              <Plus className="size-[18px]" strokeWidth={2.6} /> L'enregistrer comme client
+            </button>
+          )}
           <div className="grid grid-cols-2 gap-2.5">
             {card('factures')}
             {card('devis')}

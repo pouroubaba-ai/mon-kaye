@@ -10,14 +10,17 @@ import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { useStore } from '@/data/store'
 import { cn, matchesPerson, plain } from '@/lib/utils'
-import { PersonFormDialog } from '@/components/person-header'
+import { PersonFormDialog, type WalkIn } from '@/components/person-header'
 import { UnitPicker } from './LineDialog'
 import { todayIso, useInvoices } from './store'
 import type { Invoice, InvoiceClient, InvoiceKind, InvoiceLine } from './types'
-import { billingLines, money, totals, unitFor } from './view'
+import { billingLines, clientKeyOf, money, totals, unitFor } from './view'
 
 // Ce qu'on ouvre : une nouvelle, une modification, un devis accepté, ou une copie
 export type EditorStart = { mode: 'new'; kind: InvoiceKind; personId?: string } | { mode: 'edit' | 'convert' | 'duplicate'; base: Invoice }
+
+// Le petit badge violet d'un client de passage
+export const PassagerBadge = () => <span className="shrink-0 rounded-full bg-violet-500/15 px-2 py-0.5 text-[11px] font-bold text-violet-600 dark:text-violet-300">Passager</span>
 
 type Draft = { label: string; price: string; qty: string; u?: string; x?: string }
 const emptyLine = (): Draft => ({ label: '', price: '', qty: '1' })
@@ -45,6 +48,9 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
   const [search, setSearch] = React.useState('')
   // Nouveau client, ou ses infos à changer : la même fenêtre que partout (nouveau : 'new' ; changer : son id)
   const [clientForm, setClientForm] = React.useState<'new' | string | null>(null)
+  // Client de passage : ses infos pour cette facture seulement (pas ajouté à mes clients)
+  const [walkIn, setWalkIn] = React.useState<WalkIn | null>(null)
+  const [walkInForm, setWalkInForm] = React.useState(false)
   const [lines, setLines] = React.useState<Draft[]>([emptyLine()])
   const [unitOf, setUnitOf] = React.useState<number | null>(null)
   const [askLeave, setAskLeave] = React.useState(false)
@@ -58,8 +64,11 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
     if (!start) return
     const b = start.mode === 'new' ? null : start.base
     const pid = b ? (b.client.personId ?? persons.find(p => p.type === 'partner' && key(p.name) === key(b.client.name))?.id ?? null) : start.mode === 'new' ? (start.personId ?? null) : null
+    // Une facture d'un client de passage (modifier, refaire, devis accepté) : le même client de passage
+    const w: WalkIn | null = b && !pid && b.client.passager ? { name: b.client.name, phone: b.client.phone ?? '', billing: b.client.billing ?? {} } : null
     setPersonId(pid)
-    setStep(pid ? 'produits' : 'qui')
+    setWalkIn(w)
+    setStep(pid || w ? 'produits' : 'qui')
     setPayMode('tout')
     setAdvance('')
     setSearch('')
@@ -76,7 +85,8 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
   const setLine = (i: number, c: Partial<Draft>) => setLines(ls => ls.map((l, j) => (j === i ? { ...l, ...c } : l)))
   const lineSum = (l: Draft) => Math.round(num(l.price) * dec(l.qty))
   const filled = lines.filter(l => l.label.trim() || num(l.price) > 0)
-  const ok = !!person && filled.length > 0 && filled.every(l => l.label.trim() && num(l.price) > 0 && dec(l.qty) > 0)
+  const who = person ? { name: person.name } : walkIn
+  const ok = !!who && filled.length > 0 && filled.every(l => l.label.trim() && num(l.price) > 0 && dec(l.qty) > 0)
   const finalLines: InvoiceLine[] = filled.map(l => ({ d: l.label.trim(), ...(l.x ? { x: l.x } : {}), q: dec(l.qty), ...(l.u ? { u: l.u } : {}), p: num(l.price) }))
   const { net } = totals({ lines: finalLines })
   // Quelque chose de saisi : des produits (ou, pour une modification, des produits changés)
@@ -100,11 +110,16 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
   const advanceN = parseInt(advance, 10) || 0
   const advanceBad = withPay && payMode === 'avance' && (advanceN <= 0 || advanceN > net)
   const done = () => {
-    if (!ok || !person || advanceBad) return
-    // Les infos du client (adresse, RCCM…) : celles de sa fiche, données une seule fois
-    const last = invoices.find(i => i.client.personId === person.id || key(i.client.name) === key(person.name))
-    const saved = billingLines(person)
-    const client: InvoiceClient = { personId: person.id, name: person.name, lines: saved.length ? saved : (last?.client.lines ?? []), ...(person.phone ? { phone: person.phone } : {}) }
+    if (!ok || advanceBad) return
+    let client: InvoiceClient
+    if (person) {
+      // Les infos du client (adresse, RCCM…) : celles de sa fiche, données une seule fois
+      const last = invoices.find(i => i.client.personId === person.id || key(i.client.name) === key(person.name))
+      const saved = billingLines(person)
+      client = { personId: person.id, name: person.name, lines: saved.length ? saved : (last?.client.lines ?? []), ...(person.phone ? { phone: person.phone } : {}) }
+    } else if (walkIn) {
+      client = { name: walkIn.name, lines: billingLines(walkIn), ...(walkIn.phone ? { phone: walkIn.phone } : {}), passager: true, billing: walkIn.billing }
+    } else return
     let inv: Invoice
     if (start?.mode === 'edit' && base) {
       inv = { ...base, client, lines: finalLines }
@@ -121,7 +136,7 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
       })
       // Le versement fait en même temps que la facture
       const paidNow = withPay ? (payMode === 'tout' ? net : payMode === 'avance' ? advanceN : 0) : 0
-      if (paidNow > 0) addPayment({ clientKey: person.id, personId: person.id, clientName: person.name, amount: paidNow, invoiceId: inv.id, note: payMode === 'tout' ? 'Payée à la facture' : 'Avance à la facture' })
+      if (paidNow > 0) addPayment({ clientKey: clientKeyOf(inv), ...(person ? { personId: person.id } : {}), clientName: client.name, amount: paidNow, invoiceId: inv.id, note: payMode === 'tout' ? 'Payée à la facture' : 'Avance à la facture' })
     }
     onSaved?.(inv)
     onClose()
@@ -134,7 +149,7 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
   // (au choix du client si on venait de là, sinon on ferme)
   const back = () => {
     if (dirty) return setAskLeave(true)
-    if (step === 'produits' && start?.mode === 'new' && !start.personId) return setStep('qui')
+    if (step === 'produits' && start?.mode === 'new' && !start.personId) return setWalkIn(null), setStep('qui')
     onClose()
   }
   // Le bouton retour du téléphone fait pareil : l'app envoie « Échap » à la fenêtre ouverte (cette page) ;
@@ -177,6 +192,12 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
                   )}
                 </div>
               </div>
+              {/* Client de passage : discret, sous la recherche */}
+              {start?.mode === 'new' && (
+                <button type="button" onClick={() => setWalkInForm(true)} className="-mt-1 -mb-1 flex h-8 items-center gap-1 self-start px-1 text-sm font-bold text-violet-600 dark:text-violet-300">
+                  <Plus className="size-4" strokeWidth={2.6} /> Client de passage
+                </button>
+              )}
               <div className="min-h-0 flex-1 overflow-y-auto">
                 <div className="flex flex-col divide-y rounded-lg border">
                   {visible.map(p => (
@@ -212,7 +233,7 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
             </button>
             <span className="flex min-w-0 flex-col">
               <h1 className="truncate text-lg leading-tight font-semibold">{title}</h1>
-              {step === 'produits' && <span className="truncate text-[13px] text-muted-foreground">{person?.name}</span>}
+              {step === 'produits' && <span className="truncate text-[13px] text-muted-foreground">{who?.name}</span>}
             </span>
           </header>
           <div className="flex flex-1 flex-col px-4 pt-3">
@@ -232,6 +253,24 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
                   </span>
                   <button type="button" onClick={() => openClient(person.id)} className="h-8 shrink-0 rounded-full px-2 text-sm font-semibold text-kgold">
                     {billingLines(person).length ? 'Modifier' : 'Ajouter'}
+                  </button>
+                </div>
+              )}
+              {!person && walkIn && (
+                <div className="flex items-start justify-between gap-3 rounded-lg border px-3 py-2.5">
+                  <span className="flex min-w-0 flex-col">
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <span className="truncate text-sm font-semibold">{walkIn.name}</span>
+                      <PassagerBadge />
+                    </span>
+                    {billingLines(walkIn).length ? (
+                      <span className="text-xs leading-snug whitespace-pre-line text-muted-foreground">{billingLines(walkIn).join('\n')}</span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Pas d'adresse ni de RCCM pour la facture</span>
+                    )}
+                  </span>
+                  <button type="button" onClick={() => setWalkInForm(true)} className="h-8 shrink-0 rounded-full px-2 text-sm font-semibold text-kgold">
+                    Modifier
                   </button>
                 </div>
               )}
@@ -363,6 +402,21 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
         onCreated={id => {
           setPersonId(id)
           setStep('produits')
+        }}
+      />
+      {/* Client de passage : les mêmes champs que « Nouveau client », rien n'est enregistré */}
+      <PersonFormDialog
+        type="partner"
+        noSex
+        open={walkInForm}
+        onOpenChange={setWalkInForm}
+        walkIn={{
+          initial: walkIn ?? undefined,
+          onContinue: d => {
+            setWalkIn(d)
+            setPersonId(null)
+            setStep('produits')
+          },
         }}
       />
       <UnitPicker open={unitOf !== null} onOpenChange={o => !o && setUnitOf(null)} value={unitOf !== null ? lines[unitOf]?.u : undefined} onPick={u => (unitOf !== null && setLine(unitOf, { u }), setUnitOf(null))} />

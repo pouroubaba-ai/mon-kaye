@@ -2,6 +2,8 @@
 // Une facture (ou un devis) garde une copie des infos du client et de l'émetteur au moment où elle est faite :
 // si on change plus tard le nom du client ou son logo, les anciennes factures ne bougent pas.
 
+import type { Billing } from '@/data/mockData'
+
 export type InvoiceKind = 'facture' | 'devis'
 
 // État d'une facture : payée, ou pas encore (ajoutée ou non au crédit du client).
@@ -21,6 +23,8 @@ export interface InvoiceClient {
   name: string
   lines: string[] // forme juridique, RCCM, adresse… (une info par ligne)
   phone?: string
+  passager?: boolean // client de passage : pas ajouté à mes clients
+  billing?: Billing // ses infos de facture, champ par champ (client de passage)
 }
 
 export interface Invoice {

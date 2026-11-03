@@ -30,6 +30,7 @@ type Ctx = {
   cancelInvoice: (id: string, reason: string) => void
   // Un client qui n'est pas dans Kayé (seulement sur des factures) : effacer ses factures, devis et versements
   removeClient: (clientKey: string) => void
+  adoptClient: (key: string) => string | null // un client de passage devient un de mes clients (ses factures et versements avec lui)
 }
 // « 2026-10-31 »
 export const todayIso = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -150,9 +151,16 @@ export function InvoicesProvider({ uid, children }: { uid: string | null; childr
     return personId
   }
 
+  // Le client est maintenant dans Kayé : ce n'est plus un client de passage
+  const settled = (c: Invoice['client'], personId: string): Invoice['client'] => {
+    const { passager: _p, ...rest } = c
+    void _p
+    return { ...rest, personId }
+  }
+
   const create: Ctx['create'] = d => {
     let inv: Invoice = { ...d, id: newId('inv'), number: numberOf(prof, d.kind), date: d.date ?? todayIso(), createdAt: new Date().toISOString() }
-    if (inv.kind === 'facture' && inv.status === 'credit') inv = { ...inv, client: { ...inv.client, personId: addCredit(inv) } }
+    if (inv.kind === 'facture' && inv.status === 'credit') inv = { ...inv, client: settled(inv.client, addCredit(inv)) }
     setInvoices(prev => [inv, ...prev])
     keep(inv)
     // Le numéro suivant
@@ -177,7 +185,7 @@ export function InvoicesProvider({ uid, children }: { uid: string | null; childr
     const inv = invoices.find(x => x.id === id)
     if (!inv) return
     let next = { ...inv, status }
-    if (inv.kind === 'facture' && status === 'credit' && inv.status !== 'credit') next = { ...next, client: { ...next.client, personId: addCredit(next) } }
+    if (inv.kind === 'facture' && status === 'credit' && inv.status !== 'credit') next = { ...next, client: settled(next.client, addCredit(next)) }
     update(next)
   }
   // Un versement. Sur une facture déjà mise au crédit dans Kayé, la même somme est notée « versé » sur son compte.
@@ -221,10 +229,35 @@ export function InvoicesProvider({ uid, children }: { uid: string | null; childr
       return list.filter(p => p.clientKey !== key)
     })
   }
+  const adoptClient: Ctx['adoptClient'] = ck => {
+    const key = (s: string) => plain(s).replace(/\s+/g, ' ').trim()
+    const list = invoices.filter(i => clientKeyOf(i) === ck).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    const c = list[0]?.client
+    if (!c) return null
+    const same = persons.find(p => p.type === 'partner' && key(p.name) === key(c.name))
+    const id = same ? same.id : addPerson({ type: 'partner', name: c.name.trim(), phone: c.phone ?? '', ...(c.billing && Object.keys(c.billing).length ? { billing: c.billing } : {}) })
+    setInvoices(prev =>
+      prev.map(i => {
+        if (clientKeyOf(i) !== ck) return i
+        const y = { ...i, client: settled(i.client, id) }
+        keep(y)
+        return y
+      })
+    )
+    setPayments(prev =>
+      prev.map(p => {
+        if (p.clientKey !== ck) return p
+        const y = { ...p, clientKey: id, personId: id }
+        if (!demo && uid) void savePaymentDoc(uid, y)
+        return y
+      })
+    )
+    return id
+  }
   const remove: Ctx['remove'] = id => {
     setInvoices(prev => prev.filter(x => x.id !== id))
     if (!demo && uid) void deleteInvoiceDoc(uid, id)
   }
 
-  return <C.Provider value={{ invoices: shownInvoices, profile: prof, profileSet: !!profile, saveProfile, create, update, setStatus, remove, payments: shownPayments, paid, addPayment, cancelPayment, cancelInvoice, removeClient }}>{children}</C.Provider>
+  return <C.Provider value={{ invoices: shownInvoices, profile: prof, profileSet: !!profile, saveProfile, create, update, setStatus, remove, payments: shownPayments, paid, addPayment, cancelPayment, cancelInvoice, removeClient, adoptClient }}>{children}</C.Provider>
 }
