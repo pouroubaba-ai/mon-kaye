@@ -197,17 +197,21 @@ export function PersonFormDialog({
           {withDetails &&
             (() => {
               const filled = Object.values(billing).some(v => v.trim())
+              // Chaque champ garde son nom au-dessus : on sait toujours ce qu'on a rempli
               const field = (k: keyof typeof billing, label: string, ph: string) => (
-                <input
-                  key={k}
-                  id={`bill-${k}`}
-                  aria-label={label}
-                  type={k === 'email' ? 'email' : 'text'}
-                  value={billing[k]}
-                  placeholder={ph ? `${label} — ${ph}` : label}
-                  onChange={e => setBilling(b => ({ ...b, [k]: e.target.value }))}
-                  className="h-11 rounded-xl border bg-background px-3.5 text-[15px] outline-none focus-visible:border-ring"
-                />
+                <div key={k} className="grid gap-1">
+                  <Label htmlFor={`bill-${k}`} className="px-0.5 text-[13px] font-normal text-muted-foreground">
+                    {label}
+                  </Label>
+                  <input
+                    id={`bill-${k}`}
+                    type={k === 'email' ? 'email' : 'text'}
+                    value={billing[k]}
+                    placeholder={ph}
+                    onChange={e => setBilling(b => ({ ...b, [k]: e.target.value }))}
+                    className="h-11 rounded-xl border bg-background px-3.5 text-[15px] outline-none focus-visible:border-ring"
+                  />
+                </div>
               )
               const card = (title: string, children: React.ReactNode) => (
                 <div className="grid gap-2.5 rounded-2xl border bg-muted/30 p-3">
@@ -221,8 +225,8 @@ export function PersonFormDialog({
               if (showBill)
                 return (
                   <div className="grid gap-3 animate-in fade-in duration-200">
-                    {card('Où le trouver', [field('adresse', 'Adresse', 'avenue, quartier'), field('ville', 'Ville', 'ex : Brazzaville'), field('email', 'E-mail', '')])}
-                    {card('Son entreprise', [field('forme', 'Forme', 'ex : SARL, Ets, SA'), field('rccm', 'RCCM', 'ex : CG-BZV-01-…'), field('niu', 'NIU', '')])}
+                    {card('Où le trouver', [field('adresse', 'Adresse', 'Avenue, quartier'), field('ville', 'Ville', 'Ex : Brazzaville'), field('email', 'E-mail', '')])}
+                    {card('Son entreprise', [field('forme', 'Forme juridique', 'Ex : SARL, Ets, SA'), field('rccm', 'RCCM', 'Ex : CG-BZV-01-…'), field('niu', 'NIU', '')])}
                   </div>
                 )
               // Déjà rempli : un résumé ; sinon : un seul bouton
