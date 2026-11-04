@@ -18,6 +18,12 @@ export interface InvoiceLine {
   p: number // prix pour une unité
 }
 
+// Une réduction : un montant en FCFA, ou un pourcentage du sous-total
+export interface Remise {
+  kind: 'fcfa' | 'pct'
+  value: number
+}
+
 export interface InvoiceClient {
   personId?: string // le client dans Kayé (s'il y est)
   name: string
@@ -35,6 +41,7 @@ export interface Invoice {
   client: InvoiceClient
   objet?: string
   lines: InvoiceLine[]
+  remise?: Remise // réduction sur le total (en FCFA ou en %)
   status: InvoiceStatus
   movementId?: string // crédit ajouté au compte du client (« il paie plus tard »)
   fromQuote?: string // facture née d'un devis : le numéro du devis
@@ -60,6 +67,7 @@ export interface InvoiceProfile {
   quotePrefix: string // « D-2026- »
   quoteNext: number
   mentions: string // une mention par ligne ; {numero} = le numéro de la facture
+  products?: string[] // mes produits ajoutés à la liste (en plus des deux par défaut)
   sb?: boolean // les infos de Sté SACKO-BUILDING BTP ont été mises (une seule fois)
 }
 

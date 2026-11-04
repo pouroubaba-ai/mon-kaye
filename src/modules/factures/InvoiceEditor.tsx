@@ -13,8 +13,9 @@ import { cn, matchesPerson, plain } from '@/lib/utils'
 import { PersonFormDialog, type WalkIn } from '@/components/person-header'
 import { UnitPicker } from './LineDialog'
 import { ClientInfos } from './ClientInfos'
+import { ProductField, RemiseDialog } from './ProductField'
 import { todayIso, useInvoices } from './store'
-import type { Invoice, InvoiceClient, InvoiceKind, InvoiceLine } from './types'
+import type { Invoice, InvoiceClient, InvoiceKind, InvoiceLine, Remise } from './types'
 import { billingLines, clientKeyOf, money, totals, unitFor } from './view'
 
 // Ce qu'on ouvre : une nouvelle, une modification, un devis accepté, ou une copie
@@ -58,6 +59,9 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
   // Le paiement en même temps que la facture : en totalité (d'office), une avance, ou rien pour l'instant
   const [payMode, setPayMode] = React.useState<'tout' | 'avance' | 'rien'>('tout')
   const [advance, setAdvance] = React.useState('')
+  // La réduction sur le total (facultative)
+  const [remise, setRemise] = React.useState<Remise | undefined>(undefined)
+  const [remiseOpen, setRemiseOpen] = React.useState(false)
   const linesRef = React.useRef<HTMLDivElement>(null)
 
   // À l'ouverture : vide, ou rempli à partir de la facture / du devis de départ
@@ -72,6 +76,7 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
     setStep(pid || w ? 'produits' : 'qui')
     setPayMode('tout')
     setAdvance('')
+    setRemise(b?.remise)
     setSearch('')
     setLines(b ? b.lines.map(toDraft) : [emptyLine()])
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -89,9 +94,9 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
   const who = person ? { name: person.name } : walkIn
   const ok = !!who && filled.length > 0 && filled.every(l => l.label.trim() && num(l.price) > 0 && dec(l.qty) > 0)
   const finalLines: InvoiceLine[] = filled.map(l => ({ d: l.label.trim(), ...(l.x ? { x: l.x } : {}), q: dec(l.qty), ...(l.u ? { u: l.u } : {}), p: num(l.price) }))
-  const { net } = totals({ lines: finalLines })
+  const { sub, remise: remiseN, net } = totals({ lines: finalLines, remise })
   // Quelque chose de saisi : des produits (ou, pour une modification, des produits changés)
-  const dirty = base && start?.mode === 'edit' ? JSON.stringify(finalLines) !== JSON.stringify(base.lines) : filled.length > 0
+  const dirty = base && start?.mode === 'edit' ? JSON.stringify(finalLines) !== JSON.stringify(base.lines) || JSON.stringify(remise ?? null) !== JSON.stringify(base.remise ?? null) : filled.length > 0
 
   // Entrée passe au champ suivant ; sur le dernier, une nouvelle ligne
   const nextOnEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -123,7 +128,9 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
     } else return
     let inv: Invoice
     if (start?.mode === 'edit' && base) {
-      inv = { ...base, client, lines: finalLines }
+      const { remise: _old, ...rest } = base
+      void _old
+      inv = { ...rest, client, lines: finalLines, ...(remise ? { remise } : {}) }
       update(inv)
     } else {
       inv = create({
@@ -131,6 +138,7 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
         client,
         ...(base?.objet ? { objet: base.objet } : {}),
         lines: finalLines,
+        ...(remise ? { remise } : {}),
         status: devis ? 'devis' : 'non_payee',
         ...(start?.mode === 'convert' && base ? { fromQuote: base.number } : {}),
         date: todayIso(),
@@ -266,7 +274,7 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
                 {lines.map((l, i) => (
                   <div key={i} className="flex flex-col gap-1 rounded-lg border px-2 py-1.5">
                     <div className="flex items-center gap-1.5">
-                      <Input data-line-field enterKeyHint="next" onKeyDown={nextOnEnter} placeholder={`Produit ${i + 1}`} aria-label="Produit" value={l.label} onChange={e => setLine(i, { label: e.target.value })} className="h-9 min-w-0 flex-1 px-2 text-sm" />
+                      <ProductField value={l.label} onChange={v => setLine(i, { label: v })} onKeyDown={nextOnEnter} placeholder={`Produit ${i + 1}`} />
                       <Button type="button" variant="ghost" size="icon" className="size-8 shrink-0 text-muted-foreground" aria-label="Supprimer la ligne" onClick={() => setLines(ls => (ls.length > 1 ? ls.filter((_, j) => j !== i) : [emptyLine()]))}>
                         <Trash2 className="size-4" />
                       </Button>
@@ -314,39 +322,66 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
                 </Button>
               </div>
 
-              <div className="sticky bottom-0 -mx-4 flex flex-col gap-2 border-t bg-background px-4 pt-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
-                <div className="flex items-baseline justify-between">
-                  <span className="text-sm text-muted-foreground">{devis ? 'Montant du devis' : 'Net à payer'}</span>
-                  <span className="text-2xl font-bold tabular-nums">{money(net)} FCFA</span>
+              {/* En bas, allégé : le net à payer (la réduction juste dessous), « Payé » sur une ligne, le bouton */}
+              <div className="sticky bottom-0 -mx-4 flex flex-col gap-2.5 border-t bg-background px-4 pt-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
+                <div className="flex items-start justify-between gap-3">
+                  <span className="flex flex-col gap-0.5 pt-1.5">
+                    <span className="text-sm text-muted-foreground">{devis ? 'Montant du devis' : 'Net à payer'}</span>
+                    {!remise && (
+                      <button type="button" disabled={sub <= 0} onClick={() => setRemiseOpen(true)} className="flex items-center gap-1 self-start text-[13px] font-bold text-kgold disabled:opacity-40">
+                        <Plus className="size-3.5" strokeWidth={2.6} /> Réduction
+                      </button>
+                    )}
+                  </span>
+                  <span className="flex min-w-0 flex-col items-end">
+                    <span className="text-2xl font-bold tabular-nums">{money(net)} FCFA</span>
+                    {remise && (
+                      <span className="flex items-center gap-1.5 text-[12.5px] text-muted-foreground">
+                        <button type="button" onClick={() => setRemiseOpen(true)} className="flex items-center gap-1">
+                          Réduction {remise.kind === 'pct' ? `${remise.value} %` : ''} <b className="font-bold text-kred tabular-nums">− {money(remiseN)}</b>
+                        </button>
+                        <button type="button" aria-label="Enlever la réduction" onClick={() => setRemise(undefined)} className="flex size-5 items-center justify-center rounded-full bg-muted text-foreground">
+                          <X className="size-3" />
+                        </button>
+                      </span>
+                    )}
+                  </span>
                 </div>
                 {withPay && (
                   <div className="flex flex-col gap-2">
-                    <div role="radiogroup" aria-label="Paiement" className="grid grid-cols-3 gap-1.5">
-                      {(
-                        [
-                          ['tout', 'Payée en totalité'],
-                          ['avance', 'Une avance'],
-                          ['rien', 'Rien pour l’instant'],
-                        ] as const
-                      ).map(([m, label]) => (
-                        <button key={m} type="button" role="radio" aria-checked={payMode === m} onClick={() => setPayMode(m)} className={cn('h-11 rounded-xl px-1 text-[13px] leading-tight', payMode === m ? 'bg-kgreen-solid font-bold text-white' : 'border font-semibold text-muted-foreground')}>
-                          {label}
-                        </button>
-                      ))}
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm text-muted-foreground">Payé</span>
+                      <div role="radiogroup" aria-label="Paiement" className="flex gap-1 rounded-full bg-muted p-[3px]">
+                        {(
+                          [
+                            ['tout', 'Tout'],
+                            ['avance', 'Avance'],
+                            ['rien', 'Rien'],
+                          ] as const
+                        ).map(([m, label]) => (
+                          <button key={m} type="button" role="radio" aria-checked={payMode === m} onClick={() => setPayMode(m)} className={cn('h-8 rounded-full px-3.5 text-[13.5px] font-bold', payMode === m ? 'bg-kgreen-solid text-white' : 'text-muted-foreground')}>
+                            {label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                     {payMode === 'avance' && (
-                      <label className={cn('flex h-12 items-center gap-2 rounded-xl border bg-background px-3.5 animate-in fade-in duration-200', advanceN > net && 'border-kred')}>
-                        <span className="shrink-0 text-sm text-muted-foreground">Avance</span>
-                        <input
-                          inputMode="numeric"
-                          value={thousands(advance)}
-                          onChange={e => setAdvance(digits(e.target.value))}
-                          placeholder="0"
-                          aria-label="Montant de l'avance"
-                          className="min-w-0 flex-1 bg-transparent text-right text-lg font-bold text-kblue tabular-nums outline-none placeholder:text-muted-foreground/40"
-                        />
-                        <span className="shrink-0 text-sm text-muted-foreground">FCFA</span>
-                      </label>
+                      <div className="flex items-center gap-2.5 animate-in fade-in duration-200">
+                        <label className={cn('flex h-10 min-w-0 flex-1 items-center gap-2 rounded-[10px] border-[1.5px] bg-background px-3', advanceN > net ? 'border-kred' : 'border-kgold')}>
+                          <input
+                            inputMode="numeric"
+                            value={thousands(advance)}
+                            onChange={e => setAdvance(digits(e.target.value))}
+                            placeholder="Montant de l'avance"
+                            aria-label="Montant de l'avance"
+                            className="min-w-0 flex-1 bg-transparent text-base font-bold tabular-nums outline-none placeholder:text-sm placeholder:font-normal placeholder:text-muted-foreground"
+                          />
+                          <span className="shrink-0 text-xs text-muted-foreground">FCFA</span>
+                        </label>
+                        <span className="shrink-0 text-[13px] text-muted-foreground">
+                          reste <b className="text-kgreen tabular-nums">{money(Math.max(0, net - advanceN))}</b>
+                        </span>
+                      </div>
                     )}
                     {payMode === 'avance' && advanceN > net && <span className="text-xs text-kred">L'avance ne peut pas dépasser la facture ({money(net)}).</span>}
                   </div>
@@ -407,6 +442,7 @@ export function InvoiceEditor({ start, onClose, onSaved }: { start: EditorStart 
           },
         }}
       />
+      <RemiseDialog open={remiseOpen} onOpenChange={setRemiseOpen} sub={sub} value={remise} onApply={setRemise} />
       <UnitPicker open={unitOf !== null} onOpenChange={o => !o && setUnitOf(null)} value={unitOf !== null ? lines[unitOf]?.u : undefined} onPick={u => (unitOf !== null && setLine(unitOf, { u }), setUnitOf(null))} />
     </>
   )

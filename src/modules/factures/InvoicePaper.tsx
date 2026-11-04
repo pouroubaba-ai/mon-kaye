@@ -67,7 +67,7 @@ const CSS = `
 const lines = (s?: string) => (s ?? '').split('\n').map(x => x.trim()).filter(Boolean)
 
 export const InvoicePaper = React.forwardRef<HTMLDivElement, { inv: Invoice; profile: InvoiceProfile }>(function InvoicePaper({ inv, profile: p }, ref) {
-  const { net } = totals(inv)
+  const { sub, remise, net } = totals(inv)
   const devis = inv.kind === 'devis'
   const address = lines(p.address)
   const activities = lines(p.activities.replace(/\s*·\s*/g, '\n'))
@@ -158,8 +158,14 @@ export const InvoicePaper = React.forwardRef<HTMLDivElement, { inv: Invoice; pro
         <div className="tot">
           <div>
             <span>Sous-total</span>
-            <b>{money(net)} FCFA</b>
+            <b>{money(sub)} FCFA</b>
           </div>
+          {remise > 0 && inv.remise && (
+            <div>
+              <span>Réduction{inv.remise.kind === 'pct' ? ` (${String(inv.remise.value).replace('.', ',')} %)` : ''}</span>
+              <b>− {money(remise)} FCFA</b>
+            </div>
+          )}
         </div>
         <div className="net">
           <span>

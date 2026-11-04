@@ -1,13 +1,21 @@
 // ——— Calculs des factures : totaux, numéros, montant en lettres, unités ———
-import type { Invoice, InvoiceLine, InvoicePayment, InvoiceProfile } from './types'
+import type { Invoice, InvoiceLine, InvoicePayment, InvoiceProfile, Remise } from './types'
 import type { Billing } from '@/data/mockData'
 import SB_LOGO from './logo-sb.png?inline'
 
 export const lineTotal = (l: InvoiceLine) => Math.round(l.q * l.p)
-export function totals(inv: Pick<Invoice, 'lines'>) {
-  const net = inv.lines.reduce((a, l) => a + lineTotal(l), 0)
-  return { net }
+// Sous-total (les lignes), la réduction (en FCFA, jamais plus que le sous-total), le net à payer
+export function totals(inv: Pick<Invoice, 'lines'> & { remise?: Remise }) {
+  const sub = inv.lines.reduce((a, l) => a + lineTotal(l), 0)
+  const r = inv.remise
+  const remise = !r || !(r.value > 0) ? 0 : Math.min(sub, r.kind === 'pct' ? Math.round((sub * Math.min(100, r.value)) / 100) : Math.round(r.value))
+  return { sub, remise, net: sub - remise }
 }
+// « 10 % » ou « 45 000 FCFA »
+export const remiseLabel = (r: Remise) => (r.kind === 'pct' ? `${String(r.value).replace('.', ',')} %` : `${money(r.value)} FCFA`)
+
+// Les deux produits de toujours (on ne peut pas les enlever de la liste)
+export const DEFAULT_PRODUCTS = ['Transport par porte-char', 'Location pelle mécanique sur chenilles']
 
 // « 2 » → « 002 » (au moins 3 chiffres)
 export const pad3 = (n: number) => String(Math.max(0, Math.floor(n))).padStart(3, '0')

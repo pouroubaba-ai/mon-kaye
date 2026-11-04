@@ -23,7 +23,12 @@ describe('Totaux', () => {
     { d: 'Pelle', q: 2, u: 'jour', p: 450000 },
     { d: 'Porte-char', q: 1, u: 'forfait', p: 300000 },
   ]
-  it('net à payer', () => expect(totals({ lines })).toEqual({ net: 1200000 }))
+  it('net à payer', () => expect(totals({ lines })).toEqual({ sub: 1200000, remise: 0, net: 1200000 }))
+  it('réduction en %', () => expect(totals({ lines, remise: { kind: 'pct', value: 10 } })).toEqual({ sub: 1200000, remise: 120000, net: 1080000 }))
+  it('réduction en FCFA, jamais plus que le total', () => {
+    expect(totals({ lines, remise: { kind: 'fcfa', value: 200000 } }).net).toBe(1000000)
+    expect(totals({ lines, remise: { kind: 'fcfa', value: 5000000 } }).net).toBe(0)
+  })
 })
 
 describe('Numéros et unités', () => {
